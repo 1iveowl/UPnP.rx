@@ -37,6 +37,11 @@ a {
     gap: 14px;
 }
 
+.dash-tools fluent-search {
+    width: 310px;      /* fits the full placeholder text */
+    max-width: 60vw;
+}
+
 .device-card {
     background: var(--neutral-layer-2, #fff);
     border: 1px solid var(--neutral-stroke-divider-rest, #e3e5e9);

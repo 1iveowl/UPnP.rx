@@ -23,9 +23,9 @@ UPnP.Rx covers the full control-point chain of the UPnP Device Architecture 2.0:
 - **Description** (clause 2) - device description documents and SCPDs fetched lazily, parsed into immutable records, cached by `LOCATION` + `CONFIGID`.
 - **Control** (clause 3) - SOAP 1.1 action calls with typed results and typed UPnP faults.
 - **Port mapping** - the flagship: find the internet gateway and map ports in one call, with automatic lease renewal.
+- **Eventing** (clause 4, GENA) - subscribe to a service's evented state as an observable: `service.Events()` handles SUBSCRIBE/renewal/UNSUBSCRIBE, replays last-known state to late subscribers, and recovers from failures and SEQ gaps automatically.
 
-Eventing (clause 4, GENA) is planned for a later major version; a live device
-roster with expiry is planned for 3.1.
+A live device roster with expiry is planned for 4.1.
 
 ## Installing
 
@@ -139,7 +139,7 @@ using var subscription = upnp
 - **Strict in what we send, lenient in what we accept.** Envelopes and headers follow the UDA 2.0 letter (including the quoted `charset="utf-8"`); parsers tolerate wrong namespaces, wrong casing, whitespace inside identifiers, unescaped ampersands, and UPnP 1.0-era `URLBase` (which UDA 2.0 requires control points to honor). A document only fails to parse when it identifies nothing.
 - **Pipelines never die from one bad message.** Degraded announcements are surfaced (`DiscoveredDevice.HasParsingError`), unusable ones are dropped with a log note; `OnError` is reserved for the source itself dying.
 - **One clock.** Every timeout and renewal runs on `UpnpClientOptions.TimeProvider` (default `TimeProvider.System`) - inject `FakeTimeProvider` in tests and drive renewals deterministically.
-- **Disposal.** `DisposeAsync` is the graceful path (deletes port mappings; will unsubscribe eventing when GENA lands); sync `Dispose` releases resources without network goodbyes.
+- **Disposal.** `DisposeAsync` is the graceful path (deletes port mappings); disposing an `Events()` subscription sends UNSUBSCRIBE from the engine's own teardown; sync `Dispose` releases resources without network goodbyes - finite subscription timeouts make that safe (the device expires them on its own).
 - **Spec review.** Clause 2/3 behavior was audited against the UDA 2.0 text; the findings live in [plan/uda2-compliance-review.md](plan/uda2-compliance-review.md).
 
 ## Where UPnP.Rx fits
@@ -173,8 +173,7 @@ At a glance:
 | **Waher.Networking.UPnP** | UPnP within the Waher IoT framework | Standalone package, near-zero dependencies, `net10.0`-idiomatic |
 
 Known boundary: UPnP.Rx speaks UPnP only - for NAT-PMP/PCP, Mono.Nat has you
-covered. Planned next: a live device roster with expiry (3.1), then GENA
-eventing (4.0).
+covered. Planned next: a live device roster with expiry (4.1).
 
 ## Troubleshooting
 
@@ -232,6 +231,7 @@ var args = scpd.ValidateAndOrderArguments("AddPortMapping", myArguments);
 
 - [`samples/Sample.PortMapper`](samples/Sample.PortMapper) - discover the gateway, print the external IP and mapping table; `--map` holds an auto-renewing mapping.
 - [`samples/Sample.Browser`](samples/Sample.Browser) - discover everything on the network and dump device trees and services.
+- [`samples/Sample.Eventing`](samples/Sample.Eventing) - subscribe to any evented service and watch `UpnpEvent`s live (the manual test protocol lives in the 4.0 plan).
 - [`samples/Sample.Dashboard`](samples/Sample.Dashboard) - a Blazor + FluentUI dashboard: live device cards that appear and vanish as devices join and leave the network - Rx end to end. See below.
 
 All need a real network (multicast does not work in containers).
@@ -297,6 +297,7 @@ set up front.
 
 | Version | Notes |
 |---|---|
+| 4.0.0 | GENA eventing: `service.Events()` as a shared observable with automatic renewal, SEQ-gap recovery and last-known-state replay; callback listener on SimpleHttpListener.Rx; clause 4 compliance review; dashboard live-event watching; `Sample.Eventing`. |
 | 3.0.0 | First release of UPnP.Rx: discovery → description → control, IGD port mapping with auto-renewing leases, SCPD-driven argument validation, and three samples including a Blazor + FluentUI live dashboard. Versioned to reflect its lineage - it builds on years of learnings from SSDP.UPnP.PCL, SimpleHttpListener.Rx and HttpMachine.PCL rather than starting from scratch. |
 
 ## Why .NET 10?

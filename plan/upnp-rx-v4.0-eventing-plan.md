@@ -84,6 +84,11 @@ IObservable<UpnpEvent> Events();
 
 ## 3. Phases (one commit each, on dev/4.0.0; version bump to 4.0.0 in E1)
 
+**Status 2026-07-24: E1-E6 implemented and committed (119 tests green, incl. a real-socket
+loopback integration test). E7 (releases/4.0.0 branch, tag, publish) is deliberately NOT
+executed - it waits for the author's code review and the §5 hardware validation, per
+instruction. No pushes from this session.**
+
 | Phase | Deliverable |
 |---|---|
 | E1 | Version 4.0.0; `GenaComposer`/`GenaParser` + fixtures (incl. captured + malformed NOTIFYs) |

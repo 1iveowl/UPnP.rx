@@ -50,8 +50,17 @@ dotnet run --project samples/Sample.Browser
 ```
 
 `dotnet run --project samples/Sample.PortMapper` finds your router and lists its
-port-mapping table; add `--map` to hold an auto-renewing mapping. (Run on the
-host, not in a container — see Troubleshooting.)
+port-mapping table; add `--map` to hold an auto-renewing mapping. Run on the
+host, not in a container — and **on Windows, pause the built-in "SSDP Discovery"
+service first**, since it occupies UDP 1900 and keeps clients from seeing
+responses (elevated prompt):
+
+```cmd
+net stop SSDPSRV     &REM pause — lets UPnP.Rx receive SSDP
+net start SSDPSRV    &REM resume when done
+```
+
+More gotchas under [Troubleshooting](#troubleshooting).
 
 ## Quick start — port mapping
 

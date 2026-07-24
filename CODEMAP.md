@@ -13,7 +13,7 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 | 4 | `UPnP.Rx.PortMapping` + `PortMappingLease` + `Sample.PortMapper` | ✅ done |
 | 5 | UDA 2.0 clause 2/3 compliance review + fixes | ✅ done |
 | 6 | Packaging, README, samples polish, CI publish job | ✅ done |
-| 7 | v3.0.0 release (branch, tag, Trusted Publishing) | ⏳ version bumped to 3.0.0; tag pending author review |
+| 7 | v3.0.0 release (branch, tag, Trusted Publishing) | ✅ released |
 
 ## Tree (current)
 

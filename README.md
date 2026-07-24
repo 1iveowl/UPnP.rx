@@ -24,7 +24,8 @@ UPnP.Rx covers the full control-point chain of the UPnP Device Architecture 2.0:
 - **Control** (clause 3) - SOAP 1.1 action calls with typed results and typed UPnP faults.
 - **Port mapping** - the flagship: find the internet gateway and map ports in one call, with automatic lease renewal.
 
-Eventing (clause 4, GENA) is planned for v2.
+Eventing (clause 4, GENA) is planned for a later major version; a live device
+roster with expiry is planned for 3.1.
 
 ## Installing
 
@@ -138,7 +139,7 @@ using var subscription = upnp
 - **Strict in what we send, lenient in what we accept.** Envelopes and headers follow the UDA 2.0 letter (including the quoted `charset="utf-8"`); parsers tolerate wrong namespaces, wrong casing, whitespace inside identifiers, unescaped ampersands, and UPnP 1.0-era `URLBase` (which UDA 2.0 requires control points to honor). A document only fails to parse when it identifies nothing.
 - **Pipelines never die from one bad message.** Degraded announcements are surfaced (`DiscoveredDevice.HasParsingError`), unusable ones are dropped with a log note; `OnError` is reserved for the source itself dying.
 - **One clock.** Every timeout and renewal runs on `UpnpClientOptions.TimeProvider` (default `TimeProvider.System`) - inject `FakeTimeProvider` in tests and drive renewals deterministically.
-- **Disposal.** `DisposeAsync` is the graceful path (deletes port mappings; will unsubscribe eventing in v2); sync `Dispose` releases resources without network goodbyes.
+- **Disposal.** `DisposeAsync` is the graceful path (deletes port mappings; will unsubscribe eventing when GENA lands); sync `Dispose` releases resources without network goodbyes.
 - **Spec review.** Clause 2/3 behavior was audited against the UDA 2.0 text; the findings live in [plan/uda2-compliance-review.md](plan/uda2-compliance-review.md).
 
 ## Where UPnP.Rx fits
@@ -172,8 +173,8 @@ At a glance:
 | **Waher.Networking.UPnP** | UPnP within the Waher IoT framework | Standalone package, near-zero dependencies, `net10.0`-idiomatic |
 
 Known boundary: UPnP.Rx speaks UPnP only - for NAT-PMP/PCP, Mono.Nat has you
-covered. Planned next: GENA eventing (v2), a live device roster with expiry
-(v1.1).
+covered. Planned next: a live device roster with expiry (3.1), then GENA
+eventing (4.0).
 
 ## Troubleshooting
 
@@ -296,7 +297,7 @@ set up front.
 
 | Version | Notes |
 |---|---|
-| 3.0.0 | First release of UPnP.Rx: discovery → description → control, IGD port mapping with auto-renewing leases. Versioned to reflect its lineage - it builds on years of learnings from SSDP.UPnP.PCL, SimpleHttpListener.Rx and HttpMachine.PCL rather than starting from scratch. |
+| 3.0.0 | First release of UPnP.Rx: discovery → description → control, IGD port mapping with auto-renewing leases, SCPD-driven argument validation, and three samples including a Blazor + FluentUI live dashboard. Versioned to reflect its lineage - it builds on years of learnings from SSDP.UPnP.PCL, SimpleHttpListener.Rx and HttpMachine.PCL rather than starting from scratch. |
 
 ## Why .NET 10?
 

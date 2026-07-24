@@ -10,7 +10,7 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 | 1 | Model records, `ParseResult<T>`, `DescriptionParser` + fixtures | ✅ done |
 | 2 | `ScpdParser`, `SoapComposer`/`SoapParser` | ✅ done |
 | 3 | Edge: `UpnpClient` / `DiscoveredDevice` / `DescribedDevice` / `UpnpService` | ✅ done |
-| 4 | `UPnP.Rx.PortMapping` + `PortMappingLease` + `Sample.PortMapper` | — |
+| 4 | `UPnP.Rx.PortMapping` + `PortMappingLease` + `Sample.PortMapper` | ✅ done |
 | 5 | UDA 2.0 clause 2/3 compliance review + fixes | — |
 | 6 | Packaging, README, samples polish, CI publish job | — |
 | 7 | v1.0.0 release (branch, tag, Trusted Publishing) | — |
@@ -42,6 +42,13 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 │   │   ├── ServiceDescription.cs, IconDescription.cs, SpecVersion.cs
 │   │   ├── Scpd.cs, ActionDescription.cs, ArgumentDescription.cs, StateVariable.cs
 │   │   └── ActionResult.cs, UpnpError.cs
+│   ├── PortMapping/           # UPnP.Rx.PortMapping — the flagship (IGD client)
+│   │   ├── PortMapper.cs      # DiscoverGatewayAsync (IGD:2+:1 merge) + one-liner AddPortMappingAsync
+│   │   ├── InternetGateway.cs # WAN service priority (IPConn2/1, PPPConn2/1), typed actions,
+│   │   │                      #   IAsyncEnumerable mapping enumeration (ends at gateway fault)
+│   │   ├── PortMappingLease.cs    # auto-renew at half-life on TimeProvider; Events observable;
+│   │   │                          #   DisposeAsync=delete, Dispose=abrupt (lease expires on router)
+│   │   └── PortMappingEntry.cs, Protocol.cs   # (Entry avoids namespace/type collision)
 │   └── Parsing/               # UPnP.Rx.Parsing — pure, total, lenient
 │       ├── DescriptionParser.cs   # DDD → DeviceDescription; URLBase honored; & repair
 │       ├── ScpdParser.cs          # SCPD → Scpd (actions, state variables, ranges)
@@ -52,6 +59,8 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
     ├── UPnP.Rx.Tests.csproj
     ├── DescriptionParserTests.cs, ScpdParserTests.cs, SoapTests.cs, ParseResultTests.cs
     ├── UpnpClientTests.cs     # discovery/dedup/cache/invoke/fault/lifecycle
+    ├── PortMappingTests.cs    # gateway discovery/timeout, lease renewal on FakeTimeProvider,
+    │                          #   failure→retry→Expired, dual disposal, AddAnyPortMapping
     ├── TestHelpers/           # FakeControlPoint (IControlPoint seam), FakeHttpHandler
     └── Fixtures/              # real captures (miniupnp testdesc: Linksys WAG200G w/ URLBase +
                                #   in-UDN line break, Orange Livebox IGD:2), WANIPConnection:1
@@ -88,7 +97,7 @@ tests/UPnP.Rx.Tests/
 └── PortMappingLeaseTests.cs  # FakeTimeProvider-driven renewal             (Phase 4)
 
 samples/
-├── Sample.PortMapper/                                                      (Phase 4)
+├── Sample.PortMapper/         # ✅ discover gateway, external IP, list mappings, --map demo
 └── Sample.Browser/                                                         (Phase 6)
 ```
 

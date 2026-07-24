@@ -18,6 +18,7 @@ public sealed class DiscoveredDevice
         uint bootId,
         int? configId,
         bool hasParsingError,
+        System.Net.IPEndPoint? localEndPoint,
         Func<CancellationToken, Task<DescribedDevice>> describe)
     {
         Usn = usn;
@@ -26,8 +27,16 @@ public sealed class DiscoveredDevice
         BootId = bootId;
         ConfigId = configId;
         HasParsingError = hasParsingError;
+        LocalEndPoint = localEndPoint;
         _describe = describe;
     }
+
+    /// <summary>
+    /// The local endpoint the announcement arrived on — this machine's address on
+    /// the network shared with the device (used e.g. as the default internal
+    /// client for port mappings).
+    /// </summary>
+    public System.Net.IPEndPoint? LocalEndPoint { get; }
 
     /// <summary>The announced unique service name (<c>USN</c> header), when parsable.</summary>
     public USN? Usn { get; }

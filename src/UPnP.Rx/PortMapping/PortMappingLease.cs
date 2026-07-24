@@ -1,0 +1,160 @@
+using System.Reactive.Linq;
+using System.Reactive.Subjects;
+using Microsoft.Extensions.Logging;
+
+namespace UPnP.Rx.PortMapping;
+
+/// <summary>
+/// An auto-renewing port mapping (decision 3). A finite lease is renewed at
+/// half-life on the configured <see cref="TimeProvider"/>; renewal outcomes
+/// surface on <see cref="Events"/> (a failed renewal retries — it never
+/// terminates the stream).
+/// </summary>
+/// <remarks>
+/// Disposal follows the house disposal model. <see cref="DisposeAsync"/> is the
+/// graceful path: stop renewing, delete the mapping from the gateway (failures
+/// logged, not thrown — the router may already have dropped it). <see cref="Dispose"/>
+/// is the abrupt path: stop renewing only — safe by design, because the finite
+/// lease then simply expires on the router. An indefinite lease
+/// (<see cref="TimeSpan.Zero"/>) opts out of both protections.
+/// </remarks>
+public sealed class PortMappingLease : IAsyncDisposable, IDisposable
+{
+    private readonly InternetGateway _gateway;
+    private readonly UpnpClientOptions _options;
+    private readonly CancellationTokenSource _cts = new();
+    private readonly Subject<PortMappingEvent> _events = new();
+    private readonly Task _renewalLoop;
+    private InternetGateway? _ownedGateway;
+    private bool _disposed;
+
+    /// <summary>Makes this lease own (and dispose) the whole discovery chain — used by the PortMapper one-liner.</summary>
+    internal PortMappingLease AttachOwnedGateway(InternetGateway gateway)
+    {
+        _ownedGateway = gateway;
+        return this;
+    }
+
+    internal PortMappingLease(InternetGateway gateway, PortMappingEntry mapping, UpnpClientOptions options)
+    {
+        _gateway = gateway;
+        Mapping = mapping;
+        _options = options;
+        _renewalLoop = mapping.LeaseDuration > TimeSpan.Zero
+            ? RunRenewalLoopAsync()
+            : Task.CompletedTask;
+    }
+
+    /// <summary>The mapping as granted (<c>AddAnyPortMapping</c> may have shifted the external port).</summary>
+    public PortMappingEntry Mapping { get; }
+
+    /// <summary>
+    /// Renewal-lifecycle notifications: <see cref="PortMappingEventKind.Renewed"/>,
+    /// <see cref="PortMappingEventKind.RenewalFailed"/> (retrying),
+    /// <see cref="PortMappingEventKind.Expired"/>. Hot; completes on disposal.
+    /// </summary>
+    public IObservable<PortMappingEvent> Events => _events.AsObservable();
+
+    /// <summary>Graceful: stop renewing and delete the mapping from the gateway (delete failures are logged, not thrown).</summary>
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        await _cts.CancelAsync().ConfigureAwait(false);
+        await _renewalLoop.ConfigureAwait(false);
+
+        try
+        {
+            await _gateway.DeletePortMappingAsync(Mapping.ExternalPort, Mapping.Protocol).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is UpnpException or OperationCanceledException)
+        {
+            _options.Logger.LogDebug(e,
+                "Deleting port mapping {Port}/{Protocol} on dispose failed; the lease will expire on its own.",
+                Mapping.ExternalPort, Mapping.Protocol);
+        }
+
+        _events.OnCompleted();
+        _events.Dispose();
+        _cts.Dispose();
+
+        if (_ownedGateway is not null)
+        {
+            await _ownedGateway.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Abrupt: stop renewing only — no network goodbye (disposal model rule 4).
+    /// The finite lease expires on the router by itself. Prefer <c>await using</c>.
+    /// </summary>
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        _cts.Cancel();
+        _events.OnCompleted();
+        _events.Dispose();
+        _cts.Dispose();
+        _ownedGateway?.Dispose();
+    }
+
+    private async Task RunRenewalLoopAsync()
+    {
+        // Renew at half-life; never spin faster than once per second.
+        var period = TimeSpan.FromTicks(Math.Max(
+            Mapping.LeaseDuration.Ticks / 2, TimeSpan.TicksPerSecond));
+
+        var timeProvider = _options.TimeProvider;
+        using var timer = new PeriodicTimer(period, timeProvider);
+        var lastSuccess = timeProvider.GetTimestamp();
+        var expiredEmitted = false;
+
+        try
+        {
+            while (await timer.WaitForNextTickAsync(_cts.Token).ConfigureAwait(false))
+            {
+                try
+                {
+                    await _gateway.RenewAsync(Mapping, _cts.Token).ConfigureAwait(false);
+
+                    lastSuccess = timeProvider.GetTimestamp();
+                    expiredEmitted = false;
+                    _events.OnNext(new PortMappingEvent { Kind = PortMappingEventKind.Renewed });
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception e)
+                {
+                    // Per-item failure is data: report, keep retrying.
+                    _events.OnNext(new PortMappingEvent
+                    {
+                        Kind = PortMappingEventKind.RenewalFailed,
+                        Message = e.Message
+                    });
+
+                    if (!expiredEmitted
+                        && timeProvider.GetElapsedTime(lastSuccess) > Mapping.LeaseDuration)
+                    {
+                        expiredEmitted = true;
+                        _events.OnNext(new PortMappingEvent { Kind = PortMappingEventKind.Expired });
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Disposal: the loop simply ends.
+        }
+    }
+}

@@ -110,13 +110,13 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
                 .MSearchResponseObservable()
                 .Select(response => ToDiscovered(
                     response.USN, response.Location, response.Server, response.BOOTID,
-                    response.CONFIGID, response.HasParsingError))
+                    response.CONFIGID, response.HasParsingError, response.LocalIpEndPoint))
                 .Merge(_controlPoint
                     .NotifyObservable()
                     .Where(notify => notify.NTS == NTS.Alive)
                     .Select(notify => ToDiscovered(
                         notify.USN, notify.Location, notify.Server, notify.BOOTID,
-                        notify.CONFIGID, notify.HasParsingError)))
+                        notify.CONFIGID, notify.HasParsingError, notify.LocalIpEndPoint)))
                 .Where(device => device is not null)
                 .Select(device => device!)
                 .Distinct(device => $"{device.Usn?.ToUsnString() ?? device.Location!.ToString()}#{device.BootId}");
@@ -152,7 +152,7 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
                 .Where(notify => notify.NTS == NTS.ByeBye)
                 .Select(notify => new DiscoveredDevice(
                     notify.USN, notify.Location, notify.Server, notify.BOOTID, notify.CONFIGID,
-                    notify.HasParsingError,
+                    notify.HasParsingError, notify.LocalIpEndPoint,
                     _ => Task.FromException<DescribedDevice>(
                         new UpnpException("A device-lost notice carries no description location."))));
         });
@@ -239,8 +239,11 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
         }
     }
 
+    internal UpnpClientOptions Options => _options;
+
     private DiscoveredDevice? ToDiscovered(
-        USN? usn, Uri? location, Server? server, uint bootId, int? configId, bool hasParsingError)
+        USN? usn, Uri? location, Server? server, uint bootId, int? configId, bool hasParsingError,
+        IPEndPoint? localEndPoint)
     {
         if (location is null)
         {
@@ -249,7 +252,7 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
         }
 
         return new DiscoveredDevice(
-            usn, location, server, bootId, configId, hasParsingError,
+            usn, location, server, bootId, configId, hasParsingError, localEndPoint,
             ct => GetOrFetchDescriptionAsync(location, configId, ct));
     }
 

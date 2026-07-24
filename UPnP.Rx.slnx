@@ -5,4 +5,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/UPnP.Rx.Tests/UPnP.Rx.Tests.csproj" />
   </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/Sample.PortMapper/Sample.PortMapper.csproj" />
+  </Folder>
 </Solution>

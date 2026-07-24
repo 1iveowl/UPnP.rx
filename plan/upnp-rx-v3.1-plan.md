@@ -1,4 +1,4 @@
-# UPnP.Rx v3.1 plan (drafted 2026-07-24; current version is 3.0.0, unreleased)
+# UPnP.Rx v3.1 plan (drafted 2026-07-24; 3.0.0 released to NuGet the same day)
 
 The working document for the first post-3.0 iteration. Candidates are collected here as they
 surface; the author decides scope before implementation, per house workflow. Items called

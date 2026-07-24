@@ -16,4 +16,8 @@
     <ProjectReference Include="../../src/UPnP.Rx/UPnP.Rx.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="Fixtures/**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<root>
+<specVersion>
+<major>1</major>
+<minor>0</minor>
+</specVersion>
+<device>
+<deviceType>urn:schemas-upnp-org:device:Basic:1</deviceType>
+<friendlyName>No Namespace Cam</friendlyName>
+<UDN>uuid:0a936d92-1a49-4a1c-8f97-2b2d5a0a1e1b</UDN>
+<serviceList>
+<service>
+<serviceType>urn:schemas-upnp-org:service:Dummy:1</serviceType>
+<serviceId>urn:upnp-org:serviceId:Dummy1</serviceId>
+<controlURL>../ctl/Control</controlURL>
+<eventSubURL>../evt/Event</eventSubURL>
+<SCPDURL>dummy.xml</SCPDURL>
+</service>
+</serviceList>
+</device>
+</root>

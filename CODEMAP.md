@@ -7,7 +7,7 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 | Phase | Deliverable (short) | Status |
 |---|---|---|
 | 0 | Repo infrastructure (props, editorconfig, slnx, CI skeleton, test project) | ✅ done |
-| 1 | Model records, `ParseResult<T>`, `DescriptionParser` + fixtures | — |
+| 1 | Model records, `ParseResult<T>`, `DescriptionParser` + fixtures | ✅ done |
 | 2 | `ScpdParser`, `SoapComposer`/`SoapParser` | — |
 | 3 | Edge: `UpnpClient` / `DiscoveredDevice` / `DescribedDevice` / `UpnpService` | — |
 | 4 | `UPnP.Rx.PortMapping` + `PortMappingLease` + `Sample.PortMapper` | — |
@@ -29,10 +29,19 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 ├── UPnP.Rx.slnx
 ├── .github/workflows/ci.yml   # restore → build -warnaserror → test → pack (publish job: Phase 6)
 ├── src/UPnP.Rx/               # the library (single package)
-│   └── UPnP.Rx.csproj
+│   ├── UPnP.Rx.csproj
+│   ├── Model/                 # UPnP.Rx.Model — immutable records
+│   │   ├── ParseResult.cs     # copied from SSDP.UPnP.PCL (decision 5)
+│   │   ├── DeviceDescription.cs   # DDD tree; Location + BaseUrl; SelfAndDescendants()
+│   │   ├── ServiceDescription.cs, IconDescription.cs, SpecVersion.cs
+│   └── Parsing/               # UPnP.Rx.Parsing — pure, total, lenient
+│       ├── DescriptionParser.cs   # DDD → DeviceDescription; URLBase honored; & repair
+│       └── XmlLeniency.cs         # internal: local-name/case-tolerant lookups, token cleanup
 └── tests/UPnP.Rx.Tests/       # xUnit v3 + FakeTimeProvider
     ├── UPnP.Rx.Tests.csproj
-    └── Phase0SmokeTest.cs     # placeholder; delete when Phase 1 lands real tests
+    ├── DescriptionParserTests.cs, ParseResultTests.cs
+    └── Fixtures/              # real captures (miniupnp testdesc: Linksys WAG200G w/ URLBase +
+                               #   in-UDN line break, Orange Livebox IGD:2) + malformed variants
 ```
 
 ## Planned layout (lands per phase; namespaces from plan §5)

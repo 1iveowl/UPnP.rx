@@ -12,7 +12,7 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 | 3 | Edge: `UpnpClient` / `DiscoveredDevice` / `DescribedDevice` / `UpnpService` | ✅ done |
 | 4 | `UPnP.Rx.PortMapping` + `PortMappingLease` + `Sample.PortMapper` | ✅ done |
 | 5 | UDA 2.0 clause 2/3 compliance review + fixes | ✅ done |
-| 6 | Packaging, README, samples polish, CI publish job | — |
+| 6 | Packaging, README, samples polish, CI publish job | ✅ done |
 | 7 | v1.0.0 release (branch, tag, Trusted Publishing) | — |
 
 ## Tree (current)
@@ -21,13 +21,15 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 /
 ├── CLAUDE.md                  # session context: house rules, commands, workflow
 ├── CODEMAP.md                 # this file
+├── README.md                  # package readme (ships in the nupkg)
+├── assets/1iveowl-logo.png    # package icon
 ├── plan/upnp-rx-project-plan.md   # authoritative plan; §8 decisions, §9 upstream audit
 ├── Directory.Build.props      # net10.0, warnings-as-errors, package metadata, banned-API analyzer
 ├── BannedSymbols.txt          # wall-clock APIs banned (time model rule 1, error RS0030)
 ├── .editorconfig              # sibling-aligned house style + CA2007 (ConfigureAwait) as error in src/
 ├── global.json                # SDK 10.0.100, rollForward latestFeature
 ├── UPnP.Rx.slnx
-├── .github/workflows/ci.yml   # restore → build -warnaserror → test → pack (publish job: Phase 6)
+├── .github/workflows/ci.yml   # build -warnaserror → test → pack; Trusted Publishing on v* tags
 ├── src/UPnP.Rx/               # the library (single package)
 │   ├── UPnP.Rx.csproj         # deps: SSDP.UPnP.PCL, System.Reactive, Logging.Abstractions
 │   ├── UpnpClient.cs          # edge: discovery over IControlPoint, lazy start (Defer),
@@ -98,7 +100,7 @@ tests/UPnP.Rx.Tests/
 
 samples/
 ├── Sample.PortMapper/         # ✅ discover gateway, external IP, list mappings, --map demo
-└── Sample.Browser/                                                         (Phase 6)
+└── Sample.Browser/            # ✅ discover everything, dump device trees + services
 ```
 
 ## Key seams (for tests and consumers)

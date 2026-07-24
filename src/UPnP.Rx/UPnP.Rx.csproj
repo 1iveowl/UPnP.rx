@@ -5,9 +5,17 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <Description>A modern, functional, Rx-based UPnP control point for .NET: discover devices, browse their services, call their actions — as observables and immutable records. Includes an IGD port-mapping client.</Description>
+    <Description>A modern, functional, Rx-based UPnP control point for .NET: discover devices, browse their services, call their actions — as observables and immutable records. Includes an IGD port-mapping client with auto-renewing leases.</Description>
     <PackageTags>upnp;ssdp;igd;port-mapping;nat;discovery;soap;rx;reactive;observable</PackageTags>
+    <PackageIcon>1iveowl-logo.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+    <None Include="../../assets/1iveowl-logo.png" Pack="true" PackagePath="/" />
+  </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="UPnP.Rx.Tests" />

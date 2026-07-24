@@ -179,8 +179,17 @@ covered. Planned next: GENA eventing (v2), a live device roster with expiry
 
 **No gateway / no devices found?**
 
-- **UPnP is often disabled on routers** - look for "UPnP"/"IGD" under advanced
-  or NAT settings in the router UI.
+- **UPnP is usually disabled on gateways by default** - and that only affects
+  the *port-mapping* features; discovery and control of other devices (TVs,
+  speakers, hubs) work regardless. On **UniFi** (UDM/UXG/Express/USG - they run
+  `miniupnpd`): *Settings → Internet → your WAN → UPnP* (older controllers:
+  *Settings → Services → UPnP*), primary WAN only. Other routers/firewalls hide
+  the toggle under NAT, port forwarding or "media sharing" settings. Security
+  note: the IGD control endpoint is LAN-side only by design - nothing on the
+  WAN can reach it - but it has no authentication, so *any LAN device* can open
+  WAN ports for itself. Enable it consciously; the mapping table (dashboard or
+  `Sample.PortMapper`) shows exactly what has been opened, and UPnP.Rx's own
+  mappings use finite auto-renewed leases that expire on their own.
 - **Containers can't multicast**: Docker, WSL and devcontainers won't see SSDP.
   Run on the host.
 - **On Windows, the built-in "SSDP Discovery" service (`SSDPSRV`) occupies

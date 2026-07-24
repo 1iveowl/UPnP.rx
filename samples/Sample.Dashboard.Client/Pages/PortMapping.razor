@@ -22,10 +22,31 @@
                 }
                 else
                 {
-                    <FluentLabel>No internet gateway answered. Is UPnP/IGD enabled on the router?</FluentLabel>
+                    <FluentLabel>No internet gateway answered.</FluentLabel>
                     <FluentButton Appearance="Appearance.Accent" OnClick="Run(ViewModel!.LoadCommand)">Search again</FluentButton>
                 }
             </FluentStack>
+
+            @if (!ViewModel!.IsBusy)
+            {
+                <div class="hint-panel">
+                    <strong>UPnP is usually disabled on gateways by default.</strong>
+                    <ul>
+                        <li>
+                            On <strong>UniFi</strong> (UDM/UXG/Express/USG): <em>Settings → Internet → your WAN →
+                            UPnP</em> (older controllers: <em>Settings → Services → UPnP</em>); primary WAN only.
+                            Other routers hide the toggle under NAT, port-forwarding or "media sharing" settings.
+                        </li>
+                        <li>
+                            Security note: the gateway's UPnP endpoint is LAN-side only by design - nothing on the
+                            WAN can reach it - but it has no authentication, so <em>any LAN device</em> can open
+                            WAN ports for itself. Enable it consciously; the table on this page shows exactly what
+                            has been opened.
+                        </li>
+                        <li>Only port mapping needs this - the Network page works without it.</li>
+                    </ul>
+                </div>
+            }
         }
         else
         {

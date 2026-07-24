@@ -31,8 +31,11 @@ if (gateway is null)
     WriteLine(ConsoleColor.Yellow, """
 
         Things to check:
-          - Is UPnP / IGD enabled on the router? (Often off by default; look under
-            "advanced", "NAT forwarding" or "media sharing" in the router UI.)
+          - Is UPnP / IGD enabled on the router? It is usually off by default. On
+            UniFi: Settings -> Internet -> your WAN -> UPnP (older controllers:
+            Settings -> Services -> UPnP); other routers hide it under NAT,
+            port-forwarding or "media sharing" settings. Note: the UPnP endpoint is
+            LAN-side only, but unauthenticated - any LAN device can open WAN ports.
           - Is a VPN active? Its interface may not reach the LAN - try disconnecting.
           - Running inside Docker/WSL/a devcontainer? Multicast doesn't work there;
             run this sample on the host.

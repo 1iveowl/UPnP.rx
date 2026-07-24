@@ -147,7 +147,31 @@ and node summaries say "embedded" too.
 | F6 | Hand-rolled cards/header instead of `FluentCard`/`FluentAccordion`/`FluentDataGrid` | Deliberate divergence, already recorded: custom accordion semantics + token CSS. Docs offer no rule against it. | Keep (conscious choice); `FluentDataGrid` noted as an alternative if the roster ever needs sorting/columns |
 | F7 | `reboot.css` linked via `@Assets` fingerprinting | Docs show a plain `/_content/...` link; ours is the `MapStaticAssets`-aware form. | Keep ours (better) |
 
-## Iteration backlog (for author review)
+## Proposal: two tabs - Browser + Port mapper (2026-07-24, PENDING AUTHOR DECISION)
+
+The dashboard currently mirrors Sample.Browser only; the flagship port-mapping story deserves
+the same visual treatment. Proposed shape:
+
+- **Navigation**: `FluentTabs` on the one page - tab "Network" (current device browser
+  unchanged) and tab "Port mapping".
+- **Server**: a `GatewayService` that resolves the gateway with
+  `PortMapper.DiscoverGateways(client)` over the *same* `UpnpClient` the discovery service
+  owns (showcases the caller-owned-client overload). Hub RPCs:
+  `GetGatewayInfo` (friendly name, WAN service, external IP, `ConnectionStatusInfo`),
+  `GetPortMappings` (enumeration → array),
+  `AddPortMapping(ext, int, protocol, description, leaseSeconds)` - the server creates and
+  *holds* the auto-renewing `PortMappingLease`, forwarding its `Events` to all browsers as a
+  `LeaseEvent` broadcast (live renewal ticks in the UI - the lease observable made visible),
+  `DeletePortMapping` (disposes a held lease, or plain delete for foreign mappings).
+- **Client tab**: gateway status card (Connected badge green/red, external IP, uptime);
+  mappings table - a natural first use for `FluentDataGrid` (per review F6's note);
+  add-mapping form (`FluentTextField`/`FluentNumberField`/`FluentSelect`/`FluentButton`);
+  live lease-event feed.
+- **Caution to document**: this makes the sample able to *modify the router* from any browser
+  that can reach the server - fine for a LAN tool, but the README note should say so
+  explicitly (no auth in the sample).
+- **Verification limits**: headless can only prove the tab renders and the no-gateway empty
+  state behaves; add/delete needs the author's real router.
 
 1. **Per-service action invocation** in the expanded view - SCPD-driven form via
    `ValidateAndOrderArguments`.

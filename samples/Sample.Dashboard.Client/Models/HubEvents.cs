@@ -29,4 +29,7 @@ public static class HubEvents
 
     /// <summary>Broadcast: a held lease reported a renewal-lifecycle event; payload <see cref="LeaseEventDto"/>.</summary>
     public const string LeaseEvent = "LeaseEvent";
+
+    /// <summary>Hub RPC: invalidate + re-read one device's description; returns an error message or null.</summary>
+    public const string RefreshDevice = "RefreshDevice";
 }

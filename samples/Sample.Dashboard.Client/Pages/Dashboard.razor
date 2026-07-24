@@ -72,6 +72,12 @@ net start SSDPSRV</pre>
                         {
                             <FluentBadge Appearance="Appearance.Neutral">@(device.DeviceCount - 1) embedded</FluentBadge>
                         }
+                        <div @onclick:stopPropagation="true">
+                            <FluentButton Appearance="Appearance.Stealth" Title="Re-read this device's description"
+                                          OnClick="@(async () => await Stream.RefreshDeviceAsync(device.Key))">
+                                <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.ArrowClockwise())" />
+                            </FluentButton>
+                        </div>
                     </div>
                 </div>
 

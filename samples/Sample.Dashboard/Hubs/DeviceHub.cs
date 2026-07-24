@@ -10,8 +10,40 @@ namespace Sample.Dashboard.Hubs;
 /// each newly connected client so late joiners see the full picture; and serves
 /// on-demand SCPD detail when the user unfolds a service.
 /// </summary>
-public sealed class DeviceHub(DeviceRoster roster, GatewayService gatewayService) : Hub
+public sealed class DeviceHub(
+    DeviceRoster roster,
+    GatewayService gatewayService,
+    Services.NetworkClientProvider network) : Hub
 {
+    /// <summary>
+    /// Drops the cached description and re-reads the device - the manual heal
+    /// for a stale/sparse read (full self-healing is a v3.1 investigation).
+    /// </summary>
+    public async Task<string?> RefreshDevice(string key)
+    {
+        if (!roster.Discovered.TryGetValue(key, out var discovered) || discovered.Location is null)
+        {
+            return "Unknown device.";
+        }
+
+        network.Client?.InvalidateDescriptions(discovered.Location);
+
+        try
+        {
+            var described = await discovered.GetDescriptionAsync(Context.ConnectionAborted);
+            var dto = Services.DtoMapper.ToDto(described);
+
+            roster.Devices[dto.Key] = dto;
+            roster.Described[dto.Key] = described;
+            await Clients.All.SendAsync(HubEvents.DeviceUp, dto);
+            return null;
+        }
+        catch (UpnpException e)
+        {
+            return e.Message;
+        }
+    }
+
     /// <summary>The gateway's identity + WAN state, or null when none answered the search.</summary>
     public Task<Client.Models.GatewayDto?> GetGatewayInfo() => gatewayService.GetGatewayInfoAsync();
 

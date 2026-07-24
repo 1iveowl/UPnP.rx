@@ -77,6 +77,10 @@ public sealed class DeviceStreamClient : IAsyncDisposable
     public Task<string?> DeletePortMappingAsync(ushort externalPort, string protocol) =>
         InvokeAsync<string?>(HubEvents.DeletePortMapping, "Not connected to the server.", externalPort, protocol);
 
+    /// <summary>Invalidates + re-reads one device's description; the result arrives as a DeviceUp broadcast.</summary>
+    public Task<string?> RefreshDeviceAsync(string key) =>
+        InvokeAsync<string?>(HubEvents.RefreshDevice, "Not connected to the server.", key);
+
     private async Task<T> InvokeAsync<T>(string method, T fallback, params object[] arguments)
     {
         if (_connection.State is not HubConnectionState.Connected)

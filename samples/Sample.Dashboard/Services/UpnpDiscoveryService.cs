@@ -16,6 +16,43 @@ public sealed class DeviceRoster
 
     /// <summary>The live library objects behind the DTOs - the hub uses them for on-demand SCPD fetches.</summary>
     public ConcurrentDictionary<string, DescribedDevice> Described { get; } = new();
+
+    /// <summary>The discovery envelopes - the hub uses them to re-describe a device on demand.</summary>
+    public ConcurrentDictionary<string, DiscoveredDevice> Discovered { get; } = new();
+}
+
+/// <summary>Maps library objects to the wire DTOs; shared by the discovery service and the hub.</summary>
+internal static class DtoMapper
+{
+    internal static DeviceDto ToDto(DescribedDevice described)
+    {
+        var root = described.Description;
+        var all = root.SelfAndDescendants().ToList();
+
+        return new DeviceDto(
+            Key: NormalizeKey(root.Udn ?? root.Location.ToString()),
+            FriendlyName: root.FriendlyName,
+            Manufacturer: root.Manufacturer,
+            Model: root.ModelName,
+            Location: root.Location.ToString(),
+            ServiceCount: all.SelectMany(d => d.Services).Count(),
+            DeviceCount: all.Count,
+            Root: ToNode(root));
+    }
+
+    internal static DeviceNodeDto ToNode(UPnP.Rx.Model.DeviceDescription device) => new(
+        FriendlyName: device.FriendlyName,
+        DeviceType: device.DeviceType,
+        Manufacturer: device.Manufacturer,
+        Model: device.ModelName,
+        Udn: device.Udn,
+        Services: [.. device.Services.Select(s => s.ServiceType).OfType<string>()],
+        Children: [.. device.EmbeddedDevices.Select(ToNode)]);
+
+    internal static string NormalizeKey(string raw) =>
+        raw.Trim().ToLowerInvariant() is var lower && lower.StartsWith("uuid:", StringComparison.Ordinal)
+            ? lower[5..]
+            : lower;
 }
 
 /// <summary>
@@ -54,17 +91,18 @@ public sealed class UpnpDiscoveryService(
                 .FromAsync(async ct =>
                 {
                     var described = await device.GetDescriptionAsync(ct);
-                    return (Dto: ToDto(described), Described: described);
+                    return (Dto: DtoMapper.ToDto(described), Described: described, Envelope: device);
                 })
                 .Catch((UpnpException e) =>
                 {
                     logger.LogDebug(e, "Skipping {Location}.", device.Location);
-                    return Observable.Empty<(DeviceDto Dto, DescribedDevice Described)>();
+                    return Observable.Empty<(DeviceDto Dto, DescribedDevice Described, DiscoveredDevice Envelope)>();
                 }))
             .SelectMany(pair => Observable.FromAsync(async ct =>
             {
                 roster.Devices[pair.Dto.Key] = pair.Dto;
                 roster.Described[pair.Dto.Key] = pair.Described;
+                roster.Discovered[pair.Dto.Key] = pair.Envelope;
                 await hub.Clients.All.SendAsync(HubEvents.DeviceUp, pair.Dto, ct);
             }))
             .Subscribe(
@@ -75,10 +113,11 @@ public sealed class UpnpDiscoveryService(
             .DeviceLost()
             .Select(device => device.Usn?.DeviceUUID)
             .Where(uuid => !string.IsNullOrEmpty(uuid))
-            .Select(uuid => NormalizeKey($"uuid:{uuid}"))
+            .Select(uuid => DtoMapper.NormalizeKey($"uuid:{uuid}"))
             .SelectMany(key => Observable.FromAsync(async ct =>
             {
                 roster.Described.TryRemove(key, out _);
+                roster.Discovered.TryRemove(key, out _);
 
                 if (roster.Devices.TryRemove(key, out _))
                 {
@@ -99,34 +138,4 @@ public sealed class UpnpDiscoveryService(
         // The client belongs to NetworkClientProvider; DI disposes it.
         return Task.CompletedTask;
     }
-
-    private static DeviceDto ToDto(DescribedDevice described)
-    {
-        var root = described.Description;
-        var all = root.SelfAndDescendants().ToList();
-
-        return new DeviceDto(
-            Key: NormalizeKey(root.Udn ?? root.Location.ToString()),
-            FriendlyName: root.FriendlyName,
-            Manufacturer: root.Manufacturer,
-            Model: root.ModelName,
-            Location: root.Location.ToString(),
-            ServiceCount: all.SelectMany(d => d.Services).Count(),
-            DeviceCount: all.Count,
-            Root: ToNode(root));
-    }
-
-    private static DeviceNodeDto ToNode(UPnP.Rx.Model.DeviceDescription device) => new(
-        FriendlyName: device.FriendlyName,
-        DeviceType: device.DeviceType,
-        Manufacturer: device.Manufacturer,
-        Model: device.ModelName,
-        Udn: device.Udn,
-        Services: [.. device.Services.Select(s => s.ServiceType).OfType<string>()],
-        Children: [.. device.EmbeddedDevices.Select(ToNode)]);
-
-    private static string NormalizeKey(string raw) =>
-        raw.Trim().ToLowerInvariant() is var lower && lower.StartsWith("uuid:", StringComparison.Ordinal)
-            ? lower[5..]
-            : lower;
 }

@@ -12,11 +12,13 @@ public class UpnpClientTests
     private static string Fixture(string name) =>
         File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", name));
 
-    private static MSearchResponse Response(string usn = "uuid:device-1::upnp:rootdevice", uint bootId = 1) => new()
+    private static MSearchResponse Response(
+        string usn = "uuid:device-1::upnp:rootdevice", uint bootId = 1, TimeSpan cacheControl = default) => new()
     {
         Location = new Uri(Location),
         USN = USN.Parse(usn).Value,
-        BOOTID = bootId
+        BOOTID = bootId,
+        CacheControl = cacheControl
     };
 
     private static (UpnpClient Client, FakeControlPoint ControlPoint, FakeHttpHandler Http) CreateClient(
@@ -218,6 +220,52 @@ public class UpnpClientTests
         var second = await seen[1].GetDescriptionAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal("LINKSYS WAG200G Gateway", second.Description.FriendlyName);
+        Assert.Equal(2, http.FetchCounts[Location]);
+    }
+
+    [Fact]
+    public async Task GetDescriptionAsync_ExpiresWithTheAnnouncementsMaxAge()
+    {
+        // Within one boot, a cached description expires when the SSDP
+        // advertisement's CACHE-CONTROL max-age elapses - so a sparse read
+        // served mid-boot heals by the next advertisement cycle, not the next
+        // reboot. One fake clock drives it all (time model rule 5).
+        var timeProvider = new Microsoft.Extensions.Time.Testing.FakeTimeProvider();
+        var controlPoint = new FakeControlPoint();
+        var http = new FakeHttpHandler();
+        await using var client = new UpnpClient(
+            controlPoint, http.CreateClient(), new UpnpClientOptions { TimeProvider = timeProvider });
+        http.Map(Location, Fixture("new_LiveBox_desc.xml"));
+
+        var seen = new List<DiscoveredDevice>();
+        using var subscription = client.DiscoverDevices().Subscribe(seen.Add);
+        controlPoint.Responses.OnNext(Response(cacheControl: TimeSpan.FromMinutes(30)));
+
+        await seen[0].GetDescriptionAsync(TestContext.Current.CancellationToken);
+        timeProvider.Advance(TimeSpan.FromMinutes(29));
+        await seen[0].GetDescriptionAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(1, http.FetchCounts[Location]);           // still fresh
+
+        timeProvider.Advance(TimeSpan.FromMinutes(2));         // past max-age
+        await seen[0].GetDescriptionAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(2, http.FetchCounts[Location]);           // re-read
+    }
+
+    [Fact]
+    public async Task InvalidateDescriptions_ForcesTheNextFetch()
+    {
+        var (client, controlPoint, http) = CreateClient();
+        await using var _1 = client;
+        http.Map(Location, Fixture("new_LiveBox_desc.xml"));
+
+        var seen = new List<DiscoveredDevice>();
+        using var subscription = client.DiscoverDevices().Subscribe(seen.Add);
+        controlPoint.Responses.OnNext(Response());
+
+        await seen[0].GetDescriptionAsync(TestContext.Current.CancellationToken);
+        client.InvalidateDescriptions(new Uri(Location));
+        await seen[0].GetDescriptionAsync(TestContext.Current.CancellationToken);
+
         Assert.Equal(2, http.FetchCounts[Location]);
     }
 

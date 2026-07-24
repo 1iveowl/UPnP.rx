@@ -29,7 +29,7 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
     private readonly IReadOnlyList<IPAddress> _addresses;
     private readonly UpnpClientOptions _options;
     private readonly CancellationTokenSource _lifetime = new();
-    private readonly ConcurrentDictionary<string, Lazy<Task<DescribedDevice>>> _descriptions = new();
+    private readonly ConcurrentDictionary<string, DescriptionCacheEntry> _descriptions = new();
     private readonly Lock _startLock = new();
     private int _disposed;
 
@@ -117,13 +117,15 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
                 .MSearchResponseObservable()
                 .Select(response => ToDiscovered(
                     response.USN, response.Location, response.Server, response.BOOTID,
-                    response.CONFIGID, response.HasParsingError, response.LocalIpEndPoint))
+                    response.CONFIGID, response.HasParsingError, response.LocalIpEndPoint,
+                    response.CacheControl))
                 .Merge(_controlPoint
                     .NotifyObservable()
                     .Where(notify => notify.NTS == NTS.Alive)
                     .Select(notify => ToDiscovered(
                         notify.USN, notify.Location, notify.Server, notify.BOOTID,
-                        notify.CONFIGID, notify.HasParsingError, notify.LocalIpEndPoint)))
+                        notify.CONFIGID, notify.HasParsingError, notify.LocalIpEndPoint,
+                        notify.CacheControl)))
                 .Where(device => device is not null)
                 .Select(device => device!)
                 .Distinct(device => $"{device.Usn?.ToUsnString() ?? device.Location!.ToString()}#{device.BootId}");
@@ -282,9 +284,31 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
 
     internal UpnpClientOptions Options => _options;
 
+    /// <summary>
+    /// Drops every cached description for <paramref name="location"/>, forcing
+    /// the next <see cref="DiscoveredDevice.GetDescriptionAsync"/> to re-fetch -
+    /// the escape hatch for a device known to have served a stale or sparse
+    /// document (they exist; see the leniency policy).
+    /// </summary>
+    /// <param name="location">The description URL whose cache entries to drop.</param>
+    public void InvalidateDescriptions(Uri location)
+    {
+        ArgumentNullException.ThrowIfNull(location);
+
+        var prefix = $"{location}#";
+
+        foreach (var key in _descriptions.Keys.Where(k => k.StartsWith(prefix, StringComparison.Ordinal)).ToList())
+        {
+            _descriptions.TryRemove(key, out _);
+        }
+    }
+
+    private sealed record DescriptionCacheEntry(
+        Lazy<Task<DescribedDevice>> Described, long Created, TimeSpan MaxAge);
+
     private DiscoveredDevice? ToDiscovered(
         USN? usn, Uri? location, Server? server, uint bootId, int? configId, bool hasParsingError,
-        IPEndPoint? localEndPoint)
+        IPEndPoint? localEndPoint, TimeSpan maxAge)
     {
         if (location is null)
         {
@@ -294,10 +318,11 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
 
         return new DiscoveredDevice(
             usn, location, server, bootId, configId, hasParsingError, localEndPoint,
-            ct => GetOrFetchDescriptionAsync(location, configId, bootId, ct));
+            ct => GetOrFetchDescriptionAsync(location, configId, bootId, maxAge, ct));
     }
 
-    private Task<DescribedDevice> GetOrFetchDescriptionAsync(Uri location, int? configId, uint bootId, CancellationToken ct)
+    private Task<DescribedDevice> GetOrFetchDescriptionAsync(
+        Uri location, int? configId, uint bootId, TimeSpan maxAge, CancellationToken ct)
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
 
@@ -305,14 +330,31 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
         // description changed" signal - but the UPnP 1.0 installed base (most
         // real devices) never sends it, which would make the first read
         // immortal: one sparse description served mid-boot (seen on Sonos)
-        // would stick for the client's lifetime. BOOTID in the key makes a
-        // reboot re-read the device naturally.
+        // would stick for the client's lifetime. BOOTID makes a reboot re-read
+        // the device; the announcement's CACHE-CONTROL max-age additionally
+        // expires entries WITHIN a boot, so a bad read heals by the next
+        // advertisement cycle. Entries without a max-age never expire.
         var key = $"{location}#{configId}#{bootId}";
-        var entry = _descriptions.GetOrAdd(
-            key,
-            _ => new Lazy<Task<DescribedDevice>>(() => FetchAndEvictOnFailureAsync(key, location)));
 
-        return entry.Value.WaitAsync(ct);
+        while (true)
+        {
+            var entry = _descriptions.GetOrAdd(
+                key,
+                _ => new DescriptionCacheEntry(
+                    new Lazy<Task<DescribedDevice>>(() => FetchAndEvictOnFailureAsync(key, location)),
+                    _options.TimeProvider.GetTimestamp(),
+                    maxAge));
+
+            if (entry.MaxAge > TimeSpan.Zero
+                && _options.TimeProvider.GetElapsedTime(entry.Created) > entry.MaxAge)
+            {
+                // Expired: remove exactly this entry (benign race with others) and retry.
+                _descriptions.TryRemove(new KeyValuePair<string, DescriptionCacheEntry>(key, entry));
+                continue;
+            }
+
+            return entry.Described.Value.WaitAsync(ct);
+        }
     }
 
     /// <summary>Only successful descriptions stay cached — a transient fetch failure must not poison the device forever.</summary>

@@ -21,7 +21,9 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
     private readonly ILogger _logger;
     private readonly CancellationToken _clientLifetime;
 
-    private readonly object _gate = new();
+    private static readonly TimeSpan _retryDelay = TimeSpan.FromSeconds(10);
+
+    private readonly Lock _gate = new();
     private readonly List<IObserver<UpnpEvent>> _observers = [];
     private readonly Dictionary<string, PropertyChange> _lastKnown = new(StringComparer.OrdinalIgnoreCase);
     private CancellationTokenSource? _engineCts;
@@ -51,19 +53,31 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
 
         lock (_gate)
         {
-            // Q5: late subscribers get the last-known state first, flagged as
-            // replay - under the same gate that live emissions use, so there is
-            // no window for a missed or duplicated change.
-            foreach (var change in _lastKnown.Values)
+            var isFirst = _observers.Count == 0;
+
+            if (isFirst)
             {
-                observer.OnNext(change with { IsReplay = true });
+                // A fresh run: anything remembered is from before the engine
+                // stopped - stale by definition, and about to be superseded by
+                // the new subscription's SEQ 0 initial state.
+                _lastKnown.Clear();
+            }
+            else
+            {
+                // Q5: late subscribers get the last-known state first, flagged
+                // as replay - under the same gate that live emissions use, so
+                // there is no window for a missed or duplicated change.
+                foreach (var change in _lastKnown.Values)
+                {
+                    observer.OnNext(change with { IsReplay = true });
+                }
             }
 
             _observers.Add(observer);
 
-            if (_observers.Count == 1)
+            if (isFirst)
             {
-                _lastKnown.Clear();          // stale state from a previous run
+                _engineCts?.Dispose();       // an OnError'd run leaves its CTS behind
                 _engineCts = CancellationTokenSource.CreateLinkedTokenSource(_clientLifetime);
                 _engineTask = RunEngineAsync(_engineCts.Token);
             }
@@ -87,7 +101,54 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
         });
     }
 
+    /// <summary>
+    /// Graceful stop for client disposal: cancels the engine and returns its
+    /// task, so callers can await the in-task teardown (UNSUBSCRIBE included -
+    /// it is bounded by <see cref="UpnpClientOptions.ActionTimeout"/>).
+    /// Remaining observers are completed; the stream ends without error.
+    /// </summary>
+    internal Task ShutdownAsync()
+    {
+        lock (_gate)
+        {
+            if (_engineCts is not null)
+            {
+                _engineCts.Cancel();
+                _engineCts.Dispose();
+                _engineCts = null;
+            }
+
+            foreach (var observer in _observers.ToArray())
+            {
+                observer.OnCompleted();
+            }
+
+            _observers.Clear();
+            return _engineTask;
+        }
+    }
+
     private async Task RunEngineAsync(CancellationToken ct)
+    {
+        try
+        {
+            await RunAttemptsAsync(ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Engine stop between attempts - the regular way out.
+        }
+        catch (Exception e)
+        {
+            // The one legitimate OnError: the engine itself died unexpectedly
+            // (e.g. an observer threw during an engine-context emission).
+            // Silence here would leave subscribers waiting forever.
+            _logger.LogError(e, "The event subscription engine for {Url} failed.", _eventSubUrl);
+            Error(new UpnpException($"The event subscription engine for {_eventSubUrl} failed unexpectedly: {e.Message}", e));
+        }
+    }
+
+    private async Task RunAttemptsAsync(CancellationToken ct)
     {
         var attempt = 0;
 
@@ -122,7 +183,7 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
                     sid = result.Sid;
                     granted = result.Timeout ?? _options.EventSubscriptionTimeout;
                 }
-                catch (Exception e) when (e is UpnpException && !ct.IsCancellationRequested)
+                catch (UpnpException e) when (!ct.IsCancellationRequested)
                 {
                     Emit(new RenewalFailed($"SUBSCRIBE failed: {e.Message}"));
 
@@ -150,7 +211,7 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
                             .RenewAsync(_eventSubUrl, sid, _options.EventSubscriptionTimeout, resubscribe.Token)
                             .ConfigureAwait(false);
                     }
-                    catch (Exception e) when (e is UpnpException)
+                    catch (UpnpException e)
                     {
                         Emit(new RenewalFailed(e.Message));
 
@@ -187,8 +248,6 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
             }
         }
     }
-
-    private static readonly TimeSpan _retryDelay = TimeSpan.FromSeconds(10);
 
     /// <summary>Per-attempt SEQ expectation; a class so the NOTIFY closure can mutate it.</summary>
     private sealed class SeqTracker
@@ -229,7 +288,9 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
                 }
             }
 
-            seqTracker.Expected = actual + 1;
+            // UDA 2.0 §4.2.3: the event key wraps from uint.MaxValue to 1 - 0
+            // only ever marks a subscription's initial state.
+            seqTracker.Expected = actual == uint.MaxValue ? 1 : actual + 1;
         }
 
         var isInitial = seq is 0;

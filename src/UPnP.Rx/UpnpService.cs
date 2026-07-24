@@ -1,4 +1,6 @@
+using System.Net;
 using System.Text;
+using UPnP.Rx.Eventing;
 using UPnP.Rx.Model;
 using UPnP.Rx.Parsing;
 
@@ -23,8 +25,8 @@ public sealed class UpnpService : IUpnpService
     private readonly HttpClient _httpClient;
     private readonly UpnpClientOptions _options;
     private readonly CancellationToken _lifetime;
-    private readonly Eventing.EventingContext _eventing;
-    private readonly System.Net.IPAddress? _localAddress;
+    private readonly EventingContext _eventing;
+    private readonly IPAddress? _localAddress;
     private readonly Lock _scpdLock = new();
     private Task<Scpd>? _scpdTask;
 
@@ -32,8 +34,8 @@ public sealed class UpnpService : IUpnpService
         ServiceDescription description,
         HttpClient httpClient,
         UpnpClientOptions options,
-        Eventing.EventingContext eventing,
-        System.Net.IPAddress? localAddress,
+        EventingContext eventing,
+        IPAddress? localAddress,
         CancellationToken lifetime)
     {
         Description = description;
@@ -50,14 +52,14 @@ public sealed class UpnpService : IUpnpService
     /// disposing the last subscription sends UNSUBSCRIBE. The stream is shared:
     /// any number of Rx subscribers cost the device one GENA subscription, and a
     /// late subscriber first receives the last-known state flagged
-    /// <see cref="Eventing.PropertyChange.IsReplay"/>. Renewal, SEQ-gap recovery
+    /// <see cref="PropertyChange.IsReplay"/>. Renewal, SEQ-gap recovery
     /// and resubscription run automatically on the options' TimeProvider and
-    /// surface as <see cref="Eventing.UpnpEvent"/> values - per-item failure
+    /// surface as <see cref="UpnpEvent"/> values - per-item failure
     /// never terminates the stream while <see cref="UpnpClientOptions.AutoResubscribe"/>
     /// is on. Temperature: cold until first subscriber, then hot and shared.
     /// </summary>
     /// <exception cref="UpnpException">The service declares no <c>eventSubURL</c>.</exception>
-    public IObservable<Eventing.UpnpEvent> Events()
+    public IObservable<UpnpEvent> Events()
     {
         if (Description.EventSubUrl is null)
         {
@@ -131,7 +133,7 @@ public sealed class UpnpService : IUpnpService
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token, _lifetime);
 
         string body;
-        System.Net.HttpStatusCode status;
+        HttpStatusCode status;
 
         try
         {

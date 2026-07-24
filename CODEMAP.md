@@ -14,6 +14,9 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 | 5 | UDA 2.0 clause 2/3 compliance review + fixes | ✅ done |
 | 6 | Packaging, README, samples polish, CI publish job | ✅ done |
 | 7 | v3.0.0 release (branch, tag, Trusted Publishing) | ✅ released |
+| E1-E6 | 4.0.0 GENA eventing: wire layer, callback listener, subscription engine, `Events()`, clause-4 review, dashboard live events (on `dev/4.0.0`) | ✅ done |
+| — | 4.0 pre-release code review (`plan/upnp-rx-v4.0-code-review.md`) + fixes; SimpleHttpListener.Rx 7.2.0 direct ref; 126 tests | ✅ done |
+| E7 | 4.0.0 release (author: review, §5 hardware validation, branch/tag/publish) | ⏳ author |
 
 ## Tree (current)
 
@@ -31,7 +34,7 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 ├── UPnP.Rx.slnx
 ├── .github/workflows/ci.yml   # build -warnaserror → test → pack; Trusted Publishing on v* tags
 ├── src/UPnP.Rx/               # the library (single package)
-│   ├── UPnP.Rx.csproj         # deps: SSDP.UPnP.PCL, System.Reactive, Logging.Abstractions
+│   ├── UPnP.Rx.csproj         # deps: SSDP.UPnP.PCL, SimpleHttpListener.Rx, System.Reactive, Logging.Abstractions
 │   ├── UpnpClient.cs          # edge: discovery over IControlPoint, lazy start (Defer),
 │   │                          #   description cache (Location+ConfigId), M-SEARCH fan-out,
 │   │                          #   DiscoverDescribedDevices (discovery+description, UDN-deduped)

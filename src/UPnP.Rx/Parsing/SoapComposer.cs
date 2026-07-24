@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Xml.Linq;
 
 namespace UPnP.Rx.Parsing;
@@ -35,7 +36,7 @@ public static class SoapComposer
             service + actionName,
             new XAttribute(XNamespace.Xmlns + "u", serviceType));
 
-        foreach (var (name, value) in arguments ?? Enumerable.Empty<KeyValuePair<string, string>>())
+        foreach (var (name, value) in arguments ?? ReadOnlyDictionary<string, string>.Empty)
         {
             action.Add(new XElement(name, value));
         }

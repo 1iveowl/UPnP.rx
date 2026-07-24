@@ -12,7 +12,7 @@ namespace UPnP.Rx.Eventing;
 internal sealed class EventingContext(
     HttpClient httpClient,
     UpnpClientOptions options,
-    CancellationToken clientLifetime) : IDisposable
+    CancellationToken clientLifetime) : IDisposable, IAsyncDisposable
 {
     private readonly ConcurrentDictionary<Uri, GenaSubscriptionSource> _sources = new();
     private readonly Lock _listenerLock = new();
@@ -60,9 +60,34 @@ internal sealed class EventingContext(
         }
     }
 
+    /// <summary>Abrupt: releases the listener; engines die via the client lifetime token.</summary>
     public void Dispose()
     {
         _disposed = true;
+        _listener?.Dispose();
+    }
+
+    /// <summary>
+    /// Graceful: stops every subscription engine and awaits its in-task goodbye
+    /// (the UNSUBSCRIBE, bounded by <see cref="UpnpClientOptions.ActionTimeout"/>)
+    /// while the HttpClient is still usable, then releases the listener.
+    /// </summary>
+    public async ValueTask DisposeAsync()
+    {
+        _disposed = true;
+
+        foreach (var source in _sources.Values)
+        {
+            try
+            {
+                await source.ShutdownAsync().ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                options.Logger.LogDebug(e, "An event subscription's goodbye failed during disposal.");
+            }
+        }
+
         _listener?.Dispose();
     }
 }

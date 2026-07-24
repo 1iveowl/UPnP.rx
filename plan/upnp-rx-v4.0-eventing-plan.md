@@ -98,7 +98,14 @@ normalized to "unknown" at the discovery boundary, eventing and port mapping fal
 routing-table lookup toward the device, and the loopback/discovery/port-mapping tests now
 feed the wildcard envelope reality instead of a kind fake. Windows was never affected
 (upstream binds the interface address there). Recorded as upstream issue candidate #3 in
-the main plan §9.
+the main plan §9 - since fixed by the author upstream (SimpleHttpListener.Rx 7.2.0,
+packet-information based); UPnP.Rx now references it directly (main plan §8 item 7).
+
+**Pre-release review (2026-07-24):** a four-dimension pass (bugs, smells, UDA 2.0
+compliance, C# 14) is recorded in `upnp-rx-v4.0-code-review.md`; all findings implemented
+same day (B1-B6, S1-S6, C1, M1-M3) - notable: stale-replay fix, SEQ wrap-to-1, engine
+catch-all → OnError, graceful client `DisposeAsync` (UNSUBSCRIBE before teardown),
+callback listener 405/500 answers.
 
 | Phase | Deliverable |
 |---|---|

@@ -168,6 +168,73 @@ public class GenaSubscriptionSourceTests
     }
 
     [Fact]
+    public async Task EngineRestart_DoesNotReplayStaleState()
+    {
+        var source = CreateSource();
+        var first = new List<UpnpEvent>();
+        var s1 = source.Subscribe(first.Add);
+        await WaitForAsync(() => _route is not null);
+        await NotifyAsync(0, "Volume", "20");
+
+        s1.Dispose();
+        await WaitForAsync(() => _transport.UnsubscribeCount == 1);
+
+        // The subscriber that restarts the engine has nothing to catch up on:
+        // the previous run's state is stale, and a fresh SEQ 0 set is coming.
+        var second = new List<UpnpEvent>();
+        using var s2 = source.Subscribe(second.Add);
+        await WaitForAsync(() => _transport.SubscribeCount == 2);
+
+        Assert.DoesNotContain(second, e => e is PropertyChange { IsReplay: true });
+    }
+
+    [Fact]
+    public async Task SeqWrap_ContinuesAtOne_NotZero()
+    {
+        // UDA 2.0 §4.2.3: the event key wraps from uint.MaxValue to 1. Auto-
+        // resubscribe is off so the (legitimate) first gap doesn't restart the
+        // attempt and the wrap expectation can be observed directly.
+        var source = CreateSource(autoResubscribe: false);
+        var events = new List<UpnpEvent>();
+        using var subscription = source.Subscribe(events.Add);
+        await WaitForAsync(() => _route is not null);
+
+        await NotifyAsync(uint.MaxValue, "A", "1");  // expected 0: one real gap
+        await NotifyAsync(1, "A", "2");              // the wrap target - no gap
+
+        Assert.Single(events.OfType<GapDetected>());
+    }
+
+    [Fact]
+    public async Task ObserverThrowingDuringEngineEmission_SurfacesAsOnError()
+    {
+        var source = CreateSource();
+        Exception? error = null;
+        using var subscription = source.Subscribe(
+            _ => throw new InvalidOperationException("consumer bug"),
+            e => error = e,
+            () => { });
+
+        await WaitForAsync(() => error is not null);
+
+        Assert.IsType<UpnpException>(error);
+    }
+
+    [Fact]
+    public async Task ShutdownAsync_SaysGoodbye_AndCompletesObservers()
+    {
+        var source = CreateSource();
+        var completed = false;
+        using var subscription = source.Subscribe(_ => { }, _ => { }, () => completed = true);
+        await WaitForAsync(() => _transport.SubscribeCount == 1);
+
+        await source.ShutdownAsync();
+
+        Assert.True(completed);
+        Assert.Equal(1, _transport.UnsubscribeCount);
+    }
+
+    [Fact]
     public async Task AutoResubscribeOff_RenewalFailure_TerminatesWithError()
     {
         var source = CreateSource(autoResubscribe: false);

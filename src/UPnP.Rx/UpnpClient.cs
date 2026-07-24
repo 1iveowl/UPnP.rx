@@ -4,6 +4,7 @@ using System.Reactive.Linq;
 using Microsoft.Extensions.Logging;
 using SSDP.UPnP.PCL;
 using SSDP.UPnP.PCL.Model;
+using UPnP.Rx.Eventing;
 using UPnP.Rx.Parsing;
 
 namespace UPnP.Rx;
@@ -16,9 +17,9 @@ namespace UPnP.Rx;
 /// Construction is side-effect free; the underlying SSDP control point starts on
 /// the first subscription to <see cref="DiscoverDevices"/> or
 /// <see cref="DeviceLost"/>. Disposal follows the house disposal model:
-/// <see cref="DisposeAsync"/> and <see cref="Dispose"/> both stop discovery and
-/// release owned resources (v1 owes the network no goodbye; eventing in v2 will
-/// make <see cref="DisposeAsync"/> the graceful path).
+/// <see cref="DisposeAsync"/> is the graceful path (live event subscriptions say
+/// UNSUBSCRIBE before resources go); <see cref="Dispose"/> is the abrupt one -
+/// no network goodbyes, safe because subscriptions expire on the devices.
 /// </remarks>
 public sealed class UpnpClient : IAsyncDisposable, IDisposable
 {
@@ -31,7 +32,7 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
     private readonly CancellationTokenSource _lifetime = new();
     private readonly ConcurrentDictionary<string, DescriptionCacheEntry> _descriptions = new();
     private readonly Lock _startLock = new();
-    private readonly Eventing.EventingContext _eventing;
+    private readonly EventingContext _eventing;
     private int _disposed;
 
     private bool IsDisposed => Volatile.Read(ref _disposed) != 0;
@@ -64,7 +65,7 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
         // wall-clock timer must not be a hidden second clock capping them at 100 s.
         _httpClient = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
         _ownsHttpClient = true;
-        _eventing = new Eventing.EventingContext(_httpClient, _options, _lifetime.Token);
+        _eventing = new EventingContext(_httpClient, _options, _lifetime.Token);
     }
 
     /// <summary>
@@ -90,7 +91,7 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
         _ownsHttpClient = httpClient is null;
         _options = options ?? new UpnpClientOptions();
         _addresses = [.. addresses];
-        _eventing = new Eventing.EventingContext(_httpClient, _options, _lifetime.Token);
+        _eventing = new EventingContext(_httpClient, _options, _lifetime.Token);
     }
 
     /// <summary>
@@ -228,14 +229,32 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
     }
 
     /// <summary>
-    /// Stops discovery and releases owned resources. Equivalent to
-    /// <see cref="Dispose"/> in v1 — a control point owes the network no goodbye;
-    /// v2 eventing will unsubscribe here.
+    /// The graceful path of the disposal model: live event subscriptions send
+    /// UNSUBSCRIBE (each bounded by <see cref="UpnpClientOptions.ActionTimeout"/>)
+    /// while the HTTP client is still alive, then discovery stops and owned
+    /// resources are released. Idempotent and thread-safe.
     /// </summary>
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
-        Dispose();
-        return ValueTask.CompletedTask;
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
+        await _eventing.DisposeAsync().ConfigureAwait(false);
+
+        _lifetime.Cancel();
+        _lifetime.Dispose();
+
+        if (_ownsControlPoint)
+        {
+            _controlPoint.Dispose();
+        }
+
+        if (_ownsHttpClient)
+        {
+            _httpClient.Dispose();
+        }
     }
 
     private void EnsureStarted()
@@ -392,6 +411,11 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
         try
         {
             xml = await _httpClient.GetStringAsync(location, linked.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+        {
+            throw new ObjectDisposedException(
+                nameof(UpnpClient), "The client was disposed; the description can no longer be fetched.");
         }
         catch (OperationCanceledException) when (timeout.IsCancellationRequested)
         {

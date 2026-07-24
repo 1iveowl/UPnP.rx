@@ -228,6 +228,8 @@ Real-hardware smoke test (an actual router for IGD, a real media device for desc
 4. **`UpnpClient` device cache: raw discovery streams in v1.** The live roster (`IObservable<IReadOnlyList<DiscoveredDevice>>` with alive/byebye/max-age bookkeeping) is deferred to v1.1 — expiry bookkeeping is where subtle bugs live.
 5. **`ParseResult<T>`: copied into UPnP.Rx.** Zero package coupling; no shared functional package.
 6. **Search target: the library consumer chooses.** Configured via `UpnpClientOptions.DefaultSearchTarget`, overridable per call through the `searchTarget` parameter; the out-of-box value is `upnp:rootdevice` (one response per device; the description enumerates the rest). A `SearchTargets` helper (`RootDevice`, `All`, `DeviceType(...)`, `ServiceType(...)`) saves callers from hand-building URNs.
+7. **Dependency addition (author-approved 2026-07-24): `SimpleHttpListener.Rx` as a direct reference, pinned 7.2.0.** The 4.0 eventing listener consumes it directly (`ToHttpListenerObservable`, `HttpSender`), so a transitive-only reference was a smell - and 7.2.0 carries the packet-information `LocalEndPoint` fix (upstream issue candidate #3 in §9, fixed by the author in the upstream repo), so the direct pin also floors consumers onto the corrected behavior. Amends the §5 v1 dependency lock. The wildcard-address defense in `LocalRoute` stays regardless (belt and braces, and correct for older runtime graphs).
+
 
 ## 9. Upstream verification notes (audited 2026-07-24, against cloned repos + published nupkgs)
 

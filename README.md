@@ -139,7 +139,7 @@ using var subscription = upnp
 - **Strict in what we send, lenient in what we accept.** Envelopes and headers follow the UDA 2.0 letter (including the quoted `charset="utf-8"`); parsers tolerate wrong namespaces, wrong casing, whitespace inside identifiers, unescaped ampersands, and UPnP 1.0-era `URLBase` (which UDA 2.0 requires control points to honor). A document only fails to parse when it identifies nothing.
 - **Pipelines never die from one bad message.** Degraded announcements are surfaced (`DiscoveredDevice.HasParsingError`), unusable ones are dropped with a log note; `OnError` is reserved for the source itself dying.
 - **One clock.** Every timeout and renewal runs on `UpnpClientOptions.TimeProvider` (default `TimeProvider.System`) - inject `FakeTimeProvider` in tests and drive renewals deterministically.
-- **Disposal.** `DisposeAsync` is the graceful path (deletes port mappings); disposing an `Events()` subscription sends UNSUBSCRIBE from the engine's own teardown; sync `Dispose` releases resources without network goodbyes - finite subscription timeouts make that safe (the device expires them on its own).
+- **Disposal.** `DisposeAsync` is the graceful path: port-mapping leases delete their mappings, and a client with live event subscriptions sends UNSUBSCRIBE before releasing its resources; disposing an `Events()` subscription likewise says goodbye from the engine's own teardown. Sync `Dispose` releases resources without network goodbyes - finite lease and subscription timeouts make that safe (the device expires them on its own).
 - **Spec review.** Clause 2/3 behavior was audited against the UDA 2.0 text; the findings live in [plan/uda2-compliance-review.md](plan/uda2-compliance-review.md).
 
 ## Where UPnP.Rx fits

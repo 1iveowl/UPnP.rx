@@ -44,8 +44,7 @@ internal sealed class EventCallbackListener : IDisposable
         _ownedListener = ownedListener;
 
         _subscription = requests
-            .Where(r => r.MessageType == MessageType.Request
-                && string.Equals(r.Method, "NOTIFY", StringComparison.OrdinalIgnoreCase))
+            .Where(r => r.MessageType == MessageType.Request)
             .SelectMany(request => Observable
                 .FromAsync(ct => HandleAsync(request, respond, ct))
                 .Catch((Exception e) =>
@@ -92,6 +91,19 @@ internal sealed class EventCallbackListener : IDisposable
 
     private async Task HandleAsync(HttpRequestResponse request, ResponseSender respond, CancellationToken ct)
     {
+        if (!string.Equals(request.Method, "NOTIFY", StringComparison.OrdinalIgnoreCase))
+        {
+            // The callback endpoint speaks NOTIFY only - answer rather than
+            // leaving the sender's connection hanging until its timeout.
+            await respond(request, new HttpResponse
+            {
+                StatusCode = 405,
+                ReasonPhrase = "Method Not Allowed",
+                Headers = { ["Allow"] = "NOTIFY" }
+            }, ct).ConfigureAwait(false);
+            return;
+        }
+
         // UDA 2.0 4.3.3 error table: missing NT/NTS -> 400; wrong NT/NTS value
         // or missing/unknown SID -> 412.
         var nt = request.Headers.TryGetValue("NT", out var rawNt) ? rawNt.Trim() : null;
@@ -120,7 +132,19 @@ internal sealed class EventCallbackListener : IDisposable
         var seq = GenaHeaders.ParseSeq(request.Headers.TryGetValue("SEQ", out var rawSeq) ? rawSeq : null);
         var body = Encoding.UTF8.GetString(request.Body.Span);
 
-        await handler(new NotifyRequest(sid, seq, body), ct).ConfigureAwait(false);
+        try
+        {
+            await handler(new NotifyRequest(sid, seq, body), ct).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            // The sender still deserves an answer; the failure is ours, not theirs.
+            _logger.LogDebug(e, "A NOTIFY handler failed; answering 500.");
+            await respond(request, new HttpResponse { StatusCode = 500, ReasonPhrase = "Internal Server Error" }, ct)
+                .ConfigureAwait(false);
+            return;
+        }
+
         await respond(request, new HttpResponse { StatusCode = 200 }, ct).ConfigureAwait(false);
     }
 

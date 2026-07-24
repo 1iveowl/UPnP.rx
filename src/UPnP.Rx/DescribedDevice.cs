@@ -1,3 +1,5 @@
+using System.Net;
+using UPnP.Rx.Eventing;
 using UPnP.Rx.Model;
 
 namespace UPnP.Rx;
@@ -13,8 +15,8 @@ public sealed class DescribedDevice
         DeviceDescription description,
         HttpClient httpClient,
         UpnpClientOptions options,
-        Eventing.EventingContext eventing,
-        System.Net.IPAddress? localAddress,
+        EventingContext eventing,
+        IPAddress? localAddress,
         CancellationToken lifetime)
     {
         Description = description;

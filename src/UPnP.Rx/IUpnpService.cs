@@ -1,3 +1,4 @@
+using UPnP.Rx.Eventing;
 using UPnP.Rx.Model;
 
 namespace UPnP.Rx;
@@ -26,5 +27,5 @@ public interface IUpnpService
 
     /// <summary>The service's evented state as a shared stream (GENA); see <see cref="UpnpService.Events"/>.</summary>
     /// <exception cref="UpnpException">The service declares no <c>eventSubURL</c>.</exception>
-    IObservable<Eventing.UpnpEvent> Events();
+    IObservable<UpnpEvent> Events();
 }

@@ -75,7 +75,7 @@ public class EventCallbackListenerTests
     }
 
     [Fact]
-    public void NonNotifyRequests_AreIgnored()
+    public void NonNotifyRequests_Get405WithAllow()
     {
         _requests.OnNext(new HttpRequestResponse
         {
@@ -85,15 +85,19 @@ public class EventCallbackListenerTests
             Headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         });
 
-        Assert.Empty(_sent);
+        var response = Assert.Single(_sent).Response;
+        Assert.Equal(405, response.StatusCode);
+        Assert.Equal("NOTIFY", response.Headers["Allow"]);
     }
 
     [Fact]
-    public void HandlerFailure_DoesNotKillTheStream()
+    public void HandlerFailure_Answers500_AndDoesNotKillTheStream()
     {
         using var route = _listener.Register("boom", (_, _) => throw new InvalidOperationException("bang"));
 
         _requests.OnNext(Notify("/upnp/events/boom"));
+
+        Assert.Equal(500, Assert.Single(_sent).Response.StatusCode);
 
         var survived = new List<NotifyRequest>();
         using var route2 = _listener.Register("ok", (notify, _) =>
@@ -105,6 +109,7 @@ public class EventCallbackListenerTests
         _requests.OnNext(Notify("/upnp/events/ok"));
 
         Assert.Single(survived);
+        Assert.Equal(200, _sent[^1].Response.StatusCode);
     }
 
     [Fact]

@@ -245,6 +245,13 @@ public class UpnpClientTests
             "\"urn:schemas-upnp-org:service:WANPPPConnection:1#GetExternalIPAddress\"",
             request.Headers.GetValues("SOAPACTION").Single());
         Assert.Contains("GetExternalIPAddress", body);
+
+        // UDA 2.0 §3.2.1: quoted charset (compliance review finding 2) and
+        // product-token USER-AGENT (finding 3).
+        Assert.Equal(
+            "text/xml; charset=\"utf-8\"",
+            request.Content!.Headers.GetValues("Content-Type").Single());
+        Assert.Contains("UPnP/2.0", string.Join(" ", request.Headers.GetValues("USER-AGENT")));
     }
 
     [Fact]

@@ -12,10 +12,11 @@ public sealed record DeviceDescription
     public required Uri Location { get; init; }
 
     /// <summary>
-    /// The absolute base every relative URL in the document was resolved against:
-    /// <see cref="Location"/> per UDA 2.0, or the document's <c>URLBase</c> when a
-    /// UDA 1.0-era device supplies one (leniency: a device that ships
-    /// <c>URLBase</c> expects it to be honored).
+    /// The absolute base every relative URL in the document was resolved against
+    /// per RFC 3986 clause 5: the document's <c>URLBase</c> when a UPnP 1.0-era
+    /// device supplies one, else <see cref="Location"/>. UDA 2.0 §2.1 mandates
+    /// exactly this control-point behavior for interoperability (devices
+    /// themselves shall no longer ship <c>URLBase</c>).
     /// </summary>
     public required Uri BaseUrl { get; init; }
 

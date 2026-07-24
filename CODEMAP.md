@@ -11,7 +11,7 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 | 2 | `ScpdParser`, `SoapComposer`/`SoapParser` | ✅ done |
 | 3 | Edge: `UpnpClient` / `DiscoveredDevice` / `DescribedDevice` / `UpnpService` | ✅ done |
 | 4 | `UPnP.Rx.PortMapping` + `PortMappingLease` + `Sample.PortMapper` | ✅ done |
-| 5 | UDA 2.0 clause 2/3 compliance review + fixes | — |
+| 5 | UDA 2.0 clause 2/3 compliance review + fixes | ✅ done |
 | 6 | Packaging, README, samples polish, CI publish job | — |
 | 7 | v1.0.0 release (branch, tag, Trusted Publishing) | — |
 

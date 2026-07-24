@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- XML docs on every public member, enforced; docs ship in the nupkg -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <Description>A modern, functional, Rx-based UPnP control point for .NET: discover devices, browse their services, call their actions — as observables and immutable records. Includes an IGD port-mapping client.</Description>
+    <PackageTags>upnp;ssdp;igd;port-mapping;nat;discovery;soap;rx;reactive;observable</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="UPnP.Rx.Tests" />
+  </ItemGroup>
+
+</Project>

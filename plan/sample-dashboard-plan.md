@@ -135,7 +135,7 @@ was missing: `DeviceCount` includes the root device, which the card itself repre
 embedded devices appear as sub-headers. The badge now says "N embedded" (count minus root)
 and node summaries say "embedded" too.
 
-## FluentUI Blazor doc-compliance review (2026-07-24, against the official repo README; PENDING AUTHOR DECISION - no changes applied)
+## FluentUI Blazor doc-compliance review (2026-07-24, against the official repo README; author decided same day: F1/F4/F5 applied, F2/F3/F6/F7 left as documented positions)
 
 | # | Finding | Doc guidance vs. us | Recommendation |
 |---|---|---|---|

@@ -34,13 +34,14 @@
             <div class="dash-tools">
                 <FluentSearch Placeholder="Filter by name, maker or type…"
                               Immediate="true"
+                              ImmediateDelay="200"
                               Value="@ViewModel!.Filter"
                               ValueChanged="@(value => ViewModel!.Filter = value ?? string.Empty)" />
                 <FluentButton Appearance="Appearance.Stealth"
                               Title="@(_isDark ? "Switch to light mode" : "Switch to dark mode")"
                               aria-label="Toggle dark mode"
                               OnClick="ToggleTheme">
-                    <FluentIcon Value="@(_isDark ? _sunIcon : _moonIcon)" />
+                    <FluentIcon Value="@ThemeIcon(_isDark)" />
                 </FluentButton>
             </div>
         </div>
@@ -97,10 +98,11 @@
 </ErrorBoundary>
 
 @code {
-    private static readonly Icon _moonIcon =
-        new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.WeatherMoon();
-    private static readonly Icon _sunIcon =
-        new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.WeatherSunny();
+    // Doc pattern (review F4): icons are created per render, never shared -
+    // Icon instances can carry per-use state such as color.
+    private static Icon ThemeIcon(bool isDark) => isDark
+        ? new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.WeatherSunny()
+        : new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.WeatherMoon();
 
     private readonly HashSet<string> _open = [];
     private DesignThemeModes _mode = DesignThemeModes.System;   // follow the OS until the user chooses

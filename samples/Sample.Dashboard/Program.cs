@@ -1,3 +1,4 @@
+using Microsoft.FluentUI.AspNetCore.Components;
 using Sample.Dashboard.Components;
 using Sample.Dashboard.Hubs;
 using Sample.Dashboard.Services;
@@ -6,6 +7,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents()
     .AddInteractiveWebAssemblyComponents();
+
+// FluentUI doc guidance (review F1): register on the server too, so any future
+// server-rendered Fluent component finds its services.
+builder.Services.AddFluentUIComponents();
 
 // The server does the SSDP listening; browsers get the roster over SignalR.
 builder.Services.AddSignalR();

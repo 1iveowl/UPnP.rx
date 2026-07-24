@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<scpd>
+<actionList>
+<action>
+<name>GetTarget & Status</name>
+<argumentList>
+<argument>
+<name>RetTargetValue</name>
+<retval/>
+<relatedStateVariable>Target</relatedStateVariable>
+</argument>
+</argumentList>
+</action>
+<action>
+<name>SetTarget</name>
+<argumentList>
+<argument>
+<name>newTargetValue</name>
+<direction>IN</direction>
+<relatedStateVariable>
+Target
+</relatedStateVariable>
+</argument>
+</argumentList>
+</action>
+</actionList>
+<serviceStateTable>
+<stateVariable>
+<name>Target</name>
+<dataType>boolean</dataType>
+<defaultValue>0</defaultValue>
+<allowedValueList>
+</allowedValueList>
+</stateVariable>
+</serviceStateTable>
+</scpd>

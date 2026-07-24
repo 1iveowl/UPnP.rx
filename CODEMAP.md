@@ -8,7 +8,7 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 |---|---|---|
 | 0 | Repo infrastructure (props, editorconfig, slnx, CI skeleton, test project) | ✅ done |
 | 1 | Model records, `ParseResult<T>`, `DescriptionParser` + fixtures | ✅ done |
-| 2 | `ScpdParser`, `SoapComposer`/`SoapParser` | — |
+| 2 | `ScpdParser`, `SoapComposer`/`SoapParser` | ✅ done |
 | 3 | Edge: `UpnpClient` / `DiscoveredDevice` / `DescribedDevice` / `UpnpService` | — |
 | 4 | `UPnP.Rx.PortMapping` + `PortMappingLease` + `Sample.PortMapper` | — |
 | 5 | UDA 2.0 clause 2/3 compliance review + fixes | — |
@@ -34,14 +34,20 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 │   │   ├── ParseResult.cs     # copied from SSDP.UPnP.PCL (decision 5)
 │   │   ├── DeviceDescription.cs   # DDD tree; Location + BaseUrl; SelfAndDescendants()
 │   │   ├── ServiceDescription.cs, IconDescription.cs, SpecVersion.cs
+│   │   ├── Scpd.cs, ActionDescription.cs, ArgumentDescription.cs, StateVariable.cs
+│   │   └── ActionResult.cs, UpnpError.cs
 │   └── Parsing/               # UPnP.Rx.Parsing — pure, total, lenient
 │       ├── DescriptionParser.cs   # DDD → DeviceDescription; URLBase honored; & repair
+│       ├── ScpdParser.cs          # SCPD → Scpd (actions, state variables, ranges)
+│       ├── SoapComposer.cs        # action envelope + SOAPACTION header (strict-out)
+│       ├── SoapParser.cs          # response out-args + UPnPError fault parsing
 │       └── XmlLeniency.cs         # internal: local-name/case-tolerant lookups, token cleanup
 └── tests/UPnP.Rx.Tests/       # xUnit v3 + FakeTimeProvider
     ├── UPnP.Rx.Tests.csproj
-    ├── DescriptionParserTests.cs, ParseResultTests.cs
+    ├── DescriptionParserTests.cs, ScpdParserTests.cs, SoapTests.cs, ParseResultTests.cs
     └── Fixtures/              # real captures (miniupnp testdesc: Linksys WAG200G w/ URLBase +
-                               #   in-UDN line break, Orange Livebox IGD:2) + malformed variants
+                               #   in-UDN line break, Orange Livebox IGD:2), WANIPConnection:1
+                               #   SCPD (standardized template subset) + malformed variants
 ```
 
 ## Planned layout (lands per phase; namespaces from plan §5)

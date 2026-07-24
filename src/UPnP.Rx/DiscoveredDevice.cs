@@ -65,8 +65,11 @@ public sealed class DiscoveredDevice
 
     /// <summary>
     /// Fetches and parses the device's description document. Cached by
-    /// <see cref="Location"/> + <see cref="ConfigId"/> across all discoveries from
-    /// the same <see cref="UpnpClient"/>, so repeated announcements cost one fetch.
+    /// <see cref="Location"/> + <see cref="ConfigId"/> + <see cref="BootId"/>
+    /// across all discoveries from the same <see cref="UpnpClient"/>, so repeated
+    /// announcements cost one fetch - while a rebooted device is re-read (the
+    /// UPnP 1.0 installed base never sends CONFIGID, so the boot instance is the
+    /// only signal that a stale or sparse first read should be replaced).
     /// </summary>
     /// <exception cref="UpnpException">No location was announced, the fetch fails, or the document identifies no device.</exception>
     public Task<DescribedDevice> GetDescriptionAsync(CancellationToken ct = default) => _describe(ct);

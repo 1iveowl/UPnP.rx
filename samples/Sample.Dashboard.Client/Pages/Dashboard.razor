@@ -61,7 +61,7 @@ net start SSDPSRV</pre>
                 <div class="device-head" @onclick="() => Toggle(device.Key)">
                     <span class="chev">@(_open.Contains(device.Key) ? "▾" : "▸")</span>
                     <div>
-                        <div class="device-name">@(device.FriendlyName ?? "(unnamed device)")</div>
+                        <div class="device-name">@CardLabel(device)</div>
                         <div class="device-sub">@device.Manufacturer @device.Model</div>
                     </div>
                     <div class="device-badges">
@@ -107,6 +107,20 @@ net start SSDPSRV</pre>
         {
             _open.Add(key);
         }
+    }
+
+    // Devices occasionally serve a description without a friendlyName (seen on
+    // Sonos mid-boot) - fall back to something identifying rather than "(unnamed)".
+    private static string CardLabel(DeviceDto device)
+    {
+        if (device.FriendlyName is { Length: > 0 } name)
+        {
+            return name;
+        }
+
+        var host = Uri.TryCreate(device.Location, UriKind.Absolute, out var uri) ? uri.Host : device.Location;
+
+        return device.Model is { Length: > 0 } model ? $"{model} ({host})" : $"Device at {host}";
     }
 
     protected override async Task OnInitializedAsync()

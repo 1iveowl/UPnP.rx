@@ -174,7 +174,7 @@ public class UpnpClientTests
     // ---- Description fetch + cache ----
 
     [Fact]
-    public async Task GetDescriptionAsync_FetchesParsesAndCaches()
+    public async Task GetDescriptionAsync_FetchesParsesAndCaches_WithinOneBoot()
     {
         var (client, controlPoint, http) = CreateClient();
         await using var _1 = client;
@@ -183,15 +183,42 @@ public class UpnpClientTests
         var seen = new List<DiscoveredDevice>();
         using var subscription = client.DiscoverDevices().Subscribe(seen.Add);
 
+        // Root and embedded entities announce the same LOCATION within one boot.
         controlPoint.Responses.OnNext(Response());
-        controlPoint.Responses.OnNext(Response(bootId: 2));   // same location + configId, new boot
+        controlPoint.Responses.OnNext(Response(usn: "uuid:device-1::urn:schemas-upnp-org:device:WANDevice:2"));
 
         var first = await seen[0].GetDescriptionAsync(TestContext.Current.CancellationToken);
         var second = await seen[1].GetDescriptionAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal("Orange Livebox", first.Description.FriendlyName);
-        Assert.Same(first, second);                            // cached by Location + ConfigId
+        Assert.Same(first, second);                            // cached within the boot
         Assert.Equal(1, http.FetchCounts[Location]);           // one fetch for both
+    }
+
+    [Fact]
+    public async Task GetDescriptionAsync_RefetchesAfterReboot()
+    {
+        // The UPnP 1.0 installed base never sends CONFIGID - without BOOTID in
+        // the cache key, a sparse description served mid-boot (seen on Sonos)
+        // would stick for the client's lifetime.
+        var (client, controlPoint, http) = CreateClient();
+        await using var _1 = client;
+        http.Map(Location, Fixture("new_LiveBox_desc.xml"));
+
+        var seen = new List<DiscoveredDevice>();
+        using var subscription = client.DiscoverDevices().Subscribe(seen.Add);
+
+        controlPoint.Responses.OnNext(Response(bootId: 1));
+        var first = await seen[0].GetDescriptionAsync(TestContext.Current.CancellationToken);
+        Assert.Equal("Orange Livebox", first.Description.FriendlyName);
+
+        http.Map(Location, Fixture("linksys_WAG200G_desc.xml"));   // the device "recovered" with new content
+        controlPoint.Responses.OnNext(Response(bootId: 2));        // reboot
+
+        var second = await seen[1].GetDescriptionAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal("LINKSYS WAG200G Gateway", second.Description.FriendlyName);
+        Assert.Equal(2, http.FetchCounts[Location]);
     }
 
     [Fact]

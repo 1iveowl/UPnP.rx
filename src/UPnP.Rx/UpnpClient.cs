@@ -294,16 +294,20 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
 
         return new DiscoveredDevice(
             usn, location, server, bootId, configId, hasParsingError, localEndPoint,
-            ct => GetOrFetchDescriptionAsync(location, configId, ct));
+            ct => GetOrFetchDescriptionAsync(location, configId, bootId, ct));
     }
 
-    private Task<DescribedDevice> GetOrFetchDescriptionAsync(Uri location, int? configId, CancellationToken ct)
+    private Task<DescribedDevice> GetOrFetchDescriptionAsync(Uri location, int? configId, uint bootId, CancellationToken ct)
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
 
-        // Cached by LOCATION + CONFIGID: a changed configuration number means a
-        // changed description, so it gets its own entry.
-        var key = $"{location}#{configId}";
+        // Cached by LOCATION + CONFIGID + BOOTID. CONFIGID is UDA 2.0's "the
+        // description changed" signal - but the UPnP 1.0 installed base (most
+        // real devices) never sends it, which would make the first read
+        // immortal: one sparse description served mid-boot (seen on Sonos)
+        // would stick for the client's lifetime. BOOTID in the key makes a
+        // reboot re-read the device naturally.
+        var key = $"{location}#{configId}#{bootId}";
         var entry = _descriptions.GetOrAdd(
             key,
             _ => new Lazy<Task<DescribedDevice>>(() => FetchAndEvictOnFailureAsync(key, location)));

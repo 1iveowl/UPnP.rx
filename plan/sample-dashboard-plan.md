@@ -135,6 +135,18 @@ was missing: `DeviceCount` includes the root device, which the card itself repre
 embedded devices appear as sub-headers. The badge now says "N embedded" (count minus root)
 and node summaries say "embedded" too.
 
+## FluentUI Blazor doc-compliance review (2026-07-24, against the official repo README; PENDING AUTHOR DECISION - no changes applied)
+
+| # | Finding | Doc guidance vs. us | Recommendation |
+|---|---|---|---|
+| F1 | `AddFluentUIComponents()` registered in the **client only** | Docs register it in the server `Program.cs` (Blazor Server variants also need `AddHttpClient()` first). Nothing breaks today because our server-rendered pages (layout, error) use no Fluent components - but any future server-rendered Fluent usage would fail confusingly. | Add to server too (2 lines, future-proofs) |
+| F2 | **Web-components script tag absent** from `App.razor` | README says to add `...lib.module.js` (`type="module" async`) explicitly. It works for us anyway because Blazor Web App JS initializers auto-load it (verified working headlessly). | Leave as-is; revisit only if a component misbehaves - adding it risks double-loading alongside the initializer |
+| F3 | **No providers** in the layout | Docs list Toast/Dialog/Tooltip/MessageBar/Menu providers "at the end of MainLayout", with "remove those you are not using". We use none of those features → compliant. | Add `FluentToastProvider` only when the reconnect-toast backlog item lands |
+| F4 | **Shared static `Icon` instances** for sun/moon | Doc examples always create icons inline (`new Icons...()` per render); `Icon` instances can carry per-use state (e.g. color), so static sharing is off-pattern. | Switch to inline creation (trivial) |
+| F5 | `FluentSearch` uses `Immediate` without **`ImmediateDelay`** | The documented filter pattern debounces (e.g. 200 ms); we re-filter the DynamicData cache every keystroke. Harmless at LAN scale. | Add `ImmediateDelay="200"` (trivial) |
+| F6 | Hand-rolled cards/header instead of `FluentCard`/`FluentAccordion`/`FluentDataGrid` | Deliberate divergence, already recorded: custom accordion semantics + token CSS. Docs offer no rule against it. | Keep (conscious choice); `FluentDataGrid` noted as an alternative if the roster ever needs sorting/columns |
+| F7 | `reboot.css` linked via `@Assets` fingerprinting | Docs show a plain `/_content/...` link; ours is the `MapStaticAssets`-aware form. | Keep ours (better) |
+
 ## Iteration backlog (for author review)
 
 1. **Per-service action invocation** in the expanded view - SCPD-driven form via

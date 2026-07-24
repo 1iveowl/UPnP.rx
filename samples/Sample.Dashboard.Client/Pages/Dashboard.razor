@@ -1,0 +1,72 @@
+@page "/"
+@using Sample.Dashboard.Client.Services
+@using Sample.Dashboard.Client.ViewModels
+@inherits ReactiveUI.Blazor.ReactiveInjectableComponentBase<DashboardViewModel>
+@inject DeviceStreamClient Stream
+
+<PageTitle>UPnP.Rx dashboard</PageTitle>
+
+<FluentStack Orientation="Orientation.Vertical" VerticalGap="16">
+
+    <FluentStack VerticalAlignment="VerticalAlignment.Center" HorizontalGap="12">
+        <FluentLabel Typo="Typography.PageTitle">UPnP.Rx network dashboard</FluentLabel>
+        <FluentBadge Appearance="Appearance.Accent">@ViewModel!.Count device(s)</FluentBadge>
+        <FluentBadge>@ViewModel!.Status</FluentBadge>
+    </FluentStack>
+
+    @if (ViewModel!.Count == 0)
+    {
+        <FluentStack VerticalAlignment="VerticalAlignment.Center" HorizontalGap="12">
+            <FluentProgressRing />
+            <FluentLabel>Listening for devices - they appear here live as they announce themselves…</FluentLabel>
+        </FluentStack>
+    }
+
+    <FluentGrid Spacing="3">
+        @foreach (var device in ViewModel!.Devices)
+        {
+            <FluentGridItem xs="12" sm="6" lg="4">
+                <FluentCard>
+                    <FluentStack Orientation="Orientation.Vertical" VerticalGap="8">
+                        <FluentLabel Typo="Typography.Subject">@(device.FriendlyName ?? "(unnamed device)")</FluentLabel>
+                        <FluentLabel Typo="Typography.Body">@device.Manufacturer @device.Model</FluentLabel>
+                        <code style="font-size: 0.75rem;">@device.DeviceType</code>
+                        <FluentAnchor Href="@device.Location" Target="_blank" Appearance="Appearance.Hypertext">
+                            @device.Location
+                        </FluentAnchor>
+                        <FluentStack Wrap="true" HorizontalGap="4" VerticalGap="4">
+                            @foreach (var service in device.Services.Take(6))
+                            {
+                                <FluentBadge title="@service">@ShortName(service)</FluentBadge>
+                            }
+                            @if (device.Services.Length > 6)
+                            {
+                                <FluentBadge Appearance="Appearance.Neutral">+@(device.Services.Length - 6) more</FluentBadge>
+                            }
+                        </FluentStack>
+                        @if (device.DeviceCount > 1)
+                        {
+                            <FluentLabel Typo="Typography.Body">@device.DeviceCount devices in tree</FluentLabel>
+                        }
+                    </FluentStack>
+                </FluentCard>
+            </FluentGridItem>
+        }
+    </FluentGrid>
+
+</FluentStack>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await Stream.StartAsync();
+        await base.OnInitializedAsync();
+    }
+
+    // "urn:schemas-upnp-org:service:WANIPConnection:2" -> "WANIPConnection:2"
+    private static string ShortName(string serviceType)
+    {
+        var parts = serviceType.Split(':');
+        return parts.Length >= 2 ? $"{parts[^2]}:{parts[^1]}" : serviceType;
+    }
+}

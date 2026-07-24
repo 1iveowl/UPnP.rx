@@ -103,7 +103,10 @@ tests/UPnP.Rx.Tests/
 
 samples/
 ├── Sample.PortMapper/         # ✅ discover gateway, external IP, list mappings, --map demo
-└── Sample.Browser/            # ✅ discover everything, dump device trees + services
+├── Sample.Browser/            # ✅ discover everything, dump device trees + services
+├── Sample.Dashboard/          # ✅ Blazor host: SSDP listening + SignalR hub with roster replay
+│                              #    (design + backlog: plan/sample-dashboard-plan.md)
+└── Sample.Dashboard.Client/   # ✅ WASM: SignalR → DynamicData → ReactiveUI → FluentUI cards
 ```
 
 ## Key seams (for tests and consumers)

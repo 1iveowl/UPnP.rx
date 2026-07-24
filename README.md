@@ -222,8 +222,9 @@ var args = scpd.ValidateAndOrderArguments("AddPortMapping", myArguments);
 
 - [`samples/Sample.PortMapper`](samples/Sample.PortMapper) - discover the gateway, print the external IP and mapping table; `--map` holds an auto-renewing mapping.
 - [`samples/Sample.Browser`](samples/Sample.Browser) - discover everything on the network and dump device trees and services.
+- [`samples/Sample.Dashboard`](samples/Sample.Dashboard) - a Blazor + FluentUI dashboard: the server does the SSDP listening and streams the roster over SignalR; the WebAssembly client renders live device cards through DynamicData + ReactiveUI. Devices appear and vanish as they join and leave the network - Rx end to end. `dotnet run --project samples/Sample.Dashboard`.
 
-Both need a real network (multicast does not work in containers).
+All need a real network (multicast does not work in containers).
 
 ## About this project
 

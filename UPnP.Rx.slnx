@@ -8,5 +8,7 @@
   <Folder Name="/samples/">
     <Project Path="samples/Sample.PortMapper/Sample.PortMapper.csproj" />
     <Project Path="samples/Sample.Browser/Sample.Browser.csproj" />
+    <Project Path="samples/Sample.Dashboard/Sample.Dashboard.csproj" />
+    <Project Path="samples/Sample.Dashboard.Client/Sample.Dashboard.Client.csproj" />
   </Folder>
 </Solution>

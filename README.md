@@ -222,9 +222,32 @@ var args = scpd.ValidateAndOrderArguments("AddPortMapping", myArguments);
 
 - [`samples/Sample.PortMapper`](samples/Sample.PortMapper) - discover the gateway, print the external IP and mapping table; `--map` holds an auto-renewing mapping.
 - [`samples/Sample.Browser`](samples/Sample.Browser) - discover everything on the network and dump device trees and services.
-- [`samples/Sample.Dashboard`](samples/Sample.Dashboard) - a Blazor + FluentUI dashboard: the server does the SSDP listening and streams the roster over SignalR; the WebAssembly client renders live device cards through DynamicData + ReactiveUI. Devices appear and vanish as they join and leave the network - Rx end to end. `dotnet run --project samples/Sample.Dashboard`.
+- [`samples/Sample.Dashboard`](samples/Sample.Dashboard) - a Blazor + FluentUI dashboard: live device cards that appear and vanish as devices join and leave the network - Rx end to end. See below.
 
 All need a real network (multicast does not work in containers).
+
+### Running the dashboard
+
+One command runs everything - the server hosts the WebAssembly client, so there
+is nothing separate to start:
+
+```bash
+dotnet run --project samples/Sample.Dashboard
+```
+
+Then open **http://localhost:5287** (or the HTTPS URL from the console output).
+
+How it fits together: the *server* process is the only thing touching the
+network - it owns the `UpnpClient`, does the SSDP listening (which the browser
+sandbox cannot), and streams `DeviceUp`/`DeviceGone` over a SignalR hub that
+replays the current roster to every newly connected browser. The *client* runs
+as WebAssembly in your browser: SignalR feeds a DynamicData cache, bound
+through a ReactiveUI view model into FluentUI cards. Open the page from any
+machine that can reach the server - phones included.
+
+The usual multicast rules apply to the **server** process: run it on a real
+host (not a container), and on Windows pause the "SSDP Discovery" service
+first (`net stop SSDPSRV`, elevated - see [Troubleshooting](#troubleshooting)).
 
 ## About this project
 

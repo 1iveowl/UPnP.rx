@@ -35,6 +35,25 @@ public sealed record UpnpClientOptions
     public TimeSpan ActionTimeout { get; init; } = TimeSpan.FromSeconds(30);
 
     /// <summary>
+    /// The local TCP port for the GENA event callback listener; 0 (the default)
+    /// binds an ephemeral port. Set a fixed port for firewall rules.
+    /// </summary>
+    public int EventCallbackPort { get; init; }
+
+    /// <summary>
+    /// The subscription duration requested from devices (<c>TIMEOUT: Second-n</c>);
+    /// the granted value is renewed automatically at half-life.
+    /// </summary>
+    public TimeSpan EventSubscriptionTimeout { get; init; } = TimeSpan.FromMinutes(30);
+
+    /// <summary>
+    /// Whether event subscriptions recover automatically from renewal failures
+    /// and SEQ gaps (surfaced as <c>RenewalFailed</c>/<c>Resubscribed</c>/<c>GapDetected</c>
+    /// events). When off, such failures terminate the stream with <c>OnError</c>.
+    /// </summary>
+    public bool AutoResubscribe { get; init; } = true;
+
+    /// <summary>
     /// The clock all timeouts run on; inject a fake in tests. Init-only by design
     /// (a settable clock is mutable ambient state — see plan §9).
     /// </summary>

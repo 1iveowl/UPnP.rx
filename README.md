@@ -238,14 +238,14 @@ demanding fundamental changes; even those, though, were far faster to refactor
 with AI in the loop. What did not change is the bar: the project plan, the
 settled policies (time model, disposal model, Rx rules), the UDA 2.0 compliance
 review and an adversarial pre-release code review are all in this repo — the
-same rigor as the hand-built siblings, applied faster.
+same attention to detail and focus as the hand-built siblings, applied faster.
 
 Everything that steered the work ships with the repo, on purpose: the agent
 instructions ([CLAUDE.md](CLAUDE.md) / [AGENTS.md](AGENTS.md)) and the full
 plan, decision record and reviews under [plan/](plan/). If there is one lesson
 from building this way, it is that **getting those specs right is the key** —
 the quality of what AI produces tracks the quality of the plan and the rules
-you hold it to.
+set up front.
 
 ## Version history
 

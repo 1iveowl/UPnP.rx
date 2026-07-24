@@ -76,14 +76,27 @@ public static class DescriptionParser
         var configId = ParseConfigId(root);
 
         return ParseResult<DeviceDescription>.Success(
-            ParseDevice(deviceElement, location, baseUrl, specVersion, configId));
+            ParseDevice(deviceElement, location, baseUrl, specVersion, configId, depth: 0));
     }
+
+    /// <summary>
+    /// Embedded-device recursion cap. Real trees are ~3 deep (IGD); a hostile or
+    /// absurdly broken document must not be able to overflow the stack — deeper
+    /// nesting is truncated, keeping the parser total.
+    /// </summary>
+    private const int _maxDeviceDepth = 16;
 
     private static XDocument Parse(string xml) => XDocument.Parse(xml, LoadOptions.None);
 
-    /// <summary>UDA 2.0 resolves against LOCATION; a UDA 1.0-era absolute <c>URLBase</c> wins when a device ships one.</summary>
+    /// <summary>
+    /// UDA 2.0 resolves against LOCATION; a UDA 1.0-era <c>URLBase</c> wins when a
+    /// device ships a usable (absolute http/https) one. A relative or non-HTTP
+    /// URLBase is ignored — on Unix, <c>Uri.TryCreate("/x", Absolute)</c> would
+    /// otherwise succeed as <c>file:///x</c> and poison every resolved URL.
+    /// </summary>
     private static Uri ResolveBaseUrl(XElement root, Uri location) =>
         Uri.TryCreate(XmlLeniency.Token(root, "URLBase"), UriKind.Absolute, out var urlBase)
+        && urlBase.Scheme is "http" or "https"
             ? urlBase
             : location;
 
@@ -116,7 +129,8 @@ public static class DescriptionParser
         Uri location,
         Uri baseUrl,
         SpecVersion? specVersion,
-        int? configId)
+        int? configId,
+        int depth)
     {
         var serviceList = XmlLeniency.Child(device, "serviceList");
         var deviceList = XmlLeniency.Child(device, "deviceList");
@@ -146,10 +160,10 @@ public static class DescriptionParser
             Services = serviceList is null
                 ? []
                 : [.. XmlLeniency.Children(serviceList, "service").Select(service => ParseService(service, baseUrl))],
-            EmbeddedDevices = deviceList is null
+            EmbeddedDevices = deviceList is null || depth >= _maxDeviceDepth
                 ? []
                 : [.. XmlLeniency.Children(deviceList, "device")
-                        .Select(embedded => ParseDevice(embedded, location, baseUrl, specVersion, configId))]
+                        .Select(embedded => ParseDevice(embedded, location, baseUrl, specVersion, configId, depth + 1))]
         };
     }
 

@@ -173,6 +173,47 @@ public class UpnpClientTests
     }
 
     [Fact]
+    public async Task GetDescriptionAsync_FailedFetch_IsNotCachedForever()
+    {
+        // Review finding: negative caching. A transient failure must be retried
+        // on the next call, not poison the device for the client's lifetime.
+        var (client, controlPoint, http) = CreateClient();
+        await using var _1 = client;
+        // Location intentionally unmapped → 404 → HttpRequestException → UpnpException.
+
+        var seen = new List<DiscoveredDevice>();
+        using var subscription = client.DiscoverDevices().Subscribe(seen.Add);
+        controlPoint.Responses.OnNext(Response());
+
+        await Assert.ThrowsAsync<UpnpException>(
+            () => seen[0].GetDescriptionAsync(TestContext.Current.CancellationToken));
+
+        http.Map(Location, Fixture("new_LiveBox_desc.xml"));            // device recovers
+
+        var described = await seen[0].GetDescriptionAsync(TestContext.Current.CancellationToken);
+        Assert.Equal("Orange Livebox", described.Description.FriendlyName);
+    }
+
+    [Fact]
+    public async Task GetScpdAsync_FailedFetch_IsRetriedOnNextCall()
+    {
+        var (client, controlPoint, http) = CreateClient();
+        await using var _1 = client;
+        http.Map(Location, Fixture("linksys_WAG200G_desc.xml"));
+
+        var device = await DescribedLinksysAsync(controlPoint, client);
+        var wan = device.Service("WANPPPConnection");
+        // SCPD URL intentionally unmapped → failure…
+
+        await Assert.ThrowsAsync<UpnpException>(() => wan.GetScpdAsync(TestContext.Current.CancellationToken));
+
+        http.Map("http://192.168.1.1:49152/pppcfg.xml", Fixture("wanipconnection1_scpd.xml"));
+
+        var scpd = await wan.GetScpdAsync(TestContext.Current.CancellationToken);
+        Assert.Contains(scpd.Actions, a => a.Name == "AddPortMapping");
+    }
+
+    [Fact]
     public async Task GetDescriptionAsync_UnparsableDocument_ThrowsUpnpException()
     {
         var (client, controlPoint, http) = CreateClient();

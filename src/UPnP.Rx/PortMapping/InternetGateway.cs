@@ -146,12 +146,14 @@ public sealed class InternetGateway : IAsyncDisposable, IDisposable
     /// <summary>
     /// Enumerates the gateway's port mappings via
     /// <c>GetGenericPortMappingEntry</c>. Enumeration ends at the gateway's first
-    /// fault (713 SpecifiedArrayIndexInvalid per spec; devices vary — leniency).
+    /// fault (713 SpecifiedArrayIndexInvalid per spec; devices vary — leniency),
+    /// or at 65 535 entries as a guard against broken gateways that answer every
+    /// index forever.
     /// </summary>
     public async IAsyncEnumerable<PortMappingEntry> GetPortMappingsAsync(
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        for (var index = 0; ; index++)
+        for (var index = 0; index <= ushort.MaxValue; index++)
         {
             ActionResult entry;
 

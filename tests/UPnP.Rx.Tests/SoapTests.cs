@@ -148,6 +148,42 @@ public class SoapParserTests
     }
 
     [Fact]
+    public void DuplicateOutArguments_AreLenientlyDeduplicated()
+    {
+        // Real-world malformation: repeated (case-variant) out-arguments must not
+        // make the total parser throw — first occurrence wins.
+        const string xml = """
+            <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+              <s:Body><u:GetXResponse xmlns:u="urn:x">
+                <NewValue>first</NewValue><newvalue>second</newvalue>
+              </u:GetXResponse></s:Body>
+            </s:Envelope>
+            """;
+
+        var result = SoapParser.ParseActionResponse(xml, "GetX");
+
+        Assert.True(result.IsSuccess, result.Error);
+        Assert.Equal("first", result.Value["NewValue"]);
+    }
+
+    [Fact]
+    public void SuccessBodyContainingUpnpErrorElement_IsNotAFault()
+    {
+        // A device echoing error info inside a successful response must not be
+        // misclassified: ParseFault requires an actual Fault element.
+        const string xml = """
+            <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+              <s:Body><u:GetLastErrorResponse xmlns:u="urn:x">
+                <UPnPError><errorCode>718</errorCode></UPnPError>
+              </u:GetLastErrorResponse></s:Body>
+            </s:Envelope>
+            """;
+
+        Assert.False(SoapParser.ParseFault(xml).IsSuccess);
+        Assert.True(SoapParser.ParseActionResponse(xml, "GetLastError").IsSuccess);
+    }
+
+    [Fact]
     public void FaultWithoutUpnpError_Fails()
     {
         const string xml = """

@@ -31,7 +31,9 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
     private readonly CancellationTokenSource _lifetime = new();
     private readonly ConcurrentDictionary<string, Lazy<Task<DescribedDevice>>> _descriptions = new();
     private readonly Lock _startLock = new();
-    private bool _disposed;
+    private int _disposed;
+
+    private bool IsDisposed => Volatile.Read(ref _disposed) != 0;
 
     /// <summary>
     /// Creates a client that owns an SSDP control point bound to the given local
@@ -57,7 +59,9 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
         _addresses = [.. addresses];
         _controlPoint = new ControlPoint(addresses);
         _ownsControlPoint = true;
-        _httpClient = new HttpClient();
+        // All timeouts run on options.TimeProvider (time model); HttpClient's own
+        // wall-clock timer must not be a hidden second clock capping them at 100 s.
+        _httpClient = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
         _ownsHttpClient = true;
     }
 
@@ -80,7 +84,7 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
 
         _controlPoint = controlPoint;
         _ownsControlPoint = false;
-        _httpClient = httpClient ?? new HttpClient();
+        _httpClient = httpClient ?? new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
         _ownsHttpClient = httpClient is null;
         _options = options ?? new UpnpClientOptions();
         _addresses = [.. addresses];
@@ -103,7 +107,7 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
     public IObservable<DiscoveredDevice> DiscoverDevices(ST? searchTarget = null, TimeSpan? mx = null) =>
         Observable.Defer(() =>
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
             EnsureStarted();
 
             var discovered = _controlPoint
@@ -126,11 +130,22 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
                 // Subscribe before searching so no response outruns us.
                 var subscription = discovered.Subscribe(observer);
 
-                await SendSearchesAsync(
-                        searchTarget ?? _options.DefaultSearchTarget,
-                        mx ?? _options.DefaultMx,
-                        ct)
-                    .ConfigureAwait(false);
+                try
+                {
+                    await SendSearchesAsync(
+                            searchTarget ?? _options.DefaultSearchTarget,
+                            mx ?? _options.DefaultMx,
+                            ct)
+                        .ConfigureAwait(false);
+                }
+                catch
+                {
+                    // If the subscribe task faults or is cancelled, Rx never
+                    // receives the returned disposable — dispose it ourselves or
+                    // the shared RefCount streams leak a subscriber forever.
+                    subscription.Dispose();
+                    throw;
+                }
 
                 return subscription;
             });
@@ -144,7 +159,7 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
     public IObservable<DiscoveredDevice> DeviceLost() =>
         Observable.Defer(() =>
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
             EnsureStarted();
 
             return _controlPoint
@@ -157,15 +172,14 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
                         new UpnpException("A device-lost notice carries no description location."))));
         });
 
-    /// <summary>Stops discovery and releases owned resources (the abrupt path of the disposal model).</summary>
+    /// <summary>Stops discovery and releases owned resources (the abrupt path of the disposal model). Idempotent and thread-safe.</summary>
     public void Dispose()
     {
-        if (_disposed)
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
             return;
         }
 
-        _disposed = true;
         _lifetime.Cancel();
         _lifetime.Dispose();
 
@@ -258,15 +272,30 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
 
     private Task<DescribedDevice> GetOrFetchDescriptionAsync(Uri location, int? configId, CancellationToken ct)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
 
         // Cached by LOCATION + CONFIGID: a changed configuration number means a
         // changed description, so it gets its own entry.
+        var key = $"{location}#{configId}";
         var entry = _descriptions.GetOrAdd(
-            $"{location}#{configId}",
-            _ => new Lazy<Task<DescribedDevice>>(() => FetchDescriptionAsync(location)));
+            key,
+            _ => new Lazy<Task<DescribedDevice>>(() => FetchAndEvictOnFailureAsync(key, location)));
 
         return entry.Value.WaitAsync(ct);
+    }
+
+    /// <summary>Only successful descriptions stay cached — a transient fetch failure must not poison the device forever.</summary>
+    private async Task<DescribedDevice> FetchAndEvictOnFailureAsync(string key, Uri location)
+    {
+        try
+        {
+            return await FetchDescriptionAsync(location).ConfigureAwait(false);
+        }
+        catch
+        {
+            _descriptions.TryRemove(key, out _);
+            throw;
+        }
     }
 
     private async Task<DescribedDevice> FetchDescriptionAsync(Uri location)

@@ -142,6 +142,49 @@ public class DescriptionParserTests
         Assert.Equal(new Uri("http://10.0.0.5:8080/dev/dummy.xml"), service.ScpdUrl);
     }
 
+    [Fact]
+    public void RelativeUrlBase_IsIgnoredInFavorOfLocation()
+    {
+        // On Unix, Uri.TryCreate("/upnp", Absolute) succeeds as file:///upnp —
+        // a relative or non-HTTP URLBase must not poison resolution.
+        const string xml = """
+            <root xmlns="urn:schemas-upnp-org:device-1-0">
+              <URLBase>/upnp</URLBase>
+              <device>
+                <deviceType>urn:schemas-upnp-org:device:Basic:1</deviceType><UDN>uuid:x</UDN>
+                <serviceList><service>
+                  <serviceType>urn:schemas-upnp-org:service:Dummy:1</serviceType>
+                  <controlURL>/ctl</controlURL>
+                </service></serviceList>
+              </device>
+            </root>
+            """;
+
+        var result = DescriptionParser.ParseDeviceDescription(xml, new Uri("http://10.0.0.1:49152/d.xml"));
+
+        Assert.True(result.IsSuccess, result.Error);
+        Assert.Equal(new Uri("http://10.0.0.1:49152/d.xml"), result.Value.BaseUrl);
+        Assert.Equal(new Uri("http://10.0.0.1:49152/ctl"), result.Value.Services[0].ControlUrl);
+    }
+
+    [Fact]
+    public void AbsurdlyDeepDeviceNesting_IsTruncatedNotFatal()
+    {
+        // A hostile document must not overflow the stack; nesting beyond the cap
+        // is truncated and the parser stays total.
+        const int depth = 10_000;
+        var xml = "<root xmlns=\"urn:schemas-upnp-org:device-1-0\">"
+            + string.Concat(Enumerable.Repeat("<device><deviceType>urn:d</deviceType><deviceList>", depth))
+            + "<device><UDN>uuid:innermost</UDN></device>"
+            + string.Concat(Enumerable.Repeat("</deviceList></device>", depth))
+            + "</root>";
+
+        var result = DescriptionParser.ParseDeviceDescription(xml, new Uri("http://10.0.0.1/d.xml"));
+
+        Assert.True(result.IsSuccess, result.Error);
+        Assert.Equal(17, result.Value.SelfAndDescendants().Count());   // root + 16 levels
+    }
+
     // ---- UDA 2.0 configId ----
 
     [Fact]

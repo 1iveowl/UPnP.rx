@@ -9,8 +9,6 @@ namespace UPnP.Rx;
 /// </summary>
 public sealed class DescribedDevice
 {
-    private readonly List<(DeviceDescription Device, UpnpService Service)> _services;
-
     internal DescribedDevice(
         DeviceDescription description,
         HttpClient httpClient,
@@ -18,20 +16,20 @@ public sealed class DescribedDevice
         CancellationToken lifetime)
     {
         Description = description;
-        _services =
+        Services =
         [
             .. description
                 .SelfAndDescendants()
-                .SelectMany(device => device.Services.Select(service =>
-                    (device, new UpnpService(service, httpClient, options, lifetime))))
+                .SelectMany(device => device.Services)
+                .Select(service => new UpnpService(service, httpClient, options, lifetime))
         ];
     }
 
     /// <summary>The parsed description document: the root device and its tree.</summary>
     public DeviceDescription Description { get; }
 
-    /// <summary>Every service in the device tree (root and embedded devices), in document order.</summary>
-    public IReadOnlyList<UpnpService> Services => [.. _services.Select(s => s.Service)];
+    /// <summary>Every service in the device tree (root and embedded devices), in document order. Stable instances — built once.</summary>
+    public IReadOnlyList<UpnpService> Services { get; }
 
     /// <summary>
     /// Whether any service in the device tree matches
@@ -56,9 +54,7 @@ public sealed class DescribedDevice
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(serviceTypeOrId);
 
-        return _services
-            .Select(s => s.Service)
-            .FirstOrDefault(service => Matches(service.Description, serviceTypeOrId));
+        return Services.FirstOrDefault(service => Matches(service.Description, serviceTypeOrId));
     }
 
     private static bool Matches(ServiceDescription service, string query) =>

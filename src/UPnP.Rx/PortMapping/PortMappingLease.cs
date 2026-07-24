@@ -26,7 +26,7 @@ public sealed class PortMappingLease : IAsyncDisposable, IDisposable
     private readonly Subject<PortMappingEvent> _events = new();
     private readonly Task _renewalLoop;
     private InternetGateway? _ownedGateway;
-    private bool _disposed;
+    private int _disposed;
 
     /// <summary>Makes this lease own (and dispose) the whole discovery chain — used by the PortMapper one-liner.</summary>
     internal PortMappingLease AttachOwnedGateway(InternetGateway gateway)
@@ -55,15 +55,14 @@ public sealed class PortMappingLease : IAsyncDisposable, IDisposable
     /// </summary>
     public IObservable<PortMappingEvent> Events => _events.AsObservable();
 
-    /// <summary>Graceful: stop renewing and delete the mapping from the gateway (delete failures are logged, not thrown).</summary>
+    /// <summary>Graceful: stop renewing and delete the mapping from the gateway (delete failures are logged, not thrown). Idempotent and thread-safe.</summary>
     public async ValueTask DisposeAsync()
     {
-        if (_disposed)
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
             return;
         }
 
-        _disposed = true;
         await _cts.CancelAsync().ConfigureAwait(false);
         await _renewalLoop.ConfigureAwait(false);
 
@@ -91,19 +90,21 @@ public sealed class PortMappingLease : IAsyncDisposable, IDisposable
     /// <summary>
     /// Abrupt: stop renewing only — no network goodbye (disposal model rule 4).
     /// The finite lease expires on the router by itself. Prefer <c>await using</c>.
+    /// Idempotent and thread-safe.
     /// </summary>
     public void Dispose()
     {
-        if (_disposed)
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
             return;
         }
 
-        _disposed = true;
         _cts.Cancel();
+        // The renewal loop may still be mid-iteration: completing the subject is
+        // safe (post-terminal OnNext is a no-op), but disposing it — or the CTS —
+        // here would race the loop into ObjectDisposedException on an unobserved
+        // task. The abrupt path leaves both for the loop's end / the GC.
         _events.OnCompleted();
-        _events.Dispose();
-        _cts.Dispose();
         _ownedGateway?.Dispose();
     }
 
@@ -130,8 +131,12 @@ public sealed class PortMappingLease : IAsyncDisposable, IDisposable
                     expiredEmitted = false;
                     _events.OnNext(new PortMappingEvent { Kind = PortMappingEventKind.Renewed });
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException) when (_cts.IsCancellationRequested)
                 {
+                    // Our own disposal — exit quietly. External cancellation (e.g.
+                    // the owning UpnpClient was disposed under a live lease) falls
+                    // through to the failure branch below so it stays VISIBLE:
+                    // renewals failing silently is how port forwards die unnoticed.
                     throw;
                 }
                 catch (Exception e)

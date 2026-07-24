@@ -23,7 +23,8 @@ public sealed class UpnpService
     private readonly HttpClient _httpClient;
     private readonly UpnpClientOptions _options;
     private readonly CancellationToken _lifetime;
-    private readonly Lazy<Task<Scpd>> _scpd;
+    private readonly Lock _scpdLock = new();
+    private Task<Scpd>? _scpdTask;
 
     internal UpnpService(
         ServiceDescription description,
@@ -35,7 +36,6 @@ public sealed class UpnpService
         _httpClient = httpClient;
         _options = options;
         _lifetime = lifetime;
-        _scpd = new Lazy<Task<Scpd>>(FetchScpdAsync);
     }
 
     /// <summary>The service entry from the device description document.</summary>
@@ -43,11 +43,26 @@ public sealed class UpnpService
 
     /// <summary>
     /// The service's SCPD, fetched from <see cref="ServiceDescription.ScpdUrl"/>
-    /// and cached for the lifetime of this instance.
+    /// and cached for the lifetime of this instance. Only a successful fetch is
+    /// cached — a transient failure is retried on the next call.
     /// </summary>
     /// <exception cref="UpnpException">The service declares no SCPD URL, the fetch fails, or the document is not parsable.</exception>
-    public async Task<Scpd> GetScpdAsync(CancellationToken ct = default) =>
-        await _scpd.Value.WaitAsync(ct).ConfigureAwait(false);
+    public async Task<Scpd> GetScpdAsync(CancellationToken ct = default)
+    {
+        Task<Scpd> task;
+
+        lock (_scpdLock)
+        {
+            if (_scpdTask is null || _scpdTask.IsFaulted || _scpdTask.IsCanceled)
+            {
+                _scpdTask = FetchScpdAsync();
+            }
+
+            task = _scpdTask;
+        }
+
+        return await task.WaitAsync(ct).ConfigureAwait(false);
+    }
 
     /// <summary>
     /// Invokes a SOAP action on the service (<c>POST</c> to

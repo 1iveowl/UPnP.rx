@@ -59,11 +59,15 @@ public static class SoapParser
 
             return ParseResult<ActionResult>.Success(new ActionResult
             {
+                // Group first: devices have been seen repeating out-arguments
+                // (also with different casing) — first occurrence wins, the
+                // parser stays total.
                 Out = response.Elements()
                     .Where(e => e.Name.LocalName.Length > 0)
+                    .GroupBy(e => e.Name.LocalName, StringComparer.OrdinalIgnoreCase)
                     .ToFrozenDictionary(
-                        e => e.Name.LocalName,
-                        e => e.Value.Trim(),
+                        g => g.Key,
+                        g => g.First().Value.Trim(),
                         StringComparer.OrdinalIgnoreCase)
             });
         }
@@ -87,8 +91,19 @@ public static class SoapParser
             return ParseResult<UpnpError>.Failure(error);
         }
 
-        // Search the whole document rather than the strict
-        // Body/Fault/detail/UPnPError path — devices nest the error sloppily.
+        // Require an actual Fault element — otherwise a successful response that
+        // merely embeds an element named UPnPError would be misread as a fault.
+        var faultElement = document
+            .Descendants()
+            .FirstOrDefault(e => string.Equals(e.Name.LocalName, "Fault", StringComparison.OrdinalIgnoreCase));
+
+        if (faultElement is null)
+        {
+            return ParseResult<UpnpError>.Failure("The document contains no SOAP Fault element.");
+        }
+
+        // Within a faulted document, search the whole tree rather than the strict
+        // Fault/detail/UPnPError path — devices nest the error sloppily.
         var upnpError = document
             .Descendants()
             .FirstOrDefault(e => string.Equals(e.Name.LocalName, "UPnPError", StringComparison.OrdinalIgnoreCase));

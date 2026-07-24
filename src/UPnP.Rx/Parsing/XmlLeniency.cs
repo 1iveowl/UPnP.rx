@@ -59,12 +59,14 @@ internal static partial class XmlLeniency
     /// <summary>
     /// Resolves <paramref name="raw"/> (absolute or relative) against
     /// <paramref name="baseUrl"/>, returning <see langword="null"/> when the value
-    /// is absent or does not form an absolute URI.
+    /// is absent or does not form an absolute http/https URI (leniency: a botched
+    /// URL is an unset field, and non-HTTP schemes are unusable for UPnP anyway).
     /// </summary>
     internal static Uri? AbsoluteUri(Uri baseUrl, string? raw) =>
         raw is not null
         && Uri.TryCreate(baseUrl, raw, out var resolved)
         && resolved.IsAbsoluteUri
+        && resolved.Scheme is "http" or "https"
             ? resolved
             : null;
 

@@ -10,8 +10,22 @@ namespace Sample.Dashboard.Hubs;
 /// each newly connected client so late joiners see the full picture; and serves
 /// on-demand SCPD detail when the user unfolds a service.
 /// </summary>
-public sealed class DeviceHub(DeviceRoster roster) : Hub
+public sealed class DeviceHub(DeviceRoster roster, GatewayService gatewayService) : Hub
 {
+    /// <summary>The gateway's identity + WAN state, or null when none answered the search.</summary>
+    public Task<Client.Models.GatewayDto?> GetGatewayInfo() => gatewayService.GetGatewayInfoAsync();
+
+    /// <summary>The gateway's current port-mapping table.</summary>
+    public Task<Client.Models.PortMappingDto[]> GetPortMappings() => gatewayService.GetPortMappingsAsync();
+
+    /// <summary>Creates an auto-renewing mapping held by the server; returns an error message or null.</summary>
+    public Task<string?> AddPortMapping(ushort externalPort, ushort internalPort, string protocol, string description, int leaseMinutes) =>
+        gatewayService.AddPortMappingAsync(externalPort, internalPort, protocol, description, leaseMinutes);
+
+    /// <summary>Deletes a mapping; returns an error message or null.</summary>
+    public Task<string?> DeletePortMapping(ushort externalPort, string protocol) =>
+        gatewayService.DeletePortMappingAsync(externalPort, protocol);
+
     public override async Task OnConnectedAsync()
     {
         foreach (var device in roster.Devices.Values)

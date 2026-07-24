@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using DynamicData;
@@ -23,6 +24,7 @@ public sealed class DashboardViewModel : ReactiveObject, IDisposable
     private readonly ObservableAsPropertyHelper<int> _count;
     private readonly ObservableAsPropertyHelper<int> _revision;
     private readonly ObservableAsPropertyHelper<string> _status;
+    private readonly ObservableAsPropertyHelper<bool> _showHints;
     private string _filter = string.Empty;
 
     public DashboardViewModel(DeviceStreamClient client)
@@ -53,6 +55,23 @@ public sealed class DashboardViewModel : ReactiveObject, IDisposable
         _status = client.State
             .ToProperty(this, vm => vm.Status, initialValue: "connecting…");
         _cleanup.Add(_status);
+
+        // Declarative empty-state hints: visible once 5 s have passed AND the
+        // roster is still empty - and gone again the moment a device shows up.
+        // Explicit scheduler per the house time-model heuristic (a TimeSpan
+        // operator never rides the implicit default); the sample deliberately
+        // runs the real clock - it has no FakeTimeProvider tests. (WASM is
+        // single-threaded, so DefaultScheduler's timer callbacks land on the
+        // one thread anyway; ReactiveUI's own scheduler type trips a WasmRuntime
+        // type initializer here.)
+        _showHints = Observable
+            .Timer(TimeSpan.FromSeconds(5), DefaultScheduler.Instance)
+            .Select(_ => true)
+            .StartWith(false)
+            .CombineLatest(client.Devices.CountChanged, (elapsed, count) => elapsed && count == 0)
+            .DistinctUntilChanged()
+            .ToProperty(this, vm => vm.ShowHints);
+        _cleanup.Add(_showHints);
     }
 
     /// <summary>The roster: filtered, sorted by friendly name.</summary>
@@ -66,6 +85,9 @@ public sealed class DashboardViewModel : ReactiveObject, IDisposable
 
     /// <summary>Hub connection state.</summary>
     public string Status => _status.Value;
+
+    /// <summary>True when the network has stayed empty for ~5 s - shows the troubleshooting hints.</summary>
+    public bool ShowHints => _showHints.Value;
 
     /// <summary>Search text; filters by name, manufacturer or device type.</summary>
     public string Filter

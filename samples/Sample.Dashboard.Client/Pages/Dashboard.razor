@@ -12,23 +12,11 @@
 
 <PageTitle>UPnP.Rx dashboard</PageTitle>
 
-@* The token source: flips every design token (and our token-based CSS) between
-   light and dark. Mode System follows the OS/browser preference; OnLoaded and
-   OnLuminanceChanged report the EFFECTIVE luminance so the toggle icon always
-   matches what is on screen. The user's explicit choice persists in localStorage. *@
-@* CustomColor gives the app its own accent (cyan-teal - every accent token
-   follows it in both modes); swap for OfficeColor="OfficeColor.Teams" etc. to
-   use the Office palette instead. *@
-<FluentDesignTheme @bind-Mode="_mode"
-                   CustomColor="#0891b2"
-                   StorageName="upnprx-theme"
-                   OnLoaded="OnThemeLoaded"
-                   OnLuminanceChanged="OnThemeLuminance" />
-
 <ErrorBoundary>
     <ChildContent>
+        <DashNav Active="network" />
+
         <div class="dash-header">
-            <h1 class="dash-title">UPnP.Rx network dashboard</h1>
             <FluentBadge Appearance="Appearance.Accent">@ViewModel!.Count device(s)</FluentBadge>
             <FluentBadge>@ViewModel!.Status</FluentBadge>
             <div class="dash-tools">
@@ -37,12 +25,6 @@
                               ImmediateDelay="200"
                               Value="@ViewModel!.Filter"
                               ValueChanged="@(value => ViewModel!.Filter = value ?? string.Empty)" />
-                <FluentButton Appearance="Appearance.Stealth"
-                              Title="@(_isDark ? "Switch to light mode" : "Switch to dark mode")"
-                              aria-label="Toggle dark mode"
-                              OnClick="ToggleTheme">
-                    <FluentIcon Value="@ThemeIcon(_isDark)" />
-                </FluentButton>
             </div>
         </div>
 
@@ -50,8 +32,27 @@
         {
             <FluentStack VerticalAlignment="VerticalAlignment.Center" HorizontalGap="12">
                 <FluentProgressRing />
-                <FluentLabel>Listening for devices - they appear here live as they announce themselves…</FluentLabel>
+                <FluentLabel>Scanning the network - devices appear here live as they announce themselves…</FluentLabel>
             </FluentStack>
+
+            @if (ViewModel!.ShowHints)
+            {
+                <div class="hint-panel">
+                    <strong>Nothing found yet - the server keeps scanning.</strong> Things to check meanwhile:
+                    <ul>
+                        <li>
+                            <strong>On Windows</strong>, the built-in "SSDP Discovery" service (SSDPSRV) occupies
+                            UDP 1900 and keeps clients from seeing responses. Pause it while discovering
+                            (elevated prompt), and resume it when done:
+                            <pre>net stop SSDPSRV
+net start SSDPSRV</pre>
+                        </li>
+                        <li>Running the <em>server</em> inside Docker/WSL/a devcontainer? Multicast doesn't work there - run it on the host.</li>
+                        <li>Is a VPN active? Its interface may not reach the LAN - try disconnecting.</li>
+                        <li>Some networks block SSDP (AP isolation, IGMP snooping) - try wired or another network.</li>
+                    </ul>
+                </div>
+            }
         }
 
         @foreach (var device in ViewModel!.Devices.ToArray())
@@ -98,15 +99,7 @@
 </ErrorBoundary>
 
 @code {
-    // Doc pattern (review F4): icons are created per render, never shared -
-    // Icon instances can carry per-use state such as color.
-    private static Icon ThemeIcon(bool isDark) => isDark
-        ? new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.WeatherSunny()
-        : new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.WeatherMoon();
-
     private readonly HashSet<string> _open = [];
-    private DesignThemeModes _mode = DesignThemeModes.System;   // follow the OS until the user chooses
-    private bool _isDark;
 
     private void Toggle(string key)
     {
@@ -116,14 +109,6 @@
         }
     }
 
-    // Both report the EFFECTIVE luminance - including what mode System resolved to.
-    private void OnThemeLoaded(LoadedEventArgs args) => _isDark = args.IsDark;
-
-    private void OnThemeLuminance(LuminanceChangedEventArgs args) => _isDark = args.IsDark;
-
-    private void ToggleTheme() =>
-        _mode = _isDark ? DesignThemeModes.Light : DesignThemeModes.Dark;
-
     protected override async Task OnInitializedAsync()
     {
         await Stream.StartAsync();
@@ -132,6 +117,5 @@
 
     // The base class cannot be shown to dispose the injected (transient) view
     // model; dispose it explicitly or its cache subscriptions outlive the page.
-    // CompositeDisposable tolerates double-dispose if the base does it too.
     void IDisposable.Dispose() => ViewModel?.Dispose();
 }

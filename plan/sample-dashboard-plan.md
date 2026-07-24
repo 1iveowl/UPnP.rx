@@ -147,7 +147,34 @@ and node summaries say "embedded" too.
 | F6 | Hand-rolled cards/header instead of `FluentCard`/`FluentAccordion`/`FluentDataGrid` | Deliberate divergence, already recorded: custom accordion semantics + token CSS. Docs offer no rule against it. | Keep (conscious choice); `FluentDataGrid` noted as an alternative if the roster ever needs sorting/columns |
 | F7 | `reboot.css` linked via `@Assets` fingerprinting | Docs show a plain `/_content/...` link; ours is the `MapStaticAssets`-aware form. | Keep ours (better) |
 
-## Proposal: two tabs - Browser + Port mapper (2026-07-24, PENDING AUTHOR DECISION)
+## Two views: Browser + Port mapper (2026-07-24; author chose ROUTED PAGES over FluentTabs - deep links + room for the v2 eventing page; implemented same day)
+
+**Implemented as designed below**, with routed pages (`/` and `/portmapping`), a shared
+`DashNav` component (brand, nav links, theme toggle + `FluentDesignTheme`), `GatewayService`
+holding auto-renewing leases server-side and broadcasting their `Events` as `LeaseEvent`,
+hub RPCs, a `ReactiveCommand`-driven `PortMappingViewModel` (load/add/delete, `WhenAnyValue`
+form validation, DynamicData-bound live event feed), and `FluentDataGrid` for the mapping
+table (the F6 "when it needs columns" case arrived).
+
+**Scanning empty-state (author spec, same day)**: spinner + "scanning" immediately; after
+~5 s with zero devices a hint panel appears (Windows `net stop SSDPSRV` / `net start
+SSDPSRV` block, container/VPN/network hints) while stating the server keeps scanning; the
+panel disappears the moment a device arrives. Implemented reactively in the view model -
+`Timer(5s).CombineLatest(CountChanged, elapsed && count == 0).DistinctUntilChanged()` - no
+lifecycle plumbing.
+
+**Ecosystem findings (recorded for posterity):**
+- **ReactiveUI 23 + .NET 10 Blazor WASM**: `RxSchedulers.MainThreadScheduler` and
+  `ReactiveCommand`'s *default* output scheduler resolve to a WASM scheduler whose type
+  initializer throws (`System.Reactive` `WasmRuntime`: "does not support this version of the
+  WebAssembly scheduler" - Rx 7 predates the .NET 10 WASM runtime version). Workarounds:
+  `DefaultScheduler.Instance` for timers, explicit `outputScheduler:
+  CurrentThreadScheduler.Instance` on every ReactiveCommand (WASM is single-threaded).
+  Candidate upstream issue against dotnet/reactive / ReactiveUI.
+- The on-page error capture added earlier paid for itself twice here - both scheduler
+  failures were read straight off the page.
+
+Original proposal follows for reference:
 
 The dashboard currently mirrors Sample.Browser only; the flagship port-mapping story deserves
 the same visual treatment. Proposed shape:

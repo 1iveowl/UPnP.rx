@@ -18,6 +18,7 @@ public sealed class DeviceStreamClient : IAsyncDisposable
     private readonly HubConnection _connection;
     private readonly SourceCache<DeviceDto, string> _cache = new(d => d.Key);
     private readonly BehaviorSubject<string> _state = new("connecting…");
+    private readonly Subject<LeaseEventDto> _leaseEvents = new();
 
     public DeviceStreamClient(NavigationManager navigation)
     {
@@ -30,6 +31,7 @@ public sealed class DeviceStreamClient : IAsyncDisposable
 
         _connection.On<DeviceDto>(HubEvents.DeviceUp, dto => _cache.AddOrUpdate(dto));
         _connection.On<string>(HubEvents.DeviceGone, key => _cache.RemoveKey(key));
+        _connection.On<LeaseEventDto>(HubEvents.LeaseEvent, e => _leaseEvents.OnNext(e));
 
         _connection.Reconnecting += _ =>
         {
@@ -54,6 +56,43 @@ public sealed class DeviceStreamClient : IAsyncDisposable
 
     /// <summary>Connection state as a stream: connecting… / live / reconnecting… / disconnected.</summary>
     public IObservable<string> State => _state.AsObservable();
+
+    /// <summary>Renewal-lifecycle events from server-held leases, live from the hub.</summary>
+    public IObservable<LeaseEventDto> LeaseEvents => _leaseEvents.AsObservable();
+
+    /// <summary>The gateway's identity + WAN state, or null when none was found (or not connected).</summary>
+    public Task<GatewayDto?> GetGatewayInfoAsync() =>
+        InvokeAsync<GatewayDto?>(HubEvents.GetGatewayInfo, fallback: null);
+
+    /// <summary>The gateway's current mapping table.</summary>
+    public Task<PortMappingDto[]> GetPortMappingsAsync() =>
+        InvokeAsync<PortMappingDto[]>(HubEvents.GetPortMappings, fallback: []);
+
+    /// <summary>Creates an auto-renewing mapping; returns an error message or null.</summary>
+    public Task<string?> AddPortMappingAsync(ushort externalPort, ushort internalPort, string protocol, string description, int leaseMinutes) =>
+        InvokeAsync<string?>(HubEvents.AddPortMapping, "Not connected to the server.",
+            externalPort, internalPort, protocol, description, leaseMinutes);
+
+    /// <summary>Deletes a mapping; returns an error message or null.</summary>
+    public Task<string?> DeletePortMappingAsync(ushort externalPort, string protocol) =>
+        InvokeAsync<string?>(HubEvents.DeletePortMapping, "Not connected to the server.", externalPort, protocol);
+
+    private async Task<T> InvokeAsync<T>(string method, T fallback, params object[] arguments)
+    {
+        if (_connection.State is not HubConnectionState.Connected)
+        {
+            return fallback;
+        }
+
+        try
+        {
+            return await _connection.InvokeCoreAsync<T>(method, arguments);
+        }
+        catch (Exception)
+        {
+            return fallback;
+        }
+    }
 
     /// <summary>Fetches a service's SCPD detail from the server on demand.</summary>
     public async Task<ServiceDetailDto> GetServiceDetailAsync(string deviceKey, string? udn, string serviceType)
@@ -97,6 +136,7 @@ public sealed class DeviceStreamClient : IAsyncDisposable
     {
         await _connection.DisposeAsync();
         _state.Dispose();
+        _leaseEvents.Dispose();
         Devices.Dispose();
         _cache.Dispose();
     }

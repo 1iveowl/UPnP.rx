@@ -14,4 +14,19 @@ public static class HubEvents
 
     /// <summary>Hub RPC: fetch a service's SCPD detail (deviceKey, owning UDN, serviceType).</summary>
     public const string GetServiceDetail = "GetServiceDetail";
+
+    /// <summary>Hub RPC: the gateway's identity + WAN state, or null when none was found.</summary>
+    public const string GetGatewayInfo = "GetGatewayInfo";
+
+    /// <summary>Hub RPC: the gateway's current port-mapping table.</summary>
+    public const string GetPortMappings = "GetPortMappings";
+
+    /// <summary>Hub RPC: create an auto-renewing mapping held by the server.</summary>
+    public const string AddPortMapping = "AddPortMapping";
+
+    /// <summary>Hub RPC: delete a mapping (disposes the held lease when it is ours).</summary>
+    public const string DeletePortMapping = "DeletePortMapping";
+
+    /// <summary>Broadcast: a held lease reported a renewal-lifecycle event; payload <see cref="LeaseEventDto"/>.</summary>
+    public const string LeaseEvent = "LeaseEvent";
 }

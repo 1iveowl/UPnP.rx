@@ -21,5 +21,6 @@ builder.Services.AddSingleton<DeviceStreamClient>();
 // disposed on the next mount - the roster cache lives in DeviceStreamClient,
 // so a fresh view model per mount loses nothing.
 builder.Services.AddTransient<DashboardViewModel>();
+builder.Services.AddTransient<PortMappingViewModel>();
 
 await builder.Build().RunAsync();

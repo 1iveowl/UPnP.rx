@@ -248,6 +248,14 @@ machine that can reach the server - phones included.
 The usual multicast rules apply to the **server** process: run it on a real
 host (not a container), and on Windows pause the "SSDP Discovery" service
 first (`net stop SSDPSRV`, elevated - see [Troubleshooting](#troubleshooting)).
+The dashboard itself repeats these hints when nothing shows up after a few
+seconds of scanning.
+
+Two pages: **Network** (live device browser with service drill-down) and
+**Port mapping** (gateway status, the mapping table, add/delete with
+auto-renewing leases and a live renewal-event feed). A word of caution: the
+port-mapping page lets any browser that can reach the server *modify the
+router*, and the sample has no authentication - treat it as a LAN tool.
 
 ## About this project
 

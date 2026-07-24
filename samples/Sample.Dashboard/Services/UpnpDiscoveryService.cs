@@ -19,39 +19,31 @@ public sealed class DeviceRoster
 }
 
 /// <summary>
-/// The only place that touches the network: owns the UpnpClient, projects
-/// discovery into DTOs and broadcasts roster changes over SignalR. The
-/// WebAssembly client never needs a socket.
+/// Projects discovery into DTOs and broadcasts roster changes over SignalR.
+/// The WebAssembly client never needs a socket; the shared UpnpClient comes
+/// from <see cref="NetworkClientProvider"/> (the gateway service uses it too).
 /// </summary>
 public sealed class UpnpDiscoveryService(
+    NetworkClientProvider network,
     IHubContext<DeviceHub> hub,
     DeviceRoster roster,
     ILogger<UpnpDiscoveryService> logger) : IHostedService
 {
-    private UpnpClient? _client;
     private IDisposable? _deviceUp;
     private IDisposable? _deviceGone;
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        var addresses = NetworkInterface.GetAllNetworkInterfaces()
-            .Where(nic => nic.OperationalStatus is OperationalStatus.Up
-                && nic.NetworkInterfaceType is not NetworkInterfaceType.Loopback)
-            .SelectMany(nic => nic.GetIPProperties().UnicastAddresses)
-            .Select(u => u.Address)
-            .Where(a => a.AddressFamily is AddressFamily.InterNetwork)
-            .Distinct()
-            .ToArray();
-
-        if (addresses.Length is 0)
+        if (network.Client is null)
         {
             logger.LogWarning("No usable IPv4 interfaces; the dashboard will stay empty.");
             return Task.CompletedTask;
         }
 
-        logger.LogInformation("Discovering from {Addresses}.", string.Join(", ", addresses.Select(a => a.ToString())));
+        logger.LogInformation(
+            "Discovering from {Addresses}.", string.Join(", ", network.Addresses.Select(a => a.ToString())));
 
-        _client = new UpnpClient(new UpnpClientOptions(), addresses);
+        var _client = network.Client;
 
         // DiscoverDevices (not DiscoverDescribedDevices): its per-subscription
         // dedup is USN+BOOTID, so periodic re-announcements can re-add a device
@@ -104,7 +96,7 @@ public sealed class UpnpDiscoveryService(
     {
         _deviceUp?.Dispose();
         _deviceGone?.Dispose();
-        _client?.Dispose();
+        // The client belongs to NetworkClientProvider; DI disposes it.
         return Task.CompletedTask;
     }
 

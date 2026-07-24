@@ -14,7 +14,9 @@ builder.Services.AddFluentUIComponents();
 
 // The server does the SSDP listening; browsers get the roster over SignalR.
 builder.Services.AddSignalR();
+builder.Services.AddSingleton<NetworkClientProvider>();
 builder.Services.AddSingleton<DeviceRoster>();
+builder.Services.AddSingleton<GatewayService>();
 builder.Services.AddHostedService<UpnpDiscoveryService>();
 
 var app = builder.Build();

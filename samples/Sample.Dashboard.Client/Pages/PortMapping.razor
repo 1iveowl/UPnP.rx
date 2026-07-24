@@ -1,0 +1,153 @@
+@page "/portmapping"
+@using Sample.Dashboard.Client.Components
+@using Sample.Dashboard.Client.ViewModels
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@inherits ReactiveUI.Blazor.ReactiveInjectableComponentBase<PortMappingViewModel>
+@implements IDisposable
+@inject Sample.Dashboard.Client.Services.DeviceStreamClient Stream
+
+<PageTitle>UPnP.Rx - port mapping</PageTitle>
+
+<ErrorBoundary>
+    <ChildContent>
+        <DashNav Active="portmapping" />
+
+        @if (ViewModel!.Gateway is null)
+        {
+            <FluentStack VerticalAlignment="VerticalAlignment.Center" HorizontalGap="12">
+                @if (ViewModel!.IsBusy)
+                {
+                    <FluentProgressRing />
+                    <FluentLabel>Searching for an internet gateway…</FluentLabel>
+                }
+                else
+                {
+                    <FluentLabel>No internet gateway answered. Is UPnP/IGD enabled on the router?</FluentLabel>
+                    <FluentButton Appearance="Appearance.Accent" OnClick="Run(ViewModel!.LoadCommand)">Search again</FluentButton>
+                }
+            </FluentStack>
+        }
+        else
+        {
+            var gateway = ViewModel!.Gateway;
+
+            <div class="device-card">
+                <div class="device-head" style="cursor: default;">
+                    <div>
+                        <div class="device-name">@(gateway.FriendlyName ?? "(unnamed gateway)")</div>
+                        <div class="device-sub urn">@gateway.WanServiceType</div>
+                    </div>
+                    <div class="device-badges">
+                        <FluentBadge Appearance="@(gateway.IsConnected ? Appearance.Accent : Appearance.Neutral)">
+                            @(gateway.Status ?? "unknown")
+                        </FluentBadge>
+                        @if (gateway.ExternalIp is not null)
+                        {
+                            <FluentBadge>WAN @gateway.ExternalIp</FluentBadge>
+                        }
+                    </div>
+                </div>
+                <div class="device-body">
+                    <dl class="identity">
+                        <dt>Uptime</dt><dd>@TimeSpan.FromSeconds(gateway.UptimeSeconds)</dd>
+                        <dt>Last error</dt><dd>@(gateway.LastError ?? "-")</dd>
+                        <dt>Our address</dt><dd>@(gateway.LocalAddress ?? "-")</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <h2 class="section-title">Port mappings
+                <FluentButton Appearance="Appearance.Stealth" Title="Refresh" OnClick="Run(ViewModel!.LoadCommand)">
+                    <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.ArrowClockwise())" />
+                </FluentButton>
+            </h2>
+
+            <div class="grid-card">
+                <FluentDataGrid Items="@ViewModel!.Mappings.AsQueryable()" GridTemplateColumns="0.5fr 0.6fr 0.6fr 1fr 1.2fr 0.7fr 0.4fr">
+                    <PropertyColumn Property="@(m => m.Protocol)" Title="Proto" />
+                    <PropertyColumn Property="@(m => m.ExternalPort)" Title="External" />
+                    <PropertyColumn Property="@(m => m.InternalPort)" Title="Internal" />
+                    <PropertyColumn Property="@(m => m.InternalClient)" Title="Client" />
+                    <PropertyColumn Property="@(m => m.Description)" Title="Description" />
+                    <TemplateColumn Title="Lease">
+                        <span>@FormatLease(context)</span>
+                    </TemplateColumn>
+                    <TemplateColumn Title="">
+                        <FluentButton Appearance="Appearance.Stealth" Title="Delete mapping"
+                                      OnClick="@(() => ViewModel!.DeleteCommand.Execute(context).Subscribe())">
+                            <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Delete())" />
+                        </FluentButton>
+                    </TemplateColumn>
+                </FluentDataGrid>
+            </div>
+
+            <h2 class="section-title">Add mapping</h2>
+
+            <div class="add-form">
+                <FluentNumberField TValue="ushort" @bind-Value="ViewModel!.ExternalPort" Label="External port" />
+                <FluentNumberField TValue="ushort" @bind-Value="ViewModel!.InternalPort" Label="Internal port" />
+                <FluentSelect TOption="string"
+                              Items="@(new[] { "TCP", "UDP" })"
+                              @bind-Value="ViewModel!.Protocol"
+                              Label="Protocol" />
+                <FluentTextField @bind-Value="ViewModel!.Description" Label="Description" Placeholder="my app" />
+                <FluentNumberField TValue="int" @bind-Value="ViewModel!.LeaseMinutes" Label="Lease (minutes)" />
+                <FluentButton Appearance="Appearance.Accent"
+                              Disabled="@(!ViewModel!.CanAdd || ViewModel!.IsBusy)"
+                              OnClick="Run(ViewModel!.AddCommand)">
+                    Add auto-renewing mapping
+                </FluentButton>
+            </div>
+
+            @if (ViewModel!.LastError is not null)
+            {
+                <div class="error-panel">@ViewModel!.LastError</div>
+            }
+
+            @if (ViewModel!.EventRows.Count > 0)
+            {
+                <h2 class="section-title">Lease events (live)</h2>
+                <div class="events-feed">
+                    @foreach (var e in ViewModel!.EventRows.ToArray())
+                    {
+                        <div class="event-row event-@e.Kind.ToLowerInvariant()">
+                            <span class="muted">@e.Timestamp.ToLocalTime().ToString("HH:mm:ss")</span>
+                            <span>@e.Protocol @e.ExternalPort</span>
+                            <strong>@e.Kind</strong>
+                            @if (e.Message is not null)
+                            {
+                                <span class="muted">@e.Message</span>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        }
+    </ChildContent>
+    <ErrorContent Context="exception">
+        <div class="error-panel">
+            The page hit an error: <strong>@exception.GetType().Name</strong> - @exception.Message
+        </div>
+    </ErrorContent>
+</ErrorBoundary>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await Stream.StartAsync();
+        ViewModel!.LoadCommand.Execute().Subscribe();
+        await base.OnInitializedAsync();
+    }
+
+    // ReactiveCommand -> Blazor click handler bridge; the execution observable
+    // completes itself, so the subscription is short-lived by construction.
+    private static Action Run<TResult>(ReactiveUI.ReactiveCommand<System.Reactive.Unit, TResult> command) =>
+        () => command.Execute().Subscribe();
+
+    private static string FormatLease(PortMappingDto m) =>
+        m.LeaseSeconds <= 0
+            ? "∞"
+            : $"{TimeSpan.FromSeconds(m.LeaseSeconds):hh\\:mm\\:ss}{(m.HeldByServer ? " (renewing)" : "")}";
+
+    void IDisposable.Dispose() => ViewModel?.Dispose();
+}

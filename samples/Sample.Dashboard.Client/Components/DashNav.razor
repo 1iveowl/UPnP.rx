@@ -1,0 +1,45 @@
+@* Shared header: title, routed navigation (real URLs - deep-linkable), and the
+   theme toggle. FluentDesignTheme lives here so every page gets tokens + the
+   persisted (or OS-derived) mode. *@
+
+<FluentDesignTheme @bind-Mode="_mode"
+                   CustomColor="#0891b2"
+                   StorageName="upnprx-theme"
+                   OnLoaded="OnThemeLoaded"
+                   OnLuminanceChanged="OnThemeLuminance" />
+
+<div class="dash-nav">
+    <span class="dash-brand">UPnP.Rx</span>
+    <a class="nav-link @(Active == "network" ? "active" : "")" href="/">Network</a>
+    <a class="nav-link @(Active == "portmapping" ? "active" : "")" href="/portmapping">Port mapping</a>
+    <div class="dash-nav-tools">
+        <FluentButton Appearance="Appearance.Stealth"
+                      Title="@(_isDark ? "Switch to light mode" : "Switch to dark mode")"
+                      aria-label="Toggle dark mode"
+                      OnClick="ToggleTheme">
+            <FluentIcon Value="@ThemeIcon(_isDark)" />
+        </FluentButton>
+    </div>
+</div>
+
+@code {
+    /// <summary>Which nav entry to highlight: "network" or "portmapping".</summary>
+    [Parameter, EditorRequired]
+    public string Active { get; set; } = "network";
+
+    private DesignThemeModes _mode = DesignThemeModes.System;   // follow the OS until the user chooses
+    private bool _isDark;
+
+    // Doc pattern (review F4): icons are created per render, never shared.
+    private static Icon ThemeIcon(bool isDark) => isDark
+        ? new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.WeatherSunny()
+        : new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.WeatherMoon();
+
+    // Both report the EFFECTIVE luminance - including what mode System resolved to.
+    private void OnThemeLoaded(LoadedEventArgs args) => _isDark = args.IsDark;
+
+    private void OnThemeLuminance(LuminanceChangedEventArgs args) => _isDark = args.IsDark;
+
+    private void ToggleTheme() =>
+        _mode = _isDark ? DesignThemeModes.Light : DesignThemeModes.Dark;
+}

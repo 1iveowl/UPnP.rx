@@ -119,18 +119,30 @@ using var subscription = upnp
 - **Disposal.** `DisposeAsync` is the graceful path (deletes port mappings; will unsubscribe eventing in v2); sync `Dispose` releases resources without network goodbyes.
 - **Spec review.** Clause 2/3 behavior was audited against the UDA 2.0 text; the findings live in [plan/uda2-compliance-review.md](plan/uda2-compliance-review.md).
 
-## Why not …?
+## Where UPnP.Rx fits
 
-| | Covers | State | UPnP.Rx difference |
-|---|---|---|---|
-| **Open.NAT** | Port mapping only | Unmaintained since 2016 | Full discover→describe→control chain, maintained, modern .NET |
-| **Mono.Nat** | Port mapping (UPnP + NAT-PMP) | Dormant since 2022, callback API | Rx + `async` API, auto-renewing leases, description/control beyond IGD |
-| **Rssdp** | SSDP discovery only | Active | Rssdp hands you a LOCATION URL; UPnP.Rx continues from there |
-| **Waher.Networking.UPnP** | Discovery + some control | Part of a large framework | Standalone, near-zero dependencies, net10.0-idiomatic |
+The .NET ecosystem has several UPnP libraries, each with real strengths.
+[Mono.Nat](https://github.com/alanmcgovern/Mono.Nat) and Open.NAT made router
+port mapping accessible to a generation of .NET apps — and Mono.Nat also speaks
+NAT-PMP, which UPnP.Rx deliberately leaves to it.
+[Rssdp](https://github.com/Yortw/RSSDP) is a focused, actively maintained SSDP
+implementation with device-side publishing.
+[Waher.Networking.UPnP](https://github.com/PeterWaher/IoTGateway) brings UPnP
+into a much broader IoT framework. If one of those matches your needs and
+target frameworks, it's a fine choice.
 
-Known boundary: UPnP.Rx speaks UPnP IGD only — no NAT-PMP/PCP (Mono.Nat covers
-those if you need them). Planned next: GENA eventing (v2), a live device roster
-with expiry (v1.1).
+UPnP.Rx's place is the **full control-point chain in one standalone package** —
+discover → describe → control — for modern .NET:
+
+- an Rx + immutable-records API (device presence and lease renewals as observables),
+- `async`/`IAsyncEnumerable` ergonomics, one testable clock (`TimeProvider`) throughout,
+- spec-audited UDA 2.0 behavior with deliberately lenient parsing of real-world devices,
+- port mapping with auto-renewing leases as the flagship, and
+- near-zero dependencies on `net10.0`.
+
+Known boundary: UPnP.Rx speaks UPnP only — for NAT-PMP/PCP, Mono.Nat has you
+covered. Planned next: GENA eventing (v2), a live device roster with expiry
+(v1.1).
 
 ## Troubleshooting
 

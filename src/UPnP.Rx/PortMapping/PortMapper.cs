@@ -73,23 +73,13 @@ public static class PortMapper
             return await client
                 .DiscoverDevices(SearchTargets.DeviceType("InternetGatewayDevice", 2))
                 .Merge(client.DiscoverDevices(SearchTargets.DeviceType("InternetGatewayDevice", 1)))
-                .SelectMany(async device =>
-                {
-                    try
-                    {
-                        var described = await device.GetDescriptionAsync(linked.Token).ConfigureAwait(false);
-                        var wanService = InternetGateway.ResolveWanService(described);
-
-                        return wanService is null
-                            ? null
-                            : new InternetGateway(
-                                described, wanService, device.LocalEndPoint?.Address, options, ownedClient: null);
-                    }
-                    catch (UpnpException)
-                    {
-                        return null;   // an unusable candidate must not kill the search
-                    }
-                })
+                .SelectMany(device => Observable
+                    // FromAsync ties the token to the subscription: once FirstAsync
+                    // has a winner, in-flight describes of losing candidates are
+                    // cancelled instead of running to their own timeouts.
+                    .FromAsync(innerCt => TryResolveGatewayAsync(device, options, innerCt))
+                    .Catch((UpnpException _) =>
+                        Observable.Empty<InternetGateway?>()))   // unusable candidate: contributes nothing
                 .Where(gateway => gateway is not null)
                 .Select(gateway => gateway!)
                 .FirstAsync()
@@ -100,6 +90,20 @@ public static class PortMapper
         {
             return null;
         }
+    }
+
+    /// <summary>Describes a discovered candidate and wraps it when it has a usable WAN service; null otherwise.</summary>
+    private static async Task<InternetGateway?> TryResolveGatewayAsync(
+        DiscoveredDevice device,
+        UpnpClientOptions options,
+        CancellationToken ct)
+    {
+        var described = await device.GetDescriptionAsync(ct).ConfigureAwait(false);
+        var wanService = InternetGateway.ResolveWanService(described);
+
+        return wanService is null
+            ? null
+            : new InternetGateway(described, wanService, device.LocalEndPoint?.Address, options, ownedClient: null);
     }
 
     /// <summary>

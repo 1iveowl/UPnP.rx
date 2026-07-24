@@ -1,9 +1,64 @@
 @using Sample.Dashboard.Client.Models
+@using Sample.Dashboard.Client.Services
+@inject DeviceStreamClient Stream
 
 <div class="node">
     @foreach (var service in Node!.Services)
     {
-        <div class="svc" title="@service">· @Short(service)</div>
+        var serviceKey = $"{Node.Udn}#{service}";
+
+        <div class="subhead svc-head" @onclick="() => ToggleServiceAsync(serviceKey, service)">
+            <span class="chev">@(_openServices.Contains(serviceKey) ? "▾" : "▸")</span>
+            <span class="urn">@Short(service)</span>
+            <span class="muted" title="@service">@service</span>
+        </div>
+
+        @if (_openServices.Contains(serviceKey))
+        {
+            <div class="svc-detail">
+                @if (!_details.TryGetValue(serviceKey, out var detail))
+                {
+                    <FluentProgressRing Style="width: 16px; height: 16px;" />
+                }
+                else if (detail.Error is not null)
+                {
+                    <div class="svc-error">@detail.Error</div>
+                }
+                else
+                {
+                    @if (detail.Actions.Length > 0)
+                    {
+                        <div class="svc-section">Actions (@detail.Actions.Length)</div>
+                        @foreach (var action in detail.Actions)
+                        {
+                            <div class="svc-row">
+                                <span class="svc-name">@action.Name</span>
+                                @if (action.InArguments.Length > 0)
+                                {
+                                    <span class="muted">in: @string.Join(", ", action.InArguments)</span>
+                                }
+                                @if (action.OutArguments.Length > 0)
+                                {
+                                    <span class="muted">out: @string.Join(", ", action.OutArguments)</span>
+                                }
+                            </div>
+                        }
+                    }
+                    @if (detail.StateVariables.Length > 0)
+                    {
+                        <div class="svc-section">State variables (@detail.StateVariables.Length)</div>
+                        @foreach (var variable in detail.StateVariables)
+                        {
+                            <div class="svc-row">
+                                <span class="svc-name">@variable.Name</span>
+                                <span class="muted">@variable.DataType@(variable.AllowedValues.Length > 0
+                                    ? $" ({string.Join("|", variable.AllowedValues)})" : "")</span>
+                            </div>
+                        }
+                    }
+                }
+            </div>
+        }
     }
 
     @foreach (var (child, index) in Node.Children.Select((c, i) => (c, i)))
@@ -18,7 +73,7 @@
 
         @if (_open.Contains(key))
         {
-            <DeviceNode Node="child" />
+            <DeviceNode Node="child" DeviceKey="@DeviceKey" />
         }
     }
 </div>
@@ -27,13 +82,36 @@
     [Parameter, EditorRequired]
     public DeviceNodeDto? Node { get; set; }
 
+    /// <summary>The roster key of the root device - identifies the device on the server.</summary>
+    [Parameter, EditorRequired]
+    public string DeviceKey { get; set; } = string.Empty;
+
     private readonly HashSet<string> _open = [];
+    private readonly HashSet<string> _openServices = [];
+    private readonly Dictionary<string, ServiceDetailDto> _details = [];
 
     private void Toggle(string key)
     {
         if (!_open.Remove(key))
         {
             _open.Add(key);
+        }
+    }
+
+    private async Task ToggleServiceAsync(string serviceKey, string serviceType)
+    {
+        if (_openServices.Remove(serviceKey))
+        {
+            return;
+        }
+
+        _openServices.Add(serviceKey);
+
+        if (!_details.ContainsKey(serviceKey))
+        {
+            var detail = await Stream.GetServiceDetailAsync(DeviceKey, Node!.Udn, serviceType);
+            _details[serviceKey] = detail;
+            StateHasChanged();
         }
     }
 
@@ -51,7 +129,7 @@
 
         if (node.Children.Length > 0)
         {
-            parts.Add($"{node.Children.Length} device(s)");
+            parts.Add($"{node.Children.Length} embedded");
         }
 
         var maker = $"{node.Manufacturer} {node.Model}".Trim();

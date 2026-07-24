@@ -55,6 +55,25 @@ public sealed class DeviceStreamClient : IAsyncDisposable
     /// <summary>Connection state as a stream: connecting… / live / reconnecting… / disconnected.</summary>
     public IObservable<string> State => _state.AsObservable();
 
+    /// <summary>Fetches a service's SCPD detail from the server on demand.</summary>
+    public async Task<ServiceDetailDto> GetServiceDetailAsync(string deviceKey, string? udn, string serviceType)
+    {
+        if (_connection.State is not HubConnectionState.Connected)
+        {
+            return new ServiceDetailDto(serviceType, [], [], "Not connected to the server.");
+        }
+
+        try
+        {
+            return await _connection.InvokeAsync<ServiceDetailDto>(
+                HubEvents.GetServiceDetail, deviceKey, udn, serviceType);
+        }
+        catch (Exception e)
+        {
+            return new ServiceDetailDto(serviceType, [], [], e.Message);
+        }
+    }
+
     public async Task StartAsync()
     {
         // Components may mount more than once; only start from cold.

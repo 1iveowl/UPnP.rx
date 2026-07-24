@@ -106,10 +106,34 @@ intended.
 7. Layout polish: consistent spacing, token-driven card elevation/borders, accent stripe from
    `--accent-fill-rest`.
 
-**Feature: dark/light mode switch** - `FluentDesignTheme` with `StorageName` (choice persists
-in localStorage) + a header `FluentSwitch`; System is the default until the user chooses.
-Verified with headless Chromium: light and dark screenshots, token flip asserted, no console
-errors.
+**Feature: dark/light mode switch** (revised after author feedback)
+- **Follows the OS/browser preference on launch**: mode starts as System;
+  `OnLoaded`/`OnLuminanceChanged` report the *effective* luminance (they carry `IsDark`), so
+  the toggle always reflects what is actually on screen - including what System resolved to.
+- **Icon button, not a labeled switch**: sun/moon `FluentIcon` in a stealth `FluentButton`
+  (icons from the `...Components.Icons` package; note the icon classes live in
+  *sub-namespaces*, so fully qualify - a plain `using` of the parent does not import them).
+- An explicit choice persists via `StorageName`; System applies again only until first use.
+- **Accent identity**: `CustomColor="#0891b2"` (cyan-teal) on `FluentDesignTheme` - every
+  accent token (card stripes, chevrons, badges, icons) follows it in both modes; swappable
+  for an `OfficeColor` palette entry.
+- Verified with headless Chromium using `colorScheme` emulation: fresh profile with OS-dark
+  starts dark (icon offers light), OS-light starts light, toggle flips, accent token
+  propagates, zero console errors; screenshots reviewed.
+
+**Feature: service drill-down** (author: "is a name all there is?") - it is not: services
+unfold. Expanding a service row fetches its SCPD on demand over a hub RPC
+(`GetServiceDetail(deviceKey, owningUdn, serviceType)` - owning UDN disambiguates repeated
+service types across embedded devices, e.g. `SwitchPower:1` on every light). The server keeps
+the live `DescribedDevice` per roster key and uses the library's cached `GetScpdAsync`; the
+client renders Actions (name + in/out argument names) and State variables (name, data type,
+allowed values), with a spinner while loading and inline errors. Action *invocation* from the
+UI stays on the backlog.
+
+**Presentation fix** (author: "Sonos Five has three devices but two sub-headers") - nothing
+was missing: `DeviceCount` includes the root device, which the card itself represents; only
+embedded devices appear as sub-headers. The badge now says "N embedded" (count minus root)
+and node summaries say "embedded" too.
 
 ## Iteration backlog (for author review)
 

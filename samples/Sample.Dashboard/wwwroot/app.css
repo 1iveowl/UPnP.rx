@@ -149,6 +149,52 @@ a {
     font-size: 0.8rem;
 }
 
+.svc-head .muted {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 40%;
+}
+
+.svc-detail {
+    margin: 2px 0 8px 1.6rem;
+    padding: 8px 12px;
+    background: var(--neutral-layer-3, #fafbfc);
+    border: 1px solid var(--neutral-stroke-divider-rest, #eef0f3);
+    border-radius: calc(var(--control-corner-radius, 4) * 1px);
+    font-size: 0.8rem;
+}
+
+.svc-section {
+    font-weight: 600;
+    color: var(--neutral-foreground-hint, #6b7280);
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.03em;
+    margin: 6px 0 3px 0;
+}
+
+.svc-section:first-child {
+    margin-top: 0;
+}
+
+.svc-row {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    padding: 1px 0;
+    flex-wrap: wrap;
+}
+
+.svc-name {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 0.78rem;
+}
+
+.svc-error {
+    color: var(--error, #991b1b);
+}
+
 .error-panel {
     background: var(--neutral-layer-2, #fef2f2);
     border: 1px solid var(--error, #fca5a5);

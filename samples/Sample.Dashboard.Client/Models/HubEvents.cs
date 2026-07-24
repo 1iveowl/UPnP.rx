@@ -11,4 +11,7 @@ public static class HubEvents
 
     /// <summary>The hub path.</summary>
     public const string Path = "/devicehub";
+
+    /// <summary>Hub RPC: fetch a service's SCPD detail (deviceKey, owning UDN, serviceType).</summary>
+    public const string GetServiceDetail = "GetServiceDetail";
 }

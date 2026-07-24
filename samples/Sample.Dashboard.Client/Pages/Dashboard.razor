@@ -13,8 +13,17 @@
 <PageTitle>UPnP.Rx dashboard</PageTitle>
 
 @* The token source: flips every design token (and our token-based CSS) between
-   light and dark; the user's choice persists in localStorage. *@
-<FluentDesignTheme @bind-Mode="_mode" StorageName="upnprx-theme" />
+   light and dark. Mode System follows the OS/browser preference; OnLoaded and
+   OnLuminanceChanged report the EFFECTIVE luminance so the toggle icon always
+   matches what is on screen. The user's explicit choice persists in localStorage. *@
+@* CustomColor gives the app its own accent (cyan-teal - every accent token
+   follows it in both modes); swap for OfficeColor="OfficeColor.Teams" etc. to
+   use the Office palette instead. *@
+<FluentDesignTheme @bind-Mode="_mode"
+                   CustomColor="#0891b2"
+                   StorageName="upnprx-theme"
+                   OnLoaded="OnThemeLoaded"
+                   OnLuminanceChanged="OnThemeLuminance" />
 
 <ErrorBoundary>
     <ChildContent>
@@ -27,9 +36,12 @@
                               Immediate="true"
                               Value="@ViewModel!.Filter"
                               ValueChanged="@(value => ViewModel!.Filter = value ?? string.Empty)" />
-                <FluentSwitch Value="@(_mode == DesignThemeModes.Dark)"
-                              ValueChanged="OnThemeToggled"
-                              Label="Dark" />
+                <FluentButton Appearance="Appearance.Stealth"
+                              Title="@(_isDark ? "Switch to light mode" : "Switch to dark mode")"
+                              aria-label="Toggle dark mode"
+                              OnClick="ToggleTheme">
+                    <FluentIcon Value="@(_isDark ? _sunIcon : _moonIcon)" />
+                </FluentButton>
             </div>
         </div>
 
@@ -52,9 +64,11 @@
                     </div>
                     <div class="device-badges">
                         <FluentBadge>@device.ServiceCount service(s)</FluentBadge>
+                        @* DeviceCount includes the root device (the card itself);
+                           the badge counts only what appears as sub-headers. *@
                         @if (device.DeviceCount > 1)
                         {
-                            <FluentBadge Appearance="Appearance.Neutral">@device.DeviceCount devices</FluentBadge>
+                            <FluentBadge Appearance="Appearance.Neutral">@(device.DeviceCount - 1) embedded</FluentBadge>
                         }
                     </div>
                 </div>
@@ -68,7 +82,7 @@
                             <dt>Location</dt>
                             <dd><a href="@device.Location" target="_blank">@device.Location</a></dd>
                         </dl>
-                        <DeviceNode Node="device.Root" />
+                        <DeviceNode Node="device.Root" DeviceKey="@device.Key" />
                     </div>
                 }
             </div>
@@ -83,8 +97,14 @@
 </ErrorBoundary>
 
 @code {
+    private static readonly Icon _moonIcon =
+        new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.WeatherMoon();
+    private static readonly Icon _sunIcon =
+        new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.WeatherSunny();
+
     private readonly HashSet<string> _open = [];
-    private DesignThemeModes _mode = DesignThemeModes.System;
+    private DesignThemeModes _mode = DesignThemeModes.System;   // follow the OS until the user chooses
+    private bool _isDark;
 
     private void Toggle(string key)
     {
@@ -94,8 +114,13 @@
         }
     }
 
-    private void OnThemeToggled(bool dark) =>
-        _mode = dark ? DesignThemeModes.Dark : DesignThemeModes.Light;
+    // Both report the EFFECTIVE luminance - including what mode System resolved to.
+    private void OnThemeLoaded(LoadedEventArgs args) => _isDark = args.IsDark;
+
+    private void OnThemeLuminance(LuminanceChangedEventArgs args) => _isDark = args.IsDark;
+
+    private void ToggleTheme() =>
+        _mode = _isDark ? DesignThemeModes.Light : DesignThemeModes.Dark;
 
     protected override async Task OnInitializedAsync()
     {

@@ -13,6 +13,9 @@ namespace Sample.Dashboard.Services;
 public sealed class DeviceRoster
 {
     public ConcurrentDictionary<string, DeviceDto> Devices { get; } = new();
+
+    /// <summary>The live library objects behind the DTOs - the hub uses them for on-demand SCPD fetches.</summary>
+    public ConcurrentDictionary<string, DescribedDevice> Described { get; } = new();
 }
 
 /// <summary>
@@ -59,17 +62,18 @@ public sealed class UpnpDiscoveryService(
                 .FromAsync(async ct =>
                 {
                     var described = await device.GetDescriptionAsync(ct);
-                    return ToDto(described);
+                    return (Dto: ToDto(described), Described: described);
                 })
                 .Catch((UpnpException e) =>
                 {
                     logger.LogDebug(e, "Skipping {Location}.", device.Location);
-                    return Observable.Empty<DeviceDto>();
+                    return Observable.Empty<(DeviceDto Dto, DescribedDevice Described)>();
                 }))
-            .SelectMany(dto => Observable.FromAsync(async ct =>
+            .SelectMany(pair => Observable.FromAsync(async ct =>
             {
-                roster.Devices[dto.Key] = dto;
-                await hub.Clients.All.SendAsync(HubEvents.DeviceUp, dto, ct);
+                roster.Devices[pair.Dto.Key] = pair.Dto;
+                roster.Described[pair.Dto.Key] = pair.Described;
+                await hub.Clients.All.SendAsync(HubEvents.DeviceUp, pair.Dto, ct);
             }))
             .Subscribe(
                 _ => { },
@@ -82,6 +86,8 @@ public sealed class UpnpDiscoveryService(
             .Select(uuid => NormalizeKey($"uuid:{uuid}"))
             .SelectMany(key => Observable.FromAsync(async ct =>
             {
+                roster.Described.TryRemove(key, out _);
+
                 if (roster.Devices.TryRemove(key, out _))
                 {
                     await hub.Clients.All.SendAsync(HubEvents.DeviceGone, key, ct);

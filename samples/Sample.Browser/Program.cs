@@ -50,6 +50,9 @@ if (Volatile.Read(ref found) is 0)
           • Running inside Docker/WSL/a devcontainer? Multicast doesn't work there;
             run this sample on the host.
           • Is a VPN active? Try disconnecting.
+          • On Windows, the "SSDP Discovery" service (SSDPSRV) occupies UDP 1900 and
+            keeps clients from seeing responses. Pause it while discovering
+            (elevated prompt): net stop SSDPSRV — and resume after: net start SSDPSRV
           • Some networks block SSDP (AP isolation, IGMP snooping) — try another
             network or a wired connection.
         Still listening — devices announce themselves periodically…

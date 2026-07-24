@@ -140,6 +140,14 @@ with expiry (v1.1).
   or NAT settings in the router UI.
 - **Containers can't multicast**: Docker, WSL and devcontainers won't see SSDP.
   Run on the host.
+- **On Windows, the built-in "SSDP Discovery" service (`SSDPSRV`) occupies
+  UDP 1900** and keeps other clients from seeing responses. Pause it while
+  discovering (elevated prompt), and start it again afterwards:
+
+  ```cmd
+  net stop SSDPSRV     &REM pause — lets UPnP.Rx receive SSDP
+  net start SSDPSRV    &REM resume when done
+  ```
 - **VPNs** commonly capture the default route or block multicast — try
   disconnected.
 - **AP isolation / IGMP snooping** on some networks filters SSDP — try wired.

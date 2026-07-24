@@ -33,6 +33,9 @@ if (gateway is null)
           • Is a VPN active? Its interface may not reach the LAN — try disconnecting.
           • Running inside Docker/WSL/a devcontainer? Multicast doesn't work there;
             run this sample on the host.
+          • On Windows, the "SSDP Discovery" service (SSDPSRV) occupies UDP 1900 and
+            keeps clients from seeing responses. Pause it while discovering
+            (elevated prompt): net stop SSDPSRV — and resume after: net start SSDPSRV
           • Try Sample.Browser to see whether *any* UPnP device answers at all.
         """);
     return;

@@ -94,24 +94,69 @@ IObservable<UpnpEvent> Events();
 | E6 | Dashboard eventing hook (live state on expanded cards - the 4.0 backlog item) + README/samples |
 | E7 | 4.0.0 release: releases/4.0.0 branch, tag, Trusted Publishing |
 
-## 4. Open questions for the author (answer before E3)
+## 4. Decisions (author, 2026-07-24)
 
-- **Q1 - API shape**: observable-first only (`Events()` with RefCount lifetime, as designed),
-  or *also* an explicit `Task<UpnpEventSubscription>` handle like `PortMappingLease`?
-  Recommendation: observable-first only; the handle can be added later without breaking.
-- **Q2 - recovery policy**: on renewal failure/expiry/SEQ gap, auto-resubscribe (surfaced as
-  events, stream never dies) vs. terminate with `OnError`. Recommendation: auto, with
-  `AutoResubscribe = true` default - consistent with pipelines-never-die and the lease.
-- **Q3 - callback port**: ephemeral by default (0) with a fixed-port option for firewall
-  rules, or fixed default? Recommendation: ephemeral default; document the firewall note.
-- **Q4 - LastChange helper** (AVTransport/RenderingControl XML-in-XML): core 4.0 or 4.1?
-  Recommendation: 4.1 - core stays generic; the dashboard demo can show raw values.
-- **Q5 - initial-state replay for late Rx subscribers**: when a second consumer subscribes to
-  an already-live `Events()`, replay the last-known variable values (Replay-per-variable) or
-  deliver only new changes? Recommendation: new changes only in 4.0 (simple, honest);
-  last-known-state cache pairs naturally with the 4.1 roster.
+- **Q1 - API shape: observable-first only.** `Events()` with shared lifetime; no explicit
+  handle type in 4.0 (addable later without breaking).
+- **Q2 - recovery: auto-resubscribe**, surfaced as events (`RenewalFailed`/`Resubscribed`/
+  `GapDetected`), `AutoResubscribe = true` default. The stream never dies from device flakiness.
+- **Q3 - callback port: ephemeral default (0)**, fixed-port option for firewall rules;
+  firewall note goes in Troubleshooting.
+- **Q4 - LastChange typed helper: 4.1.** Core stays generic (values are strings; escaped
+  AVTransport XML passes through verbatim); recorded in the 4.1 candidates list.
+- **Q5 - late-subscriber replay: INCLUDED in 4.0** (author: "if replay is a good feature,
+  include it - it should not be difficult with Rx" - correct). Design: the shared engine
+  keeps a last-known-value snapshot per variable, maintained under the same gate that
+  serializes emissions; a late subscriber receives the snapshot first (each event flagged
+  `IsReplay = true`), then the live stream, with no gap and no duplicates - because both the
+  snapshot read and the live attach happen under the gate. Consequence: sharing is a small
+  hand-rolled ref-count over that gate rather than bare `Publish().RefCount()` (which cannot
+  replay per-variable state).
 
-## 5. Risks, honestly
+## 4b. 4.1 pull-in review (author asked: does anything deferred belong in 4.0?)
+
+Reviewed the full 4.1 list; verdict: **nothing structural moves**. The roster stays 4.1 - Q5's
+snapshot gives eventing its own state cache without it, and pulling the roster in would double
+4.0's surface. Self-healing stays an investigation. Typed SOAP helpers, `TryService`,
+trimming audit: unrelated to eventing, stay. **One small rider folds in**: the dashboard
+reconnect toast (`FluentToastProvider`) lands with E6, since E6 is already dashboard work -
+near-zero marginal cost. Upstream issue filing remains independent of any release.
+
+## 5. Author integration-test guide (the manual validation protocol)
+
+E4 ships **`Sample.Eventing`** - a console that discovers devices, subscribes to a chosen
+service and prints every `UpnpEvent` (colored: replay dim, changes white, lifecycle events
+cyan/yellow). The protocol, step by step:
+
+1. **Prep** (once): run on the host, not a container; on Windows pause SSDPSRV; expect a
+   firewall prompt on first run (the callback listener) - allow it. Best test device: a Sonos
+   speaker (exemplary GENA citizen).
+2. **Happy path**: `dotnet run --project samples/Sample.Eventing` → pick a Sonos
+   `AVTransport:1`. Expect: `Subscribed` with SID + timeout, an initial burst flagged
+   `IsInitialState` (SEQ 0), then silence. Press play/pause/next on the speaker → a
+   `PropertyChanged` per action within ~1 s (`LastChange` values are escaped XML - expected,
+   typed parsing is 4.1).
+3. **Replay (Q5)**: run a second `Sample.Eventing` against the same service (or use its
+   `--second` flag) → the newcomer immediately prints the last-known state flagged as replay,
+   then follows live.
+4. **Renewal**: leave it running past half the timeout (default 1800 s → ~15 min; use
+   `--timeout 120` for a 1-minute renewal cycle). Expect a renewal to pass silently (no event
+   unless it fails).
+5. **Recovery**: unplug the speaker's network for ~30 s mid-subscription, replug. Expect
+   `RenewalFailed` events while unreachable, then `Resubscribed` + a fresh initial state.
+6. **Graceful exit**: Ctrl+C → sample disposes → UNSUBSCRIBE; on the wire the device stops
+   NOTIFYing immediately (verifiable by re-running: fresh SID).
+7. **Abrupt exit**: `kill -9` the sample → no UNSUBSCRIBE; the device times the subscription
+   out on its own at TIMEOUT - nothing leaks (the finite-lease property).
+8. **IGD reality check**: subscribe to the gateway's `WANIPConnection` - expect
+   `PortMappingNumberOfEntries`/`ConnectionStatus` events when mappings change (add one via
+   the dashboard); IGDs event lazily, so tolerate delays - report what yours does.
+
+Report format: which step, expected vs. observed, and the sample's log lines. Loopback
+integration tests (CI-runnable) cover the same lifecycle against a scripted fake device;
+this guide covers what only real hardware can prove.
+
+## 6. Risks, honestly
 
 - **Device quirk surface is the widest yet**: sloppy TIMEOUT formats, NOTIFYs before the
   SUBSCRIBE response returns (real Sonos behavior - the engine must buffer or tolerate

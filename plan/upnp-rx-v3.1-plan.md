@@ -45,6 +45,10 @@ gain. Investigate before building:
 
 ## 3. Library candidates
 
+- **Typed `LastChange` helper** (from 4.0 eventing decision Q4): parse AVTransport/
+  RenderingControl's escaped XML-in-XML event payloads into typed property changes - core
+  eventing stays generic in 4.0.
+
 - **Typed SOAP argument helpers**: `ValidateAndOrderArguments` shipped in 3.0; consider a
   typed layer (`int`/`bool`/`TimeSpan` conversions per SCPD dataType) if consumer demand
   appears.

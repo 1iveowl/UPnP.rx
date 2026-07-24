@@ -14,7 +14,7 @@ public sealed class InternetGateway : IAsyncDisposable, IDisposable
 {
     // Best first: prefer IP over PPP, higher version over lower. WANPPPConnection:2
     // is real (see the Orange Livebox fixture) even though the plan only listed :1.
-    private static readonly string[] ServicePriority =
+    private static readonly string[] _servicePriority =
     [
         "urn:schemas-upnp-org:service:WANIPConnection:2",
         "urn:schemas-upnp-org:service:WANIPConnection:1",
@@ -53,7 +53,7 @@ public sealed class InternetGateway : IAsyncDisposable, IDisposable
 
     /// <summary>Resolves the gateway's WAN connection service from a described device, best version first.</summary>
     internal static UpnpService? ResolveWanService(DescribedDevice device) =>
-        ServicePriority
+        _servicePriority
             .Where(device.HasService)
             .Select(device.Service)
             .FirstOrDefault();

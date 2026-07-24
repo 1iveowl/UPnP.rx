@@ -13,10 +13,10 @@ namespace UPnP.Rx;
 public sealed class UpnpService
 {
     /// <summary>UDA 2.0 §3.2.1: the charset parameter is quoted; some devices 415 on the unquoted form.</summary>
-    private const string SoapContentType = "text/xml; charset=\"utf-8\"";
+    private const string _soapContentType = "text/xml; charset=\"utf-8\"";
 
     /// <summary>UDA 2.0 §3.2.1 product-token form: OS/version UPnP/2.0 product/version.</summary>
-    private static readonly string UserAgent =
+    private static readonly string _userAgent =
         $"{Environment.OSVersion.Platform}/{Environment.OSVersion.Version} UPnP/2.0 " +
         $"UPnP.Rx/{typeof(UpnpService).Assembly.GetName().Version?.ToString(2) ?? "1.0"}";
 
@@ -94,11 +94,11 @@ public sealed class UpnpService
             using var request = new HttpRequestMessage(HttpMethod.Post, Description.ControlUrl);
             var content = new StringContent(envelope, Encoding.UTF8);
             content.Headers.Remove("Content-Type");
-            content.Headers.TryAddWithoutValidation("Content-Type", SoapContentType);
+            content.Headers.TryAddWithoutValidation("Content-Type", _soapContentType);
             request.Content = content;
             request.Headers.TryAddWithoutValidation(
                 "SOAPACTION", SoapComposer.ComposeSoapActionHeader(Description.ServiceType, action));
-            request.Headers.TryAddWithoutValidation("USER-AGENT", UserAgent);
+            request.Headers.TryAddWithoutValidation("USER-AGENT", _userAgent);
 
             using var response = await _httpClient
                 .SendAsync(request, HttpCompletionOption.ResponseContentRead, linked.Token)

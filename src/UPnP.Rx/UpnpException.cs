@@ -32,13 +32,10 @@ public class UpnpException : Exception
 /// Thrown by <see cref="UpnpService.InvokeAsync"/> when the device answers with
 /// a SOAP fault; carries the device's <see cref="UpnpError"/>.
 /// </summary>
-public sealed class UpnpActionException : UpnpException
+/// <remarks>Creates the exception from the fault's UPnP error.</remarks>
+public sealed class UpnpActionException(string message, UpnpError error) : UpnpException(message)
 {
-    /// <summary>Creates the exception from the fault's UPnP error.</summary>
-    public UpnpActionException(string message, UpnpError error)
-        : base(message) =>
-        Error = error;
 
     /// <summary>The UPnP error the device returned (<c>errorCode</c>/<c>errorDescription</c>).</summary>
-    public UpnpError Error { get; }
+    public UpnpError Error { get; } = error;
 }

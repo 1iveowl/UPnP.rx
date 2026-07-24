@@ -8,7 +8,7 @@ namespace UPnP.Rx.Parsing;
 /// </summary>
 public static class SoapComposer
 {
-    private static readonly XNamespace SoapEnvelope = "http://schemas.xmlsoap.org/soap/envelope/";
+    private static readonly XNamespace _soapEnvelope = "http://schemas.xmlsoap.org/soap/envelope/";
 
     /// <summary>
     /// Composes the SOAP 1.1 envelope for an action call, ready to POST to the
@@ -43,10 +43,10 @@ public static class SoapComposer
         var document = new XDocument(
             new XDeclaration("1.0", "utf-8", null),
             new XElement(
-                SoapEnvelope + "Envelope",
-                new XAttribute(XNamespace.Xmlns + "s", SoapEnvelope),
-                new XAttribute(SoapEnvelope + "encodingStyle", "http://schemas.xmlsoap.org/soap/encoding/"),
-                new XElement(SoapEnvelope + "Body", action)));
+                _soapEnvelope + "Envelope",
+                new XAttribute(XNamespace.Xmlns + "s", _soapEnvelope),
+                new XAttribute(_soapEnvelope + "encodingStyle", "http://schemas.xmlsoap.org/soap/encoding/"),
+                new XElement(_soapEnvelope + "Body", action)));
 
         return $"{document.Declaration}\n{document.ToString(SaveOptions.DisableFormatting)}";
     }

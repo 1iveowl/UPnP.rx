@@ -1,4 +1,3 @@
-using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Reactive.Linq;
@@ -10,15 +9,15 @@ using UPnP.Rx.Model;
 // in containers.
 
 var addresses = NetworkInterface.GetAllNetworkInterfaces()
-    .Where(nic => nic.OperationalStatus == OperationalStatus.Up
-        && nic.NetworkInterfaceType != NetworkInterfaceType.Loopback)
+    .Where(nic => nic.OperationalStatus is OperationalStatus.Up
+        && nic.NetworkInterfaceType is not NetworkInterfaceType.Loopback)
     .SelectMany(nic => nic.GetIPProperties().UnicastAddresses)
     .Select(u => u.Address)
-    .Where(a => a.AddressFamily == AddressFamily.InterNetwork)
+    .Where(a => a.AddressFamily is AddressFamily.InterNetwork)
     .Distinct()
     .ToArray();
 
-if (addresses.Length == 0)
+if (addresses.Length is 0)
 {
     Console.WriteLine("No usable IPv4 interfaces found.");
     return;

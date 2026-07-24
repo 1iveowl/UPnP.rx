@@ -12,7 +12,7 @@ namespace UPnP.Rx.PortMapping;
 /// </summary>
 public static class PortMapper
 {
-    private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan _defaultTimeout = TimeSpan.FromSeconds(10);
 
     /// <summary>
     /// Discovers the internet gateway by searching for
@@ -65,7 +65,7 @@ public static class PortMapper
 
         var options = client.Options;
 
-        using var timeoutCts = new CancellationTokenSource(timeout ?? DefaultTimeout, options.TimeProvider);
+        using var timeoutCts = new CancellationTokenSource(timeout ?? _defaultTimeout, options.TimeProvider);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
 
         try

@@ -140,6 +140,15 @@ discover → describe → control — for modern .NET:
 - port mapping with auto-renewing leases as the flagship, and
 - near-zero dependencies on `net10.0`.
 
+At a glance:
+
+| Library | Focus | UPnP.Rx in comparison |
+|---|---|---|
+| **Mono.Nat** | Port mapping (UPnP IGD + NAT-PMP) | UPnP only, but adds description/control beyond IGD, an Rx + `async` API, and auto-renewing leases |
+| **Open.NAT** | Port mapping (UPnP IGD) | The full discover → describe → control chain, under active development |
+| **Rssdp** | SSDP discovery + device-side publishing | Picks up where discovery ends: from the LOCATION URL to description and control |
+| **Waher.Networking.UPnP** | UPnP within the Waher IoT framework | Standalone package, near-zero dependencies, `net10.0`-idiomatic |
+
 Known boundary: UPnP.Rx speaks UPnP only — for NAT-PMP/PCP, Mono.Nat has you
 covered. Planned next: GENA eventing (v2), a live device roster with expiry
 (v1.1).

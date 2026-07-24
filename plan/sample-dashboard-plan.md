@@ -147,7 +147,7 @@ and node summaries say "embedded" too.
 | F6 | Hand-rolled cards/header instead of `FluentCard`/`FluentAccordion`/`FluentDataGrid` | Deliberate divergence, already recorded: custom accordion semantics + token CSS. Docs offer no rule against it. | Keep (conscious choice); `FluentDataGrid` noted as an alternative if the roster ever needs sorting/columns |
 | F7 | `reboot.css` linked via `@Assets` fingerprinting | Docs show a plain `/_content/...` link; ours is the `MapStaticAssets`-aware form. | Keep ours (better) |
 
-## Two views: Browser + Port mapper (2026-07-24; author chose ROUTED PAGES over FluentTabs - deep links + room for the v2 eventing page; implemented same day)
+## Two views: Browser + Port mapper (2026-07-24; author chose ROUTED PAGES over FluentTabs - deep links + room for the 4.0 eventing page; implemented same day)
 
 **Implemented as designed below**, with routed pages (`/` and `/portmapping`), a shared
 `DashNav` component (brand, nav links, theme toggle + `FluentDesignTheme`), `GatewayService`
@@ -203,7 +203,7 @@ the same visual treatment. Proposed shape:
 1. **Per-service action invocation** in the expanded view - SCPD-driven form via
    `ValidateAndOrderArguments`.
 2. **Per-device SSDP message log** - pending the open question above.
-3. **v2 eventing hook**: when GENA lands, subscribe evented state variables and update the
+3. **4.0 eventing hook**: when GENA lands, subscribe evented state variables and update the
    expanded view live - the dashboard becomes the eventing demo.
 4. **Roster v1.1**: replace the sample's ConcurrentDictionary with the library's live roster
    observable once it exists; delete the byebye/alive trade-off note above.

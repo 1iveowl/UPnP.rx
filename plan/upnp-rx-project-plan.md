@@ -6,7 +6,7 @@
 
 ## 1. Vision
 
-**UPnP.Rx is the client people actually reach for.** SSDP discovery alone stops one step short of anything useful — every consumer's next line of code after discovery is "fetch the description, call an action." UPnP.Rx closes that gap: a modern, functional, Rx-based UPnP *control point* stack for .NET 10 that goes **discover → describe → control** in v1 and adds **eventing** in v2, with an **IGD port-mapping client** as the headline consumer (the single most-demanded UPnP capability in .NET — game hosting, P2P, self-hosted services — and the incumbent, Open.NAT, is unmaintained).
+**UPnP.Rx is the client people actually reach for.** SSDP discovery alone stops one step short of anything useful — every consumer's next line of code after discovery is "fetch the description, call an action." UPnP.Rx closes that gap: a modern, functional, Rx-based UPnP *control point* stack for .NET 10 that goes **discover → describe → control** first (released as 3.0) and adds **eventing** in 4.0, with an **IGD port-mapping client** as the headline consumer (the single most-demanded UPnP capability in .NET — game hosting, P2P, self-hosted services — and the incumbent, Open.NAT, is unmaintained).
 
 One-line pitch: *"Discover a device, browse its services, call its actions, watch its state — as observables and immutable records."*
 
@@ -61,10 +61,10 @@ All by the same author, all net10.0, all on nuget.org, all MIT:
 | Package | Role | Notes |
 |---|---|---|
 | `SSDP.UPnP.PCL` ≥ 7.0.2 | SSDP discovery (UDA 2.0 clause 1) | The foundation. Exposes `ControlPoint` with `MSearchResponseObservable()` / `NotifyObservable()` (shared, parse-once streams), immutable records (`MSearchRequest/Response`, `Notify`, `ST`, `USN`), pure `SsdpMessageParser`/`DatagramComposer`, TCPPORT (TCP search responses), and a `HotStart` seam for sharing one socket stream between services. Handles the Linux/macOS multicast-bind semantics internally — UPnP.Rx never touches multicast sockets. |
-| `SimpleHttpListener.Rx` ≥ 7.0.1 | Rx HTTP listener (TCP/UDP), keep-alive aware | Use its `TcpListener.ToHttpListenerObservable(...)` for the eventing callback server in v2, via the SSDP `HotStart` seam if sharing a listener. `HttpRequestResponse` record is the shared message currency. |
+| `SimpleHttpListener.Rx` ≥ 7.0.1 | Rx HTTP listener (TCP/UDP), keep-alive aware | Use its `TcpListener.ToHttpListenerObservable(...)` for the eventing callback server in 4.0, via the SSDP `HotStart` seam if sharing a listener. `HttpRequestResponse` record is the shared message currency. |
 | `HttpMachine.PCL` ≥ 6.0.1 | Span-based HTTP parser | Transitive; not referenced directly. |
 
-UPnP.Rx sits **above** `SSDP.UPnP.PCL` and never reimplements discovery. Description documents are fetched with plain `HttpClient` (injectable). SOAP control is plain `HttpClient` POST. Only eventing (v2) needs an inbound HTTP listener.
+UPnP.Rx sits **above** `SSDP.UPnP.PCL` and never reimplements discovery. Description documents are fetched with plain `HttpClient` (injectable). SOAP control is plain `HttpClient` POST. Only eventing (4.0) needs an inbound HTTP listener.
 
 **Do not modify SSDP.UPnP.PCL from this project.** If a gap is found there, note it as a proposed upstream issue.
 
@@ -76,7 +76,7 @@ UPnP.Rx sits **above** `SSDP.UPnP.PCL` and never reimplements discovery. Descrip
 - **The fluent client** — `UpnpClient` tying discovery → lazy cached description → service invocation, deduplicating discovered devices by USN/BOOTID.
 - **IGD port mapping** — `InternetGatewayDevice:1/:2` + `WANIPConnection:1/:2` (fallback `WANPPPConnection:1`): `AddPortMapping`, `AddAnyPortMapping` (IGD:2), `DeletePortMapping`, `GetExternalIPAddress`, `GetGenericPortMappingEntry` enumeration, auto-renewing `PortMappingLease` handle (decision 3).
 
-### v2 (design for it, don't build yet)
+### 4.0 (design for it, don't build yet)
 - **Eventing (UDA 2.0 clause 4, GENA)** — control-point side only: `SUBSCRIBE`/`UNSUBSCRIBE`/renewal (`NT: upnp:event`, `CALLBACK`, `TIMEOUT: Second-…`, `SID` lifecycle), callback listener via SimpleHttpListener.Rx, `NOTIFY`/`upnp:propchange` property-set XML parsing, event-key (`SEQ`) gap detection, exposed as `service.Events() → IObservable<PropertyChange>` with automatic renewal driven by `TimeProvider`.
 
 ### Explicitly out of scope
@@ -111,7 +111,7 @@ What goes wrong without rule 3, concretely: `.Buffer(TimeSpan.FromSeconds(1))` w
 
 Background: Rx subscriptions are synchronously disposable by contract, and **System.Reactive 7.0.0 has no `IAsyncDisposable` integration** (verified against the assembly; AsyncRx.NET is experimental preview — do not use). But UPnP teardown is inherently *asynchronous protocol work*: deleting a port mapping, sending `UNSUBSCRIBE`, saying byebye. Hence the house rule extends to three parts: **Rx composes; TimeProvider times; IAsyncDisposable retires.**
 
-1. **Edge classes that owe the network a goodbye implement `IAsyncDisposable`.** `DisposeAsync` performs the graceful protocol exit, then releases resources. Also implement plain `IDisposable` as the *abrupt* variant (release only, no network goodbye), with XML docs stating exactly that. Applies to: `UpnpClient`, the auto-renewing port-mapping handle (`await using var mapping = …` → `DisposeAsync` stops renewal and calls `DeletePortMapping`), and in v2 the eventing subscription (`DisposeAsync` sends `UNSUBSCRIBE`).
+1. **Edge classes that owe the network a goodbye implement `IAsyncDisposable`.** `DisposeAsync` performs the graceful protocol exit, then releases resources. Also implement plain `IDisposable` as the *abrupt* variant (release only, no network goodbye), with XML docs stating exactly that. Applies to: `UpnpClient`, the auto-renewing port-mapping handle (`await using var mapping = …` → `DisposeAsync` stops renewal and calls `DeletePortMapping`), and in 4.0 the eventing subscription (`DisposeAsync` sends `UNSUBSCRIBE`).
 2. **The `FinallyAsync` pattern is banned** (Materialize → async SelectMany → Dematerialize, as seen in WebsocketClientLite's `ObservableEx` and in SSDP.UPnP.PCL v6, where it was removed during the 7.0 review). Its flaw: it fires on `OnCompleted`/`OnError` but **never on unsubscribe** — and disposing the subscription is how consumers normally leave a hot, long-lived stream, so the cleanup silently never runs. It also swallows the original error if the cleanup task throws during the `OnError` path. Cleanup that must run when the consumer leaves belongs either on the owning object's `DisposeAsync` (rule 1) or in rule 3's pattern.
 3. **Per-subscription async teardown, when genuinely needed, uses `Observable.Create` with the async subscribe overload**: `Observable.Create<T>(async (observer, ct) => { try { … } finally { await CleanupAsync(); } })` — the token fires on unsubscribe as well, so the `finally` covers completion, error *and* disposal (SimpleHttpListener.Rx v7's UDP listener is the reference implementation of this shape). If the resource is an `IAsyncDisposable`, wrap the pattern once as a small internal `ObservableEx.UsingAsync(...)` helper — that is the helper worth owning, not `FinallyAsync`.
 4. **Fire-and-forget async work inside a sync `Dispose` is forbidden** — it races process shutdown and hides failures. If teardown matters, it is `DisposeAsync`'s job; if `Dispose` is called instead, the abrupt path is taken by design.

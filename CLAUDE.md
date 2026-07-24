@@ -1,6 +1,6 @@
 # CLAUDE.md — UPnP.Rx
 
-Rx-based UPnP control point for .NET 10: discover → describe → control (v1), eventing (v2), with an IGD port-mapping client as the flagship. Sibling of `SSDP.UPnP.PCL` / `SimpleHttpListener.Rx` (same author: `1iveowl`), AI-assisted from day one.
+Rx-based UPnP control point for .NET 10: discover → describe → control (3.0), eventing (4.0), with an IGD port-mapping client as the flagship. Sibling of `SSDP.UPnP.PCL` / `SimpleHttpListener.Rx` (same author: `1iveowl`), AI-assisted from day one.
 
 ## Read these first
 

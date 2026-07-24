@@ -52,6 +52,12 @@ public sealed class DeviceStreamClient : IAsyncDisposable
 
     public async Task StartAsync()
     {
+        // Components may mount more than once; only start from cold.
+        if (_connection.State is not HubConnectionState.Disconnected)
+        {
+            return;
+        }
+
         try
         {
             await _connection.StartAsync();

@@ -25,7 +25,10 @@ else
 }
 
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
-app.UseHttpsRedirection();
+
+// No HTTPS redirection: this is a LAN dashboard, typically opened from other
+// machines by plain http://<host-ip>:<port>; redirecting to a dev-cert HTTPS
+// port would break that (and warns when no https port is configured).
 
 app.UseAntiforgery();
 

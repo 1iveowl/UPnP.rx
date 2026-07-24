@@ -10,7 +10,7 @@ namespace UPnP.Rx;
 /// <see cref="DescribedDevice"/> and are stable per service, so the SCPD is
 /// fetched at most once.
 /// </summary>
-public sealed class UpnpService
+public sealed class UpnpService : IUpnpService
 {
     /// <summary>UDA 2.0 §3.2.1: the charset parameter is quoted; some devices 415 on the unquoted form.</summary>
     private const string _soapContentType = "text/xml; charset=\"utf-8\"";
@@ -122,6 +122,11 @@ public sealed class UpnpService
             status = response.StatusCode;
             body = await response.Content.ReadAsStringAsync(linked.Token).ConfigureAwait(false);
         }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested && !ct.IsCancellationRequested)
+        {
+            throw new ObjectDisposedException(
+                nameof(UpnpClient), "The owning UpnpClient was disposed; its services can no longer invoke actions.");
+        }
         catch (OperationCanceledException) when (timeout.IsCancellationRequested && !ct.IsCancellationRequested)
         {
             throw new UpnpException($"The action {action} timed out after {_options.ActionTimeout}.");
@@ -168,6 +173,11 @@ public sealed class UpnpService
         try
         {
             xml = await _httpClient.GetStringAsync(Description.ScpdUrl, linked.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+        {
+            throw new ObjectDisposedException(
+                nameof(UpnpClient), "The owning UpnpClient was disposed; the SCPD can no longer be fetched.");
         }
         catch (OperationCanceledException) when (timeout.IsCancellationRequested)
         {

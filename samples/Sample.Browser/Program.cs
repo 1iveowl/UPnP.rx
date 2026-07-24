@@ -1,6 +1,5 @@
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
-using System.Reactive.Linq;
 using UPnP.Rx;
 using UPnP.Rx.Model;
 
@@ -24,27 +23,38 @@ if (addresses.Length is 0)
 }
 
 Console.WriteLine($"Browsing from: {string.Join(", ", addresses.Select(a => a.ToString()))}");
-Console.WriteLine("Discovering for 15 seconds…\n");
+Console.WriteLine("Discovering (press Enter to stop)…\n");
 
 using var upnp = new UpnpClient(addresses);
 
+var found = 0;
+
+// One line from discovery to described device trees; failures are skipped
+// (pass an ILogger via UpnpClientOptions to see them).
 using var subscription = upnp
-    .DiscoverDevices()                                   // upnp:rootdevice by default
-    .SelectMany(device => Observable
-        .FromAsync(device.GetDescriptionAsync)           // token tied to the subscription (Rx rule 1)
-        .Select(described => (Discovered: device, Described: described))
-        .Catch((UpnpException e) =>
-        {
-            Console.WriteLine($"! {device.Location}: {e.Message}");
-            return Observable.Empty<(DiscoveredDevice Discovered, DescribedDevice Described)>();
-        }))
-    .Subscribe(pair =>
+    .DiscoverDescribedDevices()
+    .Subscribe(device =>
     {
-        var root = pair.Described.Description;
-        Console.WriteLine($"● {root.FriendlyName}  [{pair.Discovered.Location}]");
-        Print(root, indent: "  ");
+        Interlocked.Increment(ref found);
+        Console.WriteLine($"● {device.Description.FriendlyName}  [{device.Description.Location}]");
+        Print(device.Description, indent: "  ");
         Console.WriteLine();
     });
+
+await Task.Delay(TimeSpan.FromSeconds(15), TimeProvider.System);
+
+if (Volatile.Read(ref found) is 0)
+{
+    Console.WriteLine("""
+        Nothing answered in 15 seconds. Things to check:
+          • Running inside Docker/WSL/a devcontainer? Multicast doesn't work there;
+            run this sample on the host.
+          • Is a VPN active? Try disconnecting.
+          • Some networks block SSDP (AP isolation, IGMP snooping) — try another
+            network or a wired connection.
+        Still listening — devices announce themselves periodically…
+        """);
+}
 
 Console.ReadLine();
 

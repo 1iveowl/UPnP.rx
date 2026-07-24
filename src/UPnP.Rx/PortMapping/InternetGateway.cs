@@ -10,7 +10,7 @@ namespace UPnP.Rx.PortMapping;
 /// (<c>WANIPConnection:2/:1</c> or <c>WANPPPConnection:1</c>) of a discovered
 /// <c>InternetGatewayDevice</c>, wrapped in a typed API.
 /// </summary>
-public sealed class InternetGateway : IAsyncDisposable, IDisposable
+public sealed class InternetGateway : IInternetGateway
 {
     // Best first: prefer IP over PPP, higher version over lower. WANPPPConnection:2
     // is real (see the Orange Livebox fixture) even though the plan only listed :1.
@@ -130,6 +130,68 @@ public sealed class InternetGateway : IAsyncDisposable, IDisposable
         return AddAsync(externalPort, internalPort, protocol, description, lease, internalClient, useAnyPort: true, ct);
     }
 
+    /// <summary>The WAN connection state (<c>GetStatusInfo</c>): status, last error, uptime.</summary>
+    /// <exception cref="UpnpActionException">The gateway answered with a UPnP error.</exception>
+    public async Task<ConnectionStatusInfo> GetStatusInfoAsync(CancellationToken ct = default)
+    {
+        var result = await WanConnectionService
+            .InvokeAsync("GetStatusInfo", ct: ct)
+            .ConfigureAwait(false);
+
+        return new ConnectionStatusInfo
+        {
+            Status = result["NewConnectionStatus"],
+            LastError = result["NewLastConnectionError"],
+            Uptime = uint.TryParse(result["NewUptime"], out var seconds)
+                ? TimeSpan.FromSeconds(seconds)
+                : TimeSpan.Zero
+        };
+    }
+
+    /// <summary>
+    /// The mapping for one external port + protocol
+    /// (<c>GetSpecificPortMappingEntry</c>), or <see langword="null"/> when the
+    /// gateway reports none (UPnP error 714 NoSuchEntryInArray).
+    /// </summary>
+    /// <exception cref="UpnpActionException">The gateway answered with a UPnP error other than 714.</exception>
+    public async Task<PortMappingEntry?> GetSpecificPortMappingEntryAsync(
+        ushort externalPort,
+        Protocol protocol,
+        string remoteHost = "",
+        CancellationToken ct = default)
+    {
+        ActionResult entry;
+
+        try
+        {
+            entry = await WanConnectionService.InvokeAsync("GetSpecificPortMappingEntry",
+                new Dictionary<string, string>
+                {
+                    ["NewRemoteHost"] = remoteHost,
+                    ["NewExternalPort"] = externalPort.ToString(),
+                    ["NewProtocol"] = protocol.ToWireString()
+                }, ct).ConfigureAwait(false);
+        }
+        catch (UpnpActionException e) when (e.Error.Code is 714)
+        {
+            return null;
+        }
+
+        return new PortMappingEntry
+        {
+            RemoteHost = remoteHost,
+            ExternalPort = externalPort,
+            Protocol = protocol,
+            InternalPort = ushort.TryParse(entry["NewInternalPort"], out var internalPort) ? internalPort : (ushort)0,
+            InternalClient = entry["NewInternalClient"],
+            Enabled = entry["NewEnabled"] is "1" or "true",
+            Description = entry["NewPortMappingDescription"],
+            LeaseDuration = uint.TryParse(entry["NewLeaseDuration"], out var seconds)
+                ? TimeSpan.FromSeconds(seconds)
+                : TimeSpan.Zero
+        };
+    }
+
     /// <summary>Removes a port mapping from the gateway.</summary>
     /// <exception cref="UpnpActionException">The gateway answered with a UPnP error (e.g. 714 NoSuchEntryInArray).</exception>
     public async Task DeletePortMappingAsync(
@@ -195,6 +257,22 @@ public sealed class InternetGateway : IAsyncDisposable, IDisposable
     /// <summary>A copy of this gateway that owns (and disposes) the given discovery client.</summary>
     internal InternetGateway WithOwnedClient(UpnpClient client) =>
         new(Device, WanConnectionService, LocalAddress, _options, client);
+
+    // IInternetGateway exposes the interface types; the class keeps the concrete
+    // ones so direct users lose nothing.
+    IUpnpService IInternetGateway.WanConnectionService => WanConnectionService;
+
+    async Task<IPortMappingLease> IInternetGateway.AddPortMappingAsync(
+        ushort externalPort, ushort internalPort, Protocol protocol, string description,
+        TimeSpan lease, IPAddress? internalClient, CancellationToken ct) =>
+        await AddPortMappingAsync(externalPort, internalPort, protocol, description, lease, internalClient, ct)
+            .ConfigureAwait(false);
+
+    async Task<IPortMappingLease> IInternetGateway.AddAnyPortMappingAsync(
+        ushort externalPort, ushort internalPort, Protocol protocol, string description,
+        TimeSpan lease, IPAddress? internalClient, CancellationToken ct) =>
+        await AddAnyPortMappingAsync(externalPort, internalPort, protocol, description, lease, internalClient, ct)
+            .ConfigureAwait(false);
 
     /// <summary>Releases the discovery client when this gateway owns one (created via <see cref="PortMapper"/>).</summary>
     public void Dispose() => _ownedClient?.Dispose();

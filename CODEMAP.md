@@ -33,8 +33,9 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 ├── src/UPnP.Rx/               # the library (single package)
 │   ├── UPnP.Rx.csproj         # deps: SSDP.UPnP.PCL, System.Reactive, Logging.Abstractions
 │   ├── UpnpClient.cs          # edge: discovery over IControlPoint, lazy start (Defer),
-│   │                          #   description cache (Location+ConfigId), M-SEARCH fan-out
-│   ├── DiscoveredDevice.cs, DescribedDevice.cs, UpnpService.cs
+│   │                          #   description cache (Location+ConfigId), M-SEARCH fan-out,
+│   │                          #   DiscoverDescribedDevices (discovery+description, UDN-deduped)
+│   ├── DiscoveredDevice.cs, DescribedDevice.cs, UpnpService.cs, IUpnpService.cs
 │   ├── UpnpClientOptions.cs   # decision 6: search target/MX; TimeProvider (init-only); CPFN
 │   ├── SearchTargets.cs       # RootDevice/All/DeviceType/ServiceType/Uuid over STType
 │   ├── UpnpException.cs       # + UpnpActionException carrying UpnpError
@@ -43,6 +44,7 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 │   │   ├── DeviceDescription.cs   # DDD tree; Location + BaseUrl; SelfAndDescendants()
 │   │   ├── ServiceDescription.cs, IconDescription.cs, SpecVersion.cs
 │   │   ├── Scpd.cs, ActionDescription.cs, ArgumentDescription.cs, StateVariable.cs
+│   │   ├── ScpdExtensions.cs  # ValidateAndOrderArguments — SCPD-driven marshalling
 │   │   └── ActionResult.cs, UpnpError.cs
 │   ├── PortMapping/           # UPnP.Rx.PortMapping — the flagship (IGD client)
 │   │   ├── PortMapper.cs      # DiscoverGatewayAsync (IGD:2+:1 merge) + one-liner AddPortMappingAsync
@@ -50,7 +52,8 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 │   │   │                      #   IAsyncEnumerable mapping enumeration (ends at gateway fault)
 │   │   ├── PortMappingLease.cs    # auto-renew at half-life on TimeProvider; Events observable;
 │   │   │                          #   DisposeAsync=delete, Dispose=abrupt (lease expires on router)
-│   │   └── PortMappingEntry.cs, Protocol.cs   # (Entry avoids namespace/type collision)
+│   │   ├── PortMappingEntry.cs, Protocol.cs   # (Entry avoids namespace/type collision)
+│   │   └── IInternetGateway.cs, IPortMappingLease.cs, ConnectionStatusInfo.cs
 │   └── Parsing/               # UPnP.Rx.Parsing — pure, total, lenient
 │       ├── DescriptionParser.cs   # DDD → DeviceDescription; URLBase honored; & repair
 │       ├── ScpdParser.cs          # SCPD → Scpd (actions, state variables, ranges)

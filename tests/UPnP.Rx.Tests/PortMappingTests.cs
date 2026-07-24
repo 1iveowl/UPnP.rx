@@ -195,6 +195,55 @@ public class PortMappingTests
     }
 
     [Fact]
+    public async Task GetStatusInfo_ParsesConnectionState()
+    {
+        var (gateway, _, http, client) = await DiscoverGatewayAsync();
+        using var _1 = client;
+
+        http.Map(ControlUrl, _ => (HttpStatusCode.OK, ResponseEnvelope("GetStatusInfo", PppServiceType, """
+            <NewConnectionStatus>Connected</NewConnectionStatus>
+            <NewLastConnectionError>ERROR_NONE</NewLastConnectionError>
+            <NewUptime>7200</NewUptime>
+            """)));
+
+        var status = await gateway.GetStatusInfoAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(status.IsConnected);
+        Assert.Equal("ERROR_NONE", status.LastError);
+        Assert.Equal(TimeSpan.FromHours(2), status.Uptime);
+    }
+
+    [Fact]
+    public async Task GetSpecificPortMappingEntry_ReturnsTheMapping_AndNullOn714()
+    {
+        var (gateway, _, http, client) = await DiscoverGatewayAsync();
+        using var _1 = client;
+
+        var exists = true;
+        http.Map(ControlUrl, _ => exists
+            ? (HttpStatusCode.OK, ResponseEnvelope("GetSpecificPortMappingEntry", PppServiceType, """
+                <NewInternalPort>9090</NewInternalPort>
+                <NewInternalClient>192.168.1.50</NewInternalClient>
+                <NewEnabled>1</NewEnabled>
+                <NewPortMappingDescription>existing</NewPortMappingDescription>
+                <NewLeaseDuration>600</NewLeaseDuration>
+                """))
+            : (HttpStatusCode.InternalServerError, FaultEnvelope(714, "NoSuchEntryInArray")));
+
+        var mapping = await gateway.GetSpecificPortMappingEntryAsync(
+            8080, Protocol.Tcp, ct: TestContext.Current.CancellationToken);
+
+        Assert.NotNull(mapping);
+        Assert.Equal(9090, mapping.InternalPort);
+        Assert.Equal("192.168.1.50", mapping.InternalClient);
+
+        exists = false;
+
+        Assert.Null(await gateway.GetSpecificPortMappingEntryAsync(
+            8080, Protocol.Tcp, ct: TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public async Task AddAnyPortMapping_RequiresWanIpConnection2()
     {
         var (gateway, _, _, client) = await DiscoverGatewayAsync();

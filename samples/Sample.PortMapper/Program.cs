@@ -1,3 +1,5 @@
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using UPnP.Rx.PortMapping;
 
 // Sample.PortMapper — discover the internet gateway, show its state, and
@@ -12,12 +14,35 @@ await using var gateway = await PortMapper.DiscoverGatewayAsync();
 
 if (gateway is null)
 {
-    Console.WriteLine("No internet gateway answered. Is UPnP/IGD enabled on the router?");
+    var searched = NetworkInterface.GetAllNetworkInterfaces()
+        .Where(nic => nic.OperationalStatus is OperationalStatus.Up
+            && nic.NetworkInterfaceType is not NetworkInterfaceType.Loopback)
+        .SelectMany(nic => nic.GetIPProperties().UnicastAddresses)
+        .Select(u => u.Address)
+        .Where(a => a.AddressFamily is AddressFamily.InterNetwork)
+        .Distinct()
+        .ToList();
+
+    Console.WriteLine("No internet gateway answered.");
+    Console.WriteLine($"Searched from: {(searched.Count == 0 ? "(no usable IPv4 interfaces!)" : string.Join(", ", searched))}");
+    Console.WriteLine("""
+
+        Things to check:
+          • Is UPnP / IGD enabled on the router? (Often off by default; look under
+            "advanced", "NAT forwarding" or "media sharing" in the router UI.)
+          • Is a VPN active? Its interface may not reach the LAN — try disconnecting.
+          • Running inside Docker/WSL/a devcontainer? Multicast doesn't work there;
+            run this sample on the host.
+          • Try Sample.Browser to see whether *any* UPnP device answers at all.
+        """);
     return;
 }
 
 Console.WriteLine($"Gateway: {gateway.Device.Description.FriendlyName}");
 Console.WriteLine($"Service: {gateway.WanConnectionService.Description.ServiceType}");
+
+var status = await gateway.GetStatusInfoAsync();
+Console.WriteLine($"WAN: {status.Status} (uptime {status.Uptime}, last error {status.LastError})");
 Console.WriteLine($"External IP: {await gateway.GetExternalIPAddressAsync()}");
 
 Console.WriteLine("\nCurrent port mappings:");
@@ -31,6 +56,14 @@ await foreach (var mapping in gateway.GetPortMappingsAsync())
 
 if (args.Length > 0 && args[0] == "--map")
 {
+    var taken = await gateway.GetSpecificPortMappingEntryAsync(18080, Protocol.Tcp);
+
+    if (taken is not null)
+    {
+        Console.WriteLine($"\nExternal port 18080 is already mapped to {taken.InternalClient} (\"{taken.Description}\").");
+        return;
+    }
+
     Console.WriteLine("\nMapping TCP 18080 -> 18080 for 15 minutes (auto-renewing)…");
 
     await using var lease = await gateway.AddPortMappingAsync(

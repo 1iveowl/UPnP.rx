@@ -21,19 +21,25 @@ UDA compliance review. 15 findings; the confirmed high/medium defects were fixed
 | 12 | Low | `DescribedDevice.Services` allocated a fresh list per property access | Built once in the constructor |
 | 13 | Low | Any body containing a `UPnPError` element was classified a fault, even an HTTP-200 success response | `ParseFault` requires an actual `Fault` element (sloppy-nesting search kept within); regression test |
 
-## Recorded, not changed (author's call)
+## Dispositions of the remaining findings (all addressed same day, follow-up commit)
 
-- **11 (Med):** `Distinct` key sets in the indefinitely-open `DiscoverDevices`/`DiscoverGateways`
-  streams grow unboundedly on very long subscriptions (one key per device×boot). Acceptable for
-  v1 usage patterns; the v1.1 roster (plan §8 decision 4) is the structural fix. XML docs note
-  the long-subscription caveat.
-- **14 (Low):** after `UpnpClient.Dispose()`, `InvokeAsync` on a previously obtained service
-  surfaces `OperationCanceledException` rather than `UpnpException`/`ObjectDisposedException`.
-  Vocabulary nit; revisit with v2 eventing lifetime work.
-- **15 (Low, design):** consumer-side mockability — edge types are sealed with internal
-  constructors and no interfaces, so consumers cannot fake an `InternetGateway`/`UpnpService`
-  in their own tests. Deliberate v1 surface-minimalism; candidate v1.1: extract minimal
-  interfaces (`IUpnpService`, `IInternetGateway`) or ship a testing package.
+- **11 (Med):** structural fix stays with the v1.1 roster (plan §8 decision 4); the
+  long-subscription dedup-state caveat is now in `DiscoverDevices`' XML remarks.
+- **14 (Low): fixed** — a disposed owning `UpnpClient` now surfaces as
+  `ObjectDisposedException` from `InvokeAsync`/`GetScpdAsync`, not a bare
+  `OperationCanceledException`.
+- **15 (Low): fixed** — `IUpnpService`, `IInternetGateway`, `IPortMappingLease` extracted;
+  concrete classes keep their concrete surfaces, the interfaces exist for consumer test
+  doubles.
+
+## Post-review additions (same follow-up commit)
+
+From the product-gap assessment, all approved by the author: `UpnpClient.DiscoverDescribedDevices`
+(discovery + description in one stream, UDN-deduplicated), `InternetGateway.GetSpecificPortMappingEntryAsync`
+(null on 714) and `GetStatusInfoAsync` (typed `ConnectionStatusInfo`),
+`Scpd.ValidateAndOrderArguments` (SCPD-driven argument marshalling — closes plan §4's "typed
+argument marshalling" as validated string marshalling), README (try-it-in-two-minutes,
+comparison table, troubleshooting) and diagnosing samples.
 
 ## Also verified in this pass
 

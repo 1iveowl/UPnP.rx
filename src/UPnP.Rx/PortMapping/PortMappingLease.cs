@@ -18,7 +18,7 @@ namespace UPnP.Rx.PortMapping;
 /// lease then simply expires on the router. An indefinite lease
 /// (<see cref="TimeSpan.Zero"/>) opts out of both protections.
 /// </remarks>
-public sealed class PortMappingLease : IAsyncDisposable, IDisposable
+public sealed class PortMappingLease : IPortMappingLease
 {
     private readonly InternetGateway _gateway;
     private readonly UpnpClientOptions _options;

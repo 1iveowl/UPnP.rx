@@ -103,6 +103,9 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
     /// stays open (devices keep announcing); dispose the subscription to stop.
     /// Degraded announcements are kept (<see cref="DiscoveredDevice.HasParsingError"/>);
     /// only messages without a usable <c>LOCATION</c> are dropped, with a log note.
+    /// Deduplication state grows with the number of distinct device×boot
+    /// identities seen — on very long-lived subscriptions, resubscribe
+    /// periodically (a live roster with expiry is planned for v1.1).
     /// </remarks>
     public IObservable<DiscoveredDevice> DiscoverDevices(ST? searchTarget = null, TimeSpan? mx = null) =>
         Observable.Defer(() =>
@@ -150,6 +153,30 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
                 return subscription;
             });
         });
+
+    /// <summary>
+    /// Devices announcing themselves, with their descriptions already fetched:
+    /// <see cref="DiscoverDevices"/> composed with the description fetch, one
+    /// emission per device (deduplicated by UDN). Devices whose description
+    /// cannot be fetched or parsed are skipped with a log note (per-item failure
+    /// is data, not stream death).
+    /// </summary>
+    /// <param name="searchTarget">The search target; the options' <see cref="UpnpClientOptions.DefaultSearchTarget"/> when null.</param>
+    /// <param name="mx">Maximum device response delay; the options' <see cref="UpnpClientOptions.DefaultMx"/> when null.</param>
+    /// <remarks>
+    /// Temperature: cold — see <see cref="DiscoverDevices"/>. In-flight
+    /// description fetches are cancelled when the subscription is disposed.
+    /// </remarks>
+    public IObservable<DescribedDevice> DiscoverDescribedDevices(ST? searchTarget = null, TimeSpan? mx = null) =>
+        DiscoverDevices(searchTarget, mx)
+            .SelectMany(device => Observable
+                .FromAsync(device.GetDescriptionAsync)
+                .Catch((UpnpException e) =>
+                {
+                    _options.Logger.LogDebug(e, "Skipping {Location}: description unavailable.", device.Location);
+                    return Observable.Empty<DescribedDevice>();
+                }))
+            .Distinct(described => described.Description.Udn ?? described.Description.Location.ToString());
 
     /// <summary>
     /// Devices leaving the network (<c>ssdp:byebye</c>). Emitted devices carry no

@@ -149,6 +149,28 @@ public class UpnpClientTests
         Assert.Equal("uuid:device-1", device.Usn?.ToUsnString().Split("::")[0]);
     }
 
+    [Fact]
+    public void DiscoverDescribedDevices_EmitsDescribed_SkipsFailures_DedupsByUdn()
+    {
+        var (client, controlPoint, http) = CreateClient();
+        using var _1 = client;
+        http.Map(Location, Fixture("new_LiveBox_desc.xml"));
+
+        var seen = new List<DescribedDevice>();
+        using var subscription = client.DiscoverDescribedDevices().Subscribe(seen.Add);
+
+        controlPoint.Responses.OnNext(Response());
+        controlPoint.Responses.OnNext(Response(bootId: 2));            // same device, rebooted → dedup by UDN
+        controlPoint.Responses.OnNext(new MSearchResponse               // unfetchable → skipped, stream lives
+        {
+            Location = new Uri("http://192.168.1.99/nope.xml"),
+            USN = USN.Parse("uuid:broken::upnp:rootdevice").Value
+        });
+
+        var device = Assert.Single(seen);
+        Assert.Equal("Orange Livebox", device.Description.FriendlyName);
+    }
+
     // ---- Description fetch + cache ----
 
     [Fact]

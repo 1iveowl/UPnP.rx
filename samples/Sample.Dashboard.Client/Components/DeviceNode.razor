@@ -16,6 +16,33 @@
         @if (_openServices.Contains(serviceKey))
         {
             <div class="svc-detail">
+                <div class="svc-live-bar">
+                    <FluentButton Appearance="@(_watching.ContainsKey(serviceKey) ? Appearance.Accent : Appearance.Outline)"
+                                  OnClick="() => ToggleWatch(serviceKey, service)">
+                        @(_watching.ContainsKey(serviceKey) ? "Stop watching" : "Watch live")
+                    </FluentButton>
+                </div>
+
+                @if (_liveEvents.TryGetValue(serviceKey, out var live) && live.Count > 0)
+                {
+                    <div class="svc-section">Live events</div>
+                    @foreach (var e in live)
+                    {
+                        <div class="svc-row">
+                            <span class="svc-name">@(e.Name ?? e.Kind)</span>
+                            <span class="@(e.Kind == "PropertyChange" ? "" : "muted")">@Shorten(e.Value)</span>
+                            @if (e.IsReplay)
+                            {
+                                <span class="muted">(replay)</span>
+                            }
+                            @if (e.Message is not null)
+                            {
+                                <span class="muted">@e.Message</span>
+                            }
+                        </div>
+                    }
+                }
+
                 @if (!_details.TryGetValue(serviceKey, out var detail))
                 {
                     <FluentProgressRing Style="width: 16px; height: 16px;" />
@@ -78,6 +105,8 @@
     }
 </div>
 
+@implements IDisposable
+
 @code {
     [Parameter, EditorRequired]
     public DeviceNodeDto? Node { get; set; }
@@ -86,9 +115,59 @@
     [Parameter, EditorRequired]
     public string DeviceKey { get; set; } = string.Empty;
 
+    private const int MaxLiveRows = 8;
+
     private readonly HashSet<string> _open = [];
     private readonly HashSet<string> _openServices = [];
     private readonly Dictionary<string, ServiceDetailDto> _details = [];
+    private readonly Dictionary<string, IDisposable> _watching = [];
+    private readonly Dictionary<string, List<ServiceEventDto>> _liveEvents = [];
+
+    private void ToggleWatch(string serviceKey, string serviceType)
+    {
+        if (_watching.Remove(serviceKey, out var existing))
+        {
+            existing.Dispose();              // last watcher -> UNSUBSCRIBE on the device
+            return;
+        }
+
+        _liveEvents[serviceKey] = [];
+
+        _watching[serviceKey] = Stream
+            .ServiceEvents(DeviceKey, Node!.Udn, serviceType)
+            .Subscribe(
+                e =>
+                {
+                    var list = _liveEvents[serviceKey];
+                    list.Insert(0, e);
+
+                    if (list.Count > MaxLiveRows)
+                    {
+                        list.RemoveAt(list.Count - 1);
+                    }
+
+                    _ = InvokeAsync(StateHasChanged);
+                },
+                error =>
+                {
+                    _liveEvents[serviceKey].Insert(0,
+                        new ServiceEventDto("Error", null, null, 0, false, false, error.Message));
+                    _ = InvokeAsync(StateHasChanged);
+                });
+    }
+
+    private static string Shorten(string? value) =>
+        value is null ? "" : value.Length <= 80 ? value : value[..80] + "…";
+
+    public void Dispose()
+    {
+        foreach (var subscription in _watching.Values)
+        {
+            subscription.Dispose();
+        }
+
+        _watching.Clear();
+    }
 
     private void Toggle(string key)
     {

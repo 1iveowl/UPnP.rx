@@ -29,3 +29,13 @@ public sealed record LeaseEventDto(
     string Kind,
     string? Message,
     DateTimeOffset Timestamp);
+
+/// <summary>One GENA event from a watched service, streamed over the hub.</summary>
+public sealed record ServiceEventDto(
+    string Kind,
+    string? Name,
+    string? Value,
+    uint Seq,
+    bool IsInitialState,
+    bool IsReplay,
+    string? Message);

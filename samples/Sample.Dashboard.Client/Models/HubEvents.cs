@@ -32,4 +32,7 @@ public static class HubEvents
 
     /// <summary>Hub RPC: invalidate + re-read one device's description; returns an error message or null.</summary>
     public const string RefreshDevice = "RefreshDevice";
+
+    /// <summary>Hub streaming RPC: live GENA events for one service (deviceKey, owning UDN, serviceType).</summary>
+    public const string StreamServiceEvents = "StreamServiceEvents";
 }

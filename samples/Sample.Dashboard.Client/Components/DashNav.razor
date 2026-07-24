@@ -8,6 +8,10 @@
                    OnLoaded="OnThemeLoaded"
                    OnLuminanceChanged="OnThemeLuminance" />
 
+@* Toast host (FluentUI review F3: added with its first consumer - the
+   reconnect toast below). *@
+<FluentToastProvider />
+
 <div class="dash-nav">
     <span class="dash-brand">UPnP.Rx</span>
     <a class="nav-link @(Active == "network" ? "active" : "")" href="/">Network</a>
@@ -22,6 +26,10 @@
     </div>
 </div>
 
+@implements IDisposable
+@inject Sample.Dashboard.Client.Services.DeviceStreamClient Stream
+@inject IToastService ToastService
+
 @code {
     /// <summary>Which nav entry to highlight: "network" or "portmapping".</summary>
     [Parameter, EditorRequired]
@@ -29,6 +37,21 @@
 
     private DesignThemeModes _mode = DesignThemeModes.System;   // follow the OS until the user chooses
     private bool _isDark;
+    private IDisposable? _stateSubscription;
+    private string? _previousState;
+
+    protected override void OnInitialized() =>
+        _stateSubscription = Stream.State.Subscribe(state =>
+        {
+            if (_previousState == "reconnecting…" && state == "live")
+            {
+                ToastService.ShowSuccess("Reconnected to the server");
+            }
+
+            _previousState = state;
+        });
+
+    public void Dispose() => _stateSubscription?.Dispose();
 
     // Doc pattern (review F4): icons are created per render, never shared.
     private static Icon ThemeIcon(bool isDark) => isDark

@@ -81,6 +81,41 @@ public sealed class DeviceStreamClient : IAsyncDisposable
     public Task<string?> RefreshDeviceAsync(string key) =>
         InvokeAsync<string?>(HubEvents.RefreshDevice, "Not connected to the server.", key);
 
+    /// <summary>
+    /// A service's live GENA events as an observable: subscribing opens a hub
+    /// stream (which subscribes on the device when it is the first watcher);
+    /// disposing cancels it (UNSUBSCRIBE when it was the last).
+    /// </summary>
+    public IObservable<ServiceEventDto> ServiceEvents(string deviceKey, string? udn, string serviceType) =>
+        System.Reactive.Linq.Observable.Create<ServiceEventDto>(async (observer, ct) =>
+        {
+            if (_connection.State is not HubConnectionState.Connected)
+            {
+                observer.OnError(new InvalidOperationException("Not connected to the server."));
+                return;
+            }
+
+            try
+            {
+                await foreach (var e in _connection
+                    .StreamAsync<ServiceEventDto>(HubEvents.StreamServiceEvents, deviceKey, udn, serviceType, ct)
+                    .WithCancellation(ct))
+                {
+                    observer.OnNext(e);
+                }
+
+                observer.OnCompleted();
+            }
+            catch (OperationCanceledException)
+            {
+                // Unsubscribed - normal end.
+            }
+            catch (Exception e)
+            {
+                observer.OnError(e);
+            }
+        });
+
     private async Task<T> InvokeAsync<T>(string method, T fallback, params object[] arguments)
     {
         if (_connection.State is not HubConnectionState.Connected)

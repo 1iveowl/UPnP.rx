@@ -308,6 +308,10 @@ a {
     color: var(--error, #991b1b);
 }
 
+.svc-live-bar {
+    margin-bottom: 6px;
+}
+
 .error-panel {
     background: var(--neutral-layer-2, #fef2f2);
     border: 1px solid var(--error, #fca5a5);

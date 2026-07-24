@@ -72,30 +72,80 @@ public sealed class DeviceHub(
     /// Fetches (and, in the library, caches) the SCPD for one service of one
     /// device in the tree, identified by the owning node's UDN + service type.
     /// </summary>
-    public async Task<ServiceDetailDto> GetServiceDetail(string deviceKey, string? udn, string serviceType)
+    private UpnpService? FindService(string deviceKey, string? udn, string serviceType)
     {
         if (!roster.Described.TryGetValue(deviceKey, out var described))
         {
-            return new ServiceDetailDto(serviceType, [], [], "The device is no longer on the roster.");
+            return null;
         }
 
+        var owner = described.Description
+            .SelfAndDescendants()
+            .FirstOrDefault(d => string.Equals(d.Udn, udn, StringComparison.OrdinalIgnoreCase))
+            ?? described.Description;
+
+        var serviceDescription = owner.Services.FirstOrDefault(s =>
+            string.Equals(s.ServiceType, serviceType, StringComparison.OrdinalIgnoreCase));
+
+        return serviceDescription is null
+            ? null
+            : described.Services.FirstOrDefault(s => Equals(s.Description, serviceDescription));
+    }
+
+    /// <summary>
+    /// Streams a service's live GENA events to the browser; the Rx subscription
+    /// (and with it the device-side GENA subscription, when this is the last
+    /// watcher) ends when the client cancels the stream.
+    /// </summary>
+    public async IAsyncEnumerable<ServiceEventDto> StreamServiceEvents(
+        string deviceKey, string? udn, string serviceType,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
+    {
+        var service = FindService(deviceKey, udn, serviceType)
+            ?? throw new HubException("Service not found on the roster.");
+
+        var channel = System.Threading.Channels.Channel.CreateBounded<ServiceEventDto>(
+            new System.Threading.Channels.BoundedChannelOptions(64)
+            {
+                FullMode = System.Threading.Channels.BoundedChannelFullMode.DropOldest
+            });
+
+        using var subscription = service.Events().Subscribe(
+            e => channel.Writer.TryWrite(ToDto(e)),
+            error => channel.Writer.TryComplete(error),
+            () => channel.Writer.TryComplete());
+
+        await foreach (var dto in channel.Reader.ReadAllAsync(ct))
+        {
+            yield return dto;
+        }
+    }
+
+    private static ServiceEventDto ToDto(UPnP.Rx.Eventing.UpnpEvent e) => e switch
+    {
+        UPnP.Rx.Eventing.PropertyChange c =>
+            new ServiceEventDto("PropertyChange", c.Name, c.Value, c.Seq, c.IsInitialState, c.IsReplay, null),
+        UPnP.Rx.Eventing.Subscribed s =>
+            new ServiceEventDto("Subscribed", null, s.Sid, 0, false, false, $"timeout {s.Timeout}"),
+        UPnP.Rx.Eventing.Resubscribed r =>
+            new ServiceEventDto("Resubscribed", null, r.Sid, 0, false, false, null),
+        UPnP.Rx.Eventing.RenewalFailed f =>
+            new ServiceEventDto("RenewalFailed", null, null, 0, false, false, f.Message),
+        UPnP.Rx.Eventing.GapDetected g =>
+            new ServiceEventDto("GapDetected", null, null, g.ActualSeq, false, false,
+                $"expected {g.ExpectedSeq}"),
+        _ => new ServiceEventDto(e.GetType().Name, null, null, 0, false, false, null)
+    };
+
+    public async Task<ServiceDetailDto> GetServiceDetail(string deviceKey, string? udn, string serviceType)
+    {
         try
         {
-            var owner = described.Description
-                .SelfAndDescendants()
-                .FirstOrDefault(d => string.Equals(d.Udn, udn, StringComparison.OrdinalIgnoreCase))
-                ?? described.Description;
-
-            var serviceDescription = owner.Services.FirstOrDefault(s =>
-                string.Equals(s.ServiceType, serviceType, StringComparison.OrdinalIgnoreCase));
-
-            var service = serviceDescription is null
-                ? null
-                : described.Services.FirstOrDefault(s => Equals(s.Description, serviceDescription));
+            var service = FindService(deviceKey, udn, serviceType);
 
             if (service is null)
             {
-                return new ServiceDetailDto(serviceType, [], [], "Service not found on the device.");
+                return new ServiceDetailDto(serviceType, [], [], "Service not found on the roster.");
             }
 
             var scpd = await service.GetScpdAsync(Context.ConnectionAborted);

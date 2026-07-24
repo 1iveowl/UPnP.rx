@@ -30,22 +30,17 @@ using var upnp = new UpnpClient(addresses);
 
 using var subscription = upnp
     .DiscoverDevices()                                   // upnp:rootdevice by default
-    .SelectMany(async device =>
-    {
-        try
-        {
-            return (Discovered: device, Described: (DescribedDevice?)await device.GetDescriptionAsync());
-        }
-        catch (UpnpException e)
+    .SelectMany(device => Observable
+        .FromAsync(device.GetDescriptionAsync)           // token tied to the subscription (Rx rule 1)
+        .Select(described => (Discovered: device, Described: described))
+        .Catch((UpnpException e) =>
         {
             Console.WriteLine($"! {device.Location}: {e.Message}");
-            return (device, null);
-        }
-    })
-    .Where(pair => pair.Described is not null)
+            return Observable.Empty<(DiscoveredDevice Discovered, DescribedDevice Described)>();
+        }))
     .Subscribe(pair =>
     {
-        var root = pair.Described!.Description;
+        var root = pair.Described.Description;
         Console.WriteLine($"● {root.FriendlyName}  [{pair.Discovered.Location}]");
         Print(root, indent: "  ");
         Console.WriteLine();

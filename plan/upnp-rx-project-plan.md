@@ -15,14 +15,15 @@ One-line pitch: *"Discover a device, browse its services, call its actions, watc
 using var upnp = new UpnpClient(ipAddress);
 
 using var subscription = upnp.DiscoverDevices()               // SSDP under the hood
-    .SelectMany(async d => await d.GetDescriptionAsync())     // lazy DDD + SCPD fetch, cached
+    .SelectMany(d => d.GetDescriptionAsync())                 // lazy DDD + SCPD fetch, cached
     .Where(d => d.HasService("WANIPConnection"))
-    .Subscribe(async gateway =>
+    .SelectMany(async gateway =>                              // async work lives IN the pipeline…
     {
         var wan = gateway.Service("WANIPConnection");
-        var result = await wan.InvokeAsync("GetExternalIPAddress");
-        Console.WriteLine(result["NewExternalIPAddress"]);
-    });
+        return await wan.InvokeAsync("GetExternalIPAddress");
+    })
+    .Subscribe(result =>                                      // …Subscribe is a sync side effect only
+        Console.WriteLine(result["NewExternalIPAddress"]));   //    (Rx rule 1 — never Subscribe(async …))
 
 // And the flagship convenience API on top:
 var mapping = await PortMapper.AddPortMappingAsync(externalPort: 8080, internalPort: 8080,
@@ -116,6 +117,19 @@ Background: Rx subscriptions are synchronously disposable by contract, and **Sys
 4. **Fire-and-forget async work inside a sync `Dispose` is forbidden** — it races process shutdown and hides failures. If teardown matters, it is `DisposeAsync`'s job; if `Dispose` is called instead, the abrupt path is taken by design.
 
 Upstream note (do not implement from this repo): SSDP.UPnP.PCL's `Device` currently documents "call `ByeByeAsync` before `Dispose`" because `Dispose` is sync — a 7.1 candidate is `IAsyncDisposable` with `DisposeAsync` = byebye + cleanup, turning the documented footgun into `await using`.
+
+### Rx and functional rules (settled policy — the review checklist; upstream-verified idioms marked ✓)
+
+1. **Async work never rides `Subscribe`.** `Subscribe(async x => …)` compiles to `async void`: exceptions bypass the pipeline (and can kill the process), completion is unobservable, there is no cancellation. Async steps live *in* the pipeline — `SelectMany` (unordered; fine for discovery), `Select(…).Concat()` (ordered), `Observable.FromAsync` — and `Subscribe` handlers are synchronous side effects only. The §1 vision snippet models this.
+2. **No blocking in or around pipelines.** `.Wait()`, `.Result`, `GetAwaiter().GetResult()`, blocking `First()`/`Last()` — never, anywhere. Bridge to async with `await stream.FirstAsync()`, `ToTask(ct)`, `ToAsyncEnumerable()`.
+3. **Temperature is API contract.** Every public observable member's XML docs state hot vs cold and when work starts. House shape (✓ both upstream libs): expensive shared sources are built once and shared via `Publish().RefCount()` — each message parsed exactly once regardless of subscriber count; lazy/per-subscriber work wraps in `Observable.Defer`/`Create` so nothing runs before subscription. Note `RefCount` semantics: dropping to zero subscribers stops the source; resubscribing restarts it (✓ SHL listeners restart by design — document the same for our streams).
+4. **No Subjects in public APIs.** A Subject is at most an internal edge tool; public streams come from composition or `Observable.Create`'s async-subscribe overload (✓ the SHL UDP listener is the reference: linked CTS over the subscription token, receive loop, `OperationCanceledException` → `OnCompleted`).
+5. **The Rx grammar is law.** `OnNext* (OnError|OnCompleted)?`, notifications serialized, nothing after terminal. Our `Observable.Create` bodies emit from a single logical loop; multi-interface fan-in goes through `Merge`, which preserves the grammar.
+6. **Per-item failure is data; stream failure is death.** Already policy (§5); the Rx corollary: streams surface degraded items as typed values (or drop + `ILogger`) so consumers can `Retry`/`Catch` at *their* edge — never `OnError` for one bad device.
+7. **Deterministic subscription lifetime.** Edge classes own a `CompositeDisposable`; every internal subscription joins it and dies with the owner (disposal model). No fire-and-forget subscriptions, no orphaned timers.
+8. **Purity discipline.** Pure layers (`UPnP.Rx.Parsing`): static, total, exception-free, `ParseResult<T>` out, and no I/O, clock, randomness, or logging — those are edge inputs. Model layer: `sealed record`, `init` (+ `required` where identity demands), collection properties defaulting to empty (`FrozenDictionary<,>.Empty` ✓ upstream idiom, collection expressions `[]`), never null collections.
+9. **Exceptions are edge vocabulary.** Typed edge exceptions only — `UpnpException` (contract misuse: unstarted client, unknown service), `UpnpActionException : UpnpException` carrying `UpnpError` (SOAP fault). Parse outcomes are values, never exceptions (rule 8).
+10. **Library-async etiquette.** `ConfigureAwait(false)` on every `await` (enforced: CA2007 as error via `.editorconfig`); `CancellationToken ct = default` on every public async method; no `async void` ever; `IAsyncEnumerable<T>` endpoints take `[EnumeratorCancellation]`. (✓ SimpleHttpListener.Rx complies today; SSDP.UPnP.PCL has 0 of 26 awaits suffixed — noted in §9 as an upstream issue candidate, not fixed from here.)
 
 ### API sketch (v1)
 
@@ -215,6 +229,23 @@ Real-hardware smoke test (an actual router for IGD, a real media device for desc
 5. **`ParseResult<T>`: copied into UPnP.Rx.** Zero package coupling; no shared functional package.
 6. **Search target: the library consumer chooses.** Configured via `UpnpClientOptions.DefaultSearchTarget`, overridable per call through the `searchTarget` parameter; the out-of-box value is `upnp:rootdevice` (one response per device; the description enumerates the rest). A `SearchTargets` helper (`RootDevice`, `All`, `DeviceType(...)`, `ServiceType(...)`) saves callers from hand-building URNs.
 
+## 9. Upstream verification notes (audited 2026-07-24, against cloned repos + published nupkgs)
+
+**Confirmed as the plan claims:** the `IControlPoint` seam (`Start(ct)` / `HotStart(IObservable<HttpRequestResponse>)` / `NotifyObservable()` / `MSearchResponseObservable()` / `SendMSearchAsync`); `ParseResult<T>` (42 lines, `Success`/`Failure`/`Match`, `MemberNotNullWhen` annotations — the copy target); parse-once shared streams via `Publish().RefCount()` at both layers; the `Observable.Create` async-subscribe UDP pattern (disposal model rule 3's reference); `Task.Delay(…, TimeProvider, ct)` in `SendMSearchAsync`; house `Directory.Build.props`/`global.json`/csproj packaging shape (icon + README packed from repo root); the exact Trusted Publishing CI job (copy for Phase 6); Subject-driven `HotStart` test seam with message-builder helpers; README section structure. System.Reactive 7.0.0: packaging/trimming-era release, `lib/net8.0` asset, **no `TimeProvider`, no `IAsyncDisposable`** integration (basis of the time + disposal models). SSDP.UPnP.PCL 7.0.2 pins `System.Reactive 7.0.0`, `SimpleHttpListener.Rx 7.0.1` (7.1.0 now on nuget), `Logging.Abstractions 10.0.0` (10.0.10 now).
+
+**Implementation deltas the audit surfaced (fold into the phases):**
+- **Phase 3 — `CPFN` is required on multicast M-SEARCH** (UDA 2.0; `MSearchRequest.CPFN` is nullable upstream): `UpnpClient` sends a default (`"UPnP.Rx/{version}"`), overridable via `UpnpClientOptions`.
+- **Phase 3 — multi-interface fan-out is ours:** `SendMSearchAsync(mSearch, ipAddress)` is per-interface; `UpnpClient.DiscoverDevices()` loops its addresses. `MSearchRequest.SendCount` (default 2, UDA §1.3.2 repeat-send) already handled upstream.
+- **Phase 3 — start-once lifecycle:** `ControlPoint.Start(ct)` can run once; observables throw `SSDPException` before start. `UpnpClient` owns an internal linked CTS (cancelled in both dispose paths) and starts the control point lazily on first subscription (`Observable.Defer`), keeping construction side-effect-free.
+- **Phase 3 — deliberate divergence:** upstream exposes `TimeProvider` as a *mutable* property; UPnP.Rx carries it as `init`-only state in `UpnpClientOptions` (a settable clock is mutable ambient state — contra the FP house style). Document the divergence.
+- **Phase 3/4 — leniency flags ride the records:** `MSearchResponse`/`Notify` carry `HasParsingError` and `IsUuidUpnp2Compliant`; surface them on `DiscoveredDevice` rather than dropping degraded-but-usable responses (Rx rule 6).
+- **Phase 4 — `SearchTargets` is thin sugar over `STType`:** upstream `ST` already models `RootDeviceSearch`/`DeviceTypeSearch`/`ServiceTypeSearch`/…; the helper just names the common cases, no URN string-building anywhere.
+- **Phase 6 — CI detail:** run `dotnet test` against the test csproj, not the slnx, once samples join the solution (sibling repo does this for the same reason).
+
+**Upstream issue candidates (note, do not fix from this repo — §3 rule):**
+1. `SSDP.UPnP.PCL`: no `ConfigureAwait(false)` anywhere (0 of 26 awaits; SimpleHttpListener.Rx applies it consistently) — a UI-app consumer can deadlock/hop contexts unnecessarily.
+2. `SSDP.UPnP.PCL`: `Device` sync-`Dispose` + documented "call `ByeByeAsync` first" — `IAsyncDisposable` candidate for 7.1 (already noted in the disposal model).
+
 ---
 
-*Context for the new session: this plan was written from the repository of `SSDP.UPnP.PCL` v7.0.2 immediately after its .NET 10 modernization, functional rewrite, UDA 2.0 compliance review, and release via Trusted Publishing. The conventions above are not aspirations — they are the working practices of that codebase, and the new project should feel like a sibling.*
+*Context for the new session: this plan was written from the repository of `SSDP.UPnP.PCL` v7.0.2 immediately after its .NET 10 modernization, functional rewrite, UDA 2.0 compliance review, and release via Trusted Publishing. The conventions above are not aspirations — they are the working practices of that codebase, and the new project should feel like a sibling. Unlike its siblings — hand-built over years — UPnP.Rx is AI-assisted from day one: the plan, CLAUDE.md and CODEMAP.md exist so that every session (human or AI) starts with the same context the author carries in their head for the older libraries.*

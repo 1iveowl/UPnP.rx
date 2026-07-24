@@ -24,20 +24,28 @@ public class EventCallbackListenerTests
             NullLogger.Instance);
 
     private static HttpRequestResponse Notify(string path, string sid = "uuid:sub-1", uint seq = 0,
-        string body = "<e:propertyset xmlns:e=\"urn:schemas-upnp-org:event-1-0\"/>") => new()
+        string body = "<e:propertyset xmlns:e=\"urn:schemas-upnp-org:event-1-0\"/>",
+        Action<Dictionary<string, string>>? mutateHeaders = null)
     {
-        MessageType = MessageType.Request,
-        Method = "NOTIFY",
-        Path = path,
-        Headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["NT"] = "upnp:event",
             ["NTS"] = "upnp:propchange",
             ["SID"] = sid,
             ["SEQ"] = seq.ToString()
-        },
-        Body = Encoding.UTF8.GetBytes(body)
-    };
+        };
+
+        mutateHeaders?.Invoke(headers);
+
+        return new HttpRequestResponse
+        {
+            MessageType = MessageType.Request,
+            Method = "NOTIFY",
+            Path = path,
+            Headers = headers,
+            Body = Encoding.UTF8.GetBytes(body)
+        };
+    }
 
     [Fact]
     public void RoutedNotify_ReachesTheHandler_AndGets200()
@@ -97,6 +105,28 @@ public class EventCallbackListenerTests
         _requests.OnNext(Notify("/upnp/events/ok"));
 
         Assert.Single(survived);
+    }
+
+    [Fact]
+    public void MissingNtOrNts_Gets400()
+    {
+        using var route = _listener.Register("tok1", (_, _) => Task.CompletedTask);
+
+        _requests.OnNext(Notify("/upnp/events/tok1", mutateHeaders: h => h.Remove("NTS")));
+
+        Assert.Equal(400, Assert.Single(_sent).Response.StatusCode);
+    }
+
+    [Fact]
+    public void WrongNtsOrMissingSid_Gets412()
+    {
+        using var route = _listener.Register("tok1", (_, _) => Task.CompletedTask);
+
+        _requests.OnNext(Notify("/upnp/events/tok1", mutateHeaders: h => h["NTS"] = "upnp:somethingelse"));
+        _requests.OnNext(Notify("/upnp/events/tok1", mutateHeaders: h => h.Remove("SID")));
+
+        Assert.Equal(2, _sent.Count);
+        Assert.All(_sent, s => Assert.Equal(412, s.Response.StatusCode));
     }
 
     [Fact]

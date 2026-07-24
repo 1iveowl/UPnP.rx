@@ -92,16 +92,31 @@ internal sealed class EventCallbackListener : IDisposable
 
     private async Task HandleAsync(HttpRequestResponse request, ResponseSender respond, CancellationToken ct)
     {
+        // UDA 2.0 4.3.3 error table: missing NT/NTS -> 400; wrong NT/NTS value
+        // or missing/unknown SID -> 412.
+        var nt = request.Headers.TryGetValue("NT", out var rawNt) ? rawNt.Trim() : null;
+        var nts = request.Headers.TryGetValue("NTS", out var rawNts) ? rawNts.Trim() : null;
+
+        if (nt is null || nts is null)
+        {
+            await respond(request, new HttpResponse { StatusCode = 400, ReasonPhrase = "Bad Request" }, ct)
+                .ConfigureAwait(false);
+            return;
+        }
+
+        var sid = request.Headers.TryGetValue("SID", out var rawSid) ? rawSid.Trim() : null;
         var token = request.Path?.TrimEnd('/').Split('/')[^1] ?? string.Empty;
 
-        if (!_routes.TryGetValue(token, out var handler))
+        if (!string.Equals(nt, "upnp:event", StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(nts, "upnp:propchange", StringComparison.OrdinalIgnoreCase)
+            || string.IsNullOrEmpty(sid)
+            || !_routes.TryGetValue(token, out var handler))
         {
             await respond(request, new HttpResponse { StatusCode = 412, ReasonPhrase = "Precondition Failed" }, ct)
                 .ConfigureAwait(false);
             return;
         }
 
-        var sid = request.Headers.TryGetValue("SID", out var rawSid) ? rawSid.Trim() : null;
         var seq = GenaHeaders.ParseSeq(request.Headers.TryGetValue("SEQ", out var rawSeq) ? rawSeq : null);
         var body = Encoding.UTF8.GetString(request.Body.Span);
 

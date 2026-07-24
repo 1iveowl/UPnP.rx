@@ -5,8 +5,8 @@ extracted with `pdftotext`; line references are into that extraction). Scope: co
 obligations of clause 2 (description) and clause 3 (control) as implemented by
 `DescriptionParser`, `ScpdParser`, `SoapComposer`, `SoapParser`, `UpnpClient`, `UpnpService`.
 
-**Author review requested** — findings 2 and 3 changed code; the rest document verified
-compliance or accepted deviations.
+**Signed off by the author (Jasper) on 2026-07-24** — findings 2 and 3 changed code; the rest
+document verified compliance or accepted deviations.
 
 | # | Requirement (spec ref) | Verdict |
 |---|---|---|

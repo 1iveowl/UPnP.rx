@@ -216,14 +216,14 @@ public sealed class PortMappingLease : IAsyncDisposable, IDisposable {  // decis
 | 4 | `UPnP.Rx.PortMapping`: gateway discovery (`ST` for IGD:2 then IGD:1), WANIPConnection/WANPPPConnection resolution, the port-mapping API incl. the auto-renewing `PortMappingLease` (decision 3), `Sample.PortMapper` |
 | 5 | Clause 2/3 spec-compliance review (written to plan folder, reviewed by author) + fixes |
 | 6 | Packaging metadata, README (mirror SSDP.UPnP.PCL's structure: overview, install, examples, behavior notes, "Why .NET 10?" note), samples polish, CI publish job |
-| 7 | v1.0.0 release: `releases/1.0.0` branch, tag, Trusted Publishing |
+| 7 | v2.0.0 release: `releases/2.0.0` branch, tag, Trusted Publishing |
 
 Real-hardware smoke test (an actual router for IGD, a real media device for description parsing) is a manual author step before tagging — containers can't do multicast.
 
 ## 8. Decisions (open questions resolved with the author, 2026-07-24)
 
 1. **Package/repo name: `UPnP.Rx`.** The `.PCL` suffix remains a legacy artifact of the SSDP package only.
-2. **Versioning: start at 1.0.0.** No alignment with SSDP.UPnP.PCL's 7.x line.
+2. **Versioning: first release is 2.0.0** (revised 2026-07-24; originally 1.0.0). The library is not a from-scratch v1 — it builds directly on years of learnings from the upstream siblings (SSDP.UPnP.PCL, SimpleHttpListener.Rx, HttpMachine.PCL), and the version says so. Still no alignment with the SSDP library's 7.x line.
 3. **IGD lease renewal: auto-renew.** `AddPortMappingAsync` returns a `PortMappingLease` handle whose renewal loop runs on `PeriodicTimer(period, timeProvider)` (time model rule 2). The handle follows the disposal model: `DisposeAsync` stops renewal and deletes the mapping; sync `Dispose` stops renewal only — safe by design, because the finite lease then simply expires on the router. This synergy is deliberate: auto-renew + finite leases is the default posture; an infinite lease (0) is supported but documented as opting out of both protections. Renewal outcomes surface as `IObservable<PortMappingEvent>` on the handle — a failed renewal is `OnNext(RenewalFailed)` + retry, never `OnError` (pipelines-never-die rule); terminal only when the lease is genuinely unrecoverable (mapping gone and re-add refused).
 4. **`UpnpClient` device cache: raw discovery streams in v1.** The live roster (`IObservable<IReadOnlyList<DiscoveredDevice>>` with alive/byebye/max-age bookkeeping) is deferred to v1.1 — expiry bookkeeping is where subtle bugs live.
 5. **`ParseResult<T>`: copied into UPnP.Rx.** Zero package coupling; no shared functional package.

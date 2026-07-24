@@ -1,6 +1,6 @@
 # Pre-publish code review (2026-07-24)
 
-Independent adversarial review of `src/` + `tests/` before the v1.0.0 push, complementing the
+Independent adversarial review of `src/` + `tests/` before the first release push, complementing the
 UDA compliance review. 15 findings; the confirmed high/medium defects were fixed the same day
 (commit referenced below), the rest are recorded here with dispositions.
 

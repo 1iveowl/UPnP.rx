@@ -1,10 +1,19 @@
 # UPnP.Rx
 
-[![NuGet](https://img.shields.io/nuget/v/UPnP.Rx.svg)](https://www.nuget.org/packages/UPnP.Rx)
+[![NuGet](https://img.shields.io/nuget/v/UPnP.Rx?logo=nuget&label=UPnP.Rx)](https://www.nuget.org/packages/UPnP.Rx)
+[![Downloads](https://img.shields.io/nuget/dt/UPnP.Rx?logo=nuget&color=blue)](https://www.nuget.org/packages/UPnP.Rx)
+[![CI](https://github.com/1iveowl/UPnP.rx/actions/workflows/ci.yml/badge.svg)](https://github.com/1iveowl/UPnP.rx/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
+[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
+[![System.Reactive](https://img.shields.io/badge/Rx-7.0-ff69b4.svg)](https://reactivex.io/)
+[![UPnP](https://img.shields.io/badge/UPnP%20Device%20Architecture-2.0-2563EB.svg)](http://upnp.org/specs/arch/UPnP-arch-DeviceArchitecture-v2.0.pdf)
 
 A modern, functional, Rx-based **UPnP control point** for .NET 10: discover devices, browse their services, call their actions — as observables and immutable records. Includes an **IGD port-mapping client** with auto-renewing leases.
 
 > *Discover a device, browse its services, call its actions, watch its state.*
+
+*Please star this project if you find it useful. Thank you.*
 
 ## Overview
 
@@ -207,7 +216,7 @@ Both need a real network (multicast does not work in containers).
 
 | Version | Notes |
 |---|---|
-| 1.0.0 | Initial release: discovery → description → control, IGD port mapping with auto-renewing leases. |
+| 2.0.0 | First release of UPnP.Rx: discovery → description → control, IGD port mapping with auto-renewing leases. Versioned 2.0 to reflect its lineage — it builds on years of learnings from SSDP.UPnP.PCL, SimpleHttpListener.Rx and HttpMachine.PCL rather than starting from scratch. |
 
 ## Why .NET 10?
 

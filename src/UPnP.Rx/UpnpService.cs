@@ -18,7 +18,7 @@ public sealed class UpnpService : IUpnpService
     /// <summary>UDA 2.0 §3.2.1 product-token form: OS/version UPnP/2.0 product/version.</summary>
     private static readonly string _userAgent =
         $"{Environment.OSVersion.Platform}/{Environment.OSVersion.Version} UPnP/2.0 " +
-        $"UPnP.Rx/{typeof(UpnpService).Assembly.GetName().Version?.ToString(2) ?? "3.0"}";
+        $"UPnP.Rx/{typeof(UpnpService).Assembly.GetName().Version?.ToString(2) ?? "4.0"}";
 
     private readonly HttpClient _httpClient;
     private readonly UpnpClientOptions _options;

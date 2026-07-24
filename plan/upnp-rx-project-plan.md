@@ -242,6 +242,10 @@ Real-hardware smoke test (an actual router for IGD, a real media device for desc
 - **Phase 4 — `SearchTargets` is thin sugar over `STType`:** upstream `ST` already models `RootDeviceSearch`/`DeviceTypeSearch`/`ServiceTypeSearch`/…; the helper just names the common cases, no URN string-building anywhere.
 - **Phase 6 — CI detail:** run `dotnet test` against the test csproj, not the slnx, once samples join the solution (sibling repo does this for the same reason).
 
+**Design calls made during implementation (recorded post-hoc, Phase 4):**
+- **The mapping record is `PortMappingEntry`, not `PortMapping` as sketched in §5.** A type named identically to its containing namespace (`UPnP.Rx.PortMapping`) is unresolvable in consumer code that also imports `UPnP.Rx` — the namespace wins name lookup (CS0118). Caught by our own tests hitting the collision first.
+- **WAN service priority includes `WANPPPConnection:2`.** §4 listed only `WANPPPConnection:1` as fallback, but the Orange Livebox fixture proves `:2` ships in real devices. Priority order: `WANIPConnection:2`, `:1`, `WANPPPConnection:2`, `:1` — IP over PPP, higher version first.
+
 **Upstream issue candidates (note, do not fix from this repo — §3 rule):**
 1. `SSDP.UPnP.PCL`: no `ConfigureAwait(false)` anywhere (0 of 26 awaits; SimpleHttpListener.Rx applies it consistently) — a UI-app consumer can deadlock/hop contexts unnecessarily.
 2. `SSDP.UPnP.PCL`: `Device` sync-`Dispose` + documented "call `ByeByeAsync` first" — `IAsyncDisposable` candidate for 7.1 (already noted in the disposal model).

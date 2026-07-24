@@ -33,7 +33,7 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.UseAntiforgery();
 
 app.MapStaticAssets();
-app.MapHub<DeviceHub>("/devicehub");
+app.MapHub<DeviceHub>(Sample.Dashboard.Client.Models.HubEvents.Path);
 app.MapRazorComponents<App>()
     .AddInteractiveWebAssemblyRenderMode()
     .AddAdditionalAssemblies(typeof(Sample.Dashboard.Client._Imports).Assembly);

@@ -74,6 +74,43 @@ addition first - `UpnpClient` does not expose the raw announcement stream per de
 would be a tap on `IControlPoint`'s observables surfaced per-UDN. Flag which reading is
 intended.
 
+## Code review: ReactiveUI + FluentUI usage (2026-07-24; fixes applied same day)
+
+**ReactiveUI**
+1. **View-model leak (fixed)**: `ReactiveComponentBase` could not be shown to dispose the
+   injected view model, so each mount of the transient VM would leave its DynamicData
+   subscriptions attached to the singleton cache forever. The page now implements
+   `IDisposable` and disposes its VM explicitly (safe even if the base also does - 
+   `CompositeDisposable` tolerates double-dispose). Transient remains the right lifetime:
+   durable state (hub connection, roster cache) lives in the singleton service; the VM is a
+   cheap per-view projection.
+2. **Double `Connect()` (fixed)**: the `Revision` render pump ran its own second changeset
+   subscription. Now one pipeline: `Connect → Filter → SortAndBind → Select(index) →
+   ToProperty` - single subscription, and the pump also ticks when the filter changes the
+   visible list.
+3. **Mutable internals exposed (fixed)**: `DeviceStreamClient` returned its `SourceCache` and
+   `BehaviorSubject` directly - callers could mutate the roster or complete the state stream.
+   Now `IObservableCache` (`AsObservableCache`) and `AsObservable()`.
+4. Hub event names were duplicated string literals on both sides (fixed: `HubEvents` consts
+   in the shared client assembly).
+
+**FluentUI**
+5. **The visual model (adopted): FluentUI design tokens.** Custom CSS hardcoded hex colors
+   next to Fluent components. All custom styling now uses Fluent's CSS custom properties
+   (`--neutral-layer-*`, `--neutral-foreground-*`, `--accent-fill-rest`,
+   `--neutral-stroke-*`), with `FluentDesignTheme` as the token source. This is what makes
+   the UI cohere with the Fluent components - and makes dark mode nearly free, since tokens
+   flip with the theme.
+6. Raw `<input>` for the filter replaced with `FluentSearch` (Immediate) - correct Fluent
+   input semantics, styles itself from tokens.
+7. Layout polish: consistent spacing, token-driven card elevation/borders, accent stripe from
+   `--accent-fill-rest`.
+
+**Feature: dark/light mode switch** - `FluentDesignTheme` with `StorageName` (choice persists
+in localStorage) + a header `FluentSwitch`; System is the default until the user chooses.
+Verified with headless Chromium: light and dark screenshots, token flip asserted, no console
+errors.
+
 ## Iteration backlog (for author review)
 
 1. **Per-service action invocation** in the expanded view - SCPD-driven form via

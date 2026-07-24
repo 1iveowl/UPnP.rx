@@ -11,9 +11,10 @@ namespace Sample.Dashboard.Client.ViewModels;
 
 /// <summary>
 /// Rx end to end: UPnP.Rx observables on the server, SignalR in the middle,
-/// DynamicData + ReactiveUI here. Every cache changeset bumps
-/// <see cref="Revision"/>, whose property change notification is what makes the
-/// component re-render - adds, removals and in-place updates alike.
+/// DynamicData + ReactiveUI here. One pipeline drives everything visible:
+/// filter and sort produce the bound collection, and the same changesets bump
+/// <see cref="Revision"/>, whose property change notification re-renders the
+/// component - adds, removals, in-place updates and filter changes alike.
 /// </summary>
 public sealed class DashboardViewModel : ReactiveObject, IDisposable
 {
@@ -26,7 +27,6 @@ public sealed class DashboardViewModel : ReactiveObject, IDisposable
 
     public DashboardViewModel(DeviceStreamClient client)
     {
-        // The visible list: filtered by the search box, sorted by name.
         var predicate = this.WhenAnyValue(vm => vm.Filter)
             .Select<string, Func<DeviceDto, bool>>(filter => device =>
                 string.IsNullOrWhiteSpace(filter)
@@ -34,22 +34,19 @@ public sealed class DashboardViewModel : ReactiveObject, IDisposable
                 || (device.Manufacturer?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false)
                 || (device.Root.DeviceType?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false));
 
-        _cleanup.Add(client.Cache
+        // One subscription: filter, sort, bind - and count changesets as the
+        // render pump on the way out.
+        _revision = client.Devices
             .Connect()
             .Filter(predicate)
             .SortAndBind(
                 out _devices,
                 SortExpressionComparer<DeviceDto>.Ascending(d => d.FriendlyName ?? "~"))
-            .Subscribe());
-
-        // The render pump: one tick per changeset, so the page re-renders on
-        // every roster change - including in-place device updates.
-        _revision = client.Cache.Connect()
             .Select((_, index) => index)
             .ToProperty(this, vm => vm.Revision);
         _cleanup.Add(_revision);
 
-        _count = client.Cache.CountChanged
+        _count = client.Devices.CountChanged
             .ToProperty(this, vm => vm.Count);
         _cleanup.Add(_count);
 
@@ -64,7 +61,7 @@ public sealed class DashboardViewModel : ReactiveObject, IDisposable
     /// <summary>Devices currently on the network (unfiltered).</summary>
     public int Count => _count.Value;
 
-    /// <summary>Bumps on every cache changeset; its notification drives re-rendering.</summary>
+    /// <summary>Bumps on every visible changeset; its notification drives re-rendering.</summary>
     public int Revision => _revision.Value;
 
     /// <summary>Hub connection state.</summary>

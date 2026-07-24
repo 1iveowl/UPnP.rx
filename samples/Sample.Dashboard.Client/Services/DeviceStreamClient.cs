@@ -1,3 +1,4 @@
+using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using DynamicData;
 using Microsoft.AspNetCore.Components;
@@ -9,22 +10,26 @@ namespace Sample.Dashboard.Client.Services;
 /// <summary>
 /// Turns the server's SignalR stream into client-side Rx: DeviceUp/DeviceGone
 /// feed a DynamicData cache keyed by device identity. No sockets in the
-/// browser - the server does the listening.
+/// browser - the server does the listening. Mutation stays private; consumers
+/// get read-only views.
 /// </summary>
 public sealed class DeviceStreamClient : IAsyncDisposable
 {
     private readonly HubConnection _connection;
+    private readonly SourceCache<DeviceDto, string> _cache = new(d => d.Key);
     private readonly BehaviorSubject<string> _state = new("connecting…");
 
     public DeviceStreamClient(NavigationManager navigation)
     {
+        Devices = _cache.AsObservableCache();
+
         _connection = new HubConnectionBuilder()
-            .WithUrl(navigation.ToAbsoluteUri("/devicehub"))
+            .WithUrl(navigation.ToAbsoluteUri(HubEvents.Path))
             .WithAutomaticReconnect()
             .Build();
 
-        _connection.On<DeviceDto>("DeviceUp", dto => Cache.AddOrUpdate(dto));
-        _connection.On<string>("DeviceGone", key => Cache.RemoveKey(key));
+        _connection.On<DeviceDto>(HubEvents.DeviceUp, dto => _cache.AddOrUpdate(dto));
+        _connection.On<string>(HubEvents.DeviceGone, key => _cache.RemoveKey(key));
 
         _connection.Reconnecting += _ =>
         {
@@ -33,7 +38,7 @@ public sealed class DeviceStreamClient : IAsyncDisposable
         };
         _connection.Reconnected += _ =>
         {
-            Cache.Clear();                      // the hub replays the roster on reconnect
+            _cache.Clear();                     // the hub replays the roster on reconnect
             _state.OnNext("live");
             return Task.CompletedTask;
         };
@@ -44,11 +49,11 @@ public sealed class DeviceStreamClient : IAsyncDisposable
         };
     }
 
-    /// <summary>The live device roster, keyed by device identity.</summary>
-    public SourceCache<DeviceDto, string> Cache { get; } = new(d => d.Key);
+    /// <summary>The live device roster, keyed by device identity. Read-only view.</summary>
+    public IObservableCache<DeviceDto, string> Devices { get; }
 
     /// <summary>Connection state as a stream: connecting… / live / reconnecting… / disconnected.</summary>
-    public IObservable<string> State => _state;
+    public IObservable<string> State => _state.AsObservable();
 
     public async Task StartAsync()
     {
@@ -73,6 +78,7 @@ public sealed class DeviceStreamClient : IAsyncDisposable
     {
         await _connection.DisposeAsync();
         _state.Dispose();
-        Cache.Dispose();
+        Devices.Dispose();
+        _cache.Dispose();
     }
 }

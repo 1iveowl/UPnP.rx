@@ -7,9 +7,14 @@
    try to resolve them on the server and fail. *@
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
 @inherits ReactiveUI.Blazor.ReactiveInjectableComponentBase<DashboardViewModel>
+@implements IDisposable
 @inject DeviceStreamClient Stream
 
 <PageTitle>UPnP.Rx dashboard</PageTitle>
+
+@* The token source: flips every design token (and our token-based CSS) between
+   light and dark; the user's choice persists in localStorage. *@
+<FluentDesignTheme @bind-Mode="_mode" StorageName="upnprx-theme" />
 
 <ErrorBoundary>
     <ChildContent>
@@ -17,9 +22,15 @@
             <h1 class="dash-title">UPnP.Rx network dashboard</h1>
             <FluentBadge Appearance="Appearance.Accent">@ViewModel!.Count device(s)</FluentBadge>
             <FluentBadge>@ViewModel!.Status</FluentBadge>
-            <input class="filter" placeholder="Filter by name, maker or type…"
-                   value="@ViewModel!.Filter"
-                   @oninput="e => ViewModel!.Filter = e.Value?.ToString() ?? string.Empty" />
+            <div class="dash-tools">
+                <FluentSearch Placeholder="Filter by name, maker or type…"
+                              Immediate="true"
+                              Value="@ViewModel!.Filter"
+                              ValueChanged="@(value => ViewModel!.Filter = value ?? string.Empty)" />
+                <FluentSwitch Value="@(_mode == DesignThemeModes.Dark)"
+                              ValueChanged="OnThemeToggled"
+                              Label="Dark" />
+            </div>
         </div>
 
         @if (ViewModel!.Count == 0)
@@ -73,6 +84,7 @@
 
 @code {
     private readonly HashSet<string> _open = [];
+    private DesignThemeModes _mode = DesignThemeModes.System;
 
     private void Toggle(string key)
     {
@@ -82,9 +94,17 @@
         }
     }
 
+    private void OnThemeToggled(bool dark) =>
+        _mode = dark ? DesignThemeModes.Dark : DesignThemeModes.Light;
+
     protected override async Task OnInitializedAsync()
     {
         await Stream.StartAsync();
         await base.OnInitializedAsync();
     }
+
+    // The base class cannot be shown to dispose the injected (transient) view
+    // model; dispose it explicitly or its cache subscriptions outlive the page.
+    // CompositeDisposable tolerates double-dispose if the base does it too.
+    void IDisposable.Dispose() => ViewModel?.Dispose();
 }

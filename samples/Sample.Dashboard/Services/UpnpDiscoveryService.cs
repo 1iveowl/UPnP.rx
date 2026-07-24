@@ -69,7 +69,7 @@ public sealed class UpnpDiscoveryService(
             .SelectMany(dto => Observable.FromAsync(async ct =>
             {
                 roster.Devices[dto.Key] = dto;
-                await hub.Clients.All.SendAsync("DeviceUp", dto, ct);
+                await hub.Clients.All.SendAsync(HubEvents.DeviceUp, dto, ct);
             }))
             .Subscribe(
                 _ => { },
@@ -84,7 +84,7 @@ public sealed class UpnpDiscoveryService(
             {
                 if (roster.Devices.TryRemove(key, out _))
                 {
-                    await hub.Clients.All.SendAsync("DeviceGone", key, ct);
+                    await hub.Clients.All.SendAsync(HubEvents.DeviceGone, key, ct);
                 }
             }))
             .Subscribe(

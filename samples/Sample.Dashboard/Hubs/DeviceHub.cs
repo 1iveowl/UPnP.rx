@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
+using Sample.Dashboard.Client.Models;
 using Sample.Dashboard.Services;
 
 namespace Sample.Dashboard.Hubs;
@@ -13,7 +14,7 @@ public sealed class DeviceHub(DeviceRoster roster) : Hub
     {
         foreach (var device in roster.Devices.Values)
         {
-            await Clients.Caller.SendAsync("DeviceUp", device);
+            await Clients.Caller.SendAsync(HubEvents.DeviceUp, device);
         }
 
         await base.OnConnectedAsync();

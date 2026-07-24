@@ -49,8 +49,49 @@ public static class PortMapper
     }
 
     /// <summary>
+    /// Every usable internet gateway on the network, as an observable: searches
+    /// for <c>InternetGatewayDevice:2</c> and <c>:1</c>, describes each candidate
+    /// concurrently and emits those offering a WAN connection service,
+    /// deduplicated by device identity. The scalar
+    /// <see cref="DiscoverGatewayAsync(UpnpClient, TimeSpan?, CancellationToken)"/>
+    /// is <c>FirstAsync</c> sugar over this stream.
+    /// </summary>
+    /// <param name="client">The client to discover and control through; the caller keeps ownership.</param>
+    /// <remarks>
+    /// Temperature: cold — each subscription sends a fresh search. The stream
+    /// stays open (gateways keep announcing); compose with <c>FirstAsync</c>,
+    /// <c>Take</c> or a timeout as needed. Candidates that cannot be described or
+    /// offer no WAN service contribute nothing (per-item failure is data, not
+    /// stream death); in-flight description fetches are cancelled on unsubscription.
+    /// </remarks>
+    public static IObservable<InternetGateway> DiscoverGateways(UpnpClient client)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+
+        var options = client.Options;
+
+        return client
+            .DiscoverDevices(SearchTargets.DeviceType("InternetGatewayDevice", 2))
+            .Merge(client.DiscoverDevices(SearchTargets.DeviceType("InternetGatewayDevice", 1)))
+            .SelectMany(device => Observable
+                // FromAsync ties the token to the subscription: when a consumer
+                // unsubscribes (e.g. FirstAsync has a winner), in-flight describes
+                // of remaining candidates are cancelled instead of running to
+                // their own timeouts.
+                .FromAsync(innerCt => TryResolveGatewayAsync(device, options, innerCt))
+                .Catch((UpnpException _) =>
+                    Observable.Empty<InternetGateway?>()))   // unusable candidate: contributes nothing
+            .Where(gateway => gateway is not null)
+            .Select(gateway => gateway!)
+            // An IGD:2 device answers the IGD:1 search too — one emission per device.
+            .Distinct(gateway =>
+                gateway.Device.Description.Udn ?? gateway.Device.Description.Location.ToString());
+    }
+
+    /// <summary>
     /// Discovers the internet gateway using an existing client (the caller keeps
     /// ownership; dispose the client only after the gateway is no longer used).
+    /// <c>FirstAsync</c> sugar over <see cref="DiscoverGateways"/>.
     /// </summary>
     /// <param name="client">The client to discover and control through.</param>
     /// <param name="timeout">How long to wait for a usable gateway; 10 seconds when null.</param>
@@ -63,25 +104,13 @@ public static class PortMapper
     {
         ArgumentNullException.ThrowIfNull(client);
 
-        var options = client.Options;
-
-        using var timeoutCts = new CancellationTokenSource(timeout ?? _defaultTimeout, options.TimeProvider);
+        using var timeoutCts = new CancellationTokenSource(
+            timeout ?? _defaultTimeout, client.Options.TimeProvider);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
 
         try
         {
-            return await client
-                .DiscoverDevices(SearchTargets.DeviceType("InternetGatewayDevice", 2))
-                .Merge(client.DiscoverDevices(SearchTargets.DeviceType("InternetGatewayDevice", 1)))
-                .SelectMany(device => Observable
-                    // FromAsync ties the token to the subscription: once FirstAsync
-                    // has a winner, in-flight describes of losing candidates are
-                    // cancelled instead of running to their own timeouts.
-                    .FromAsync(innerCt => TryResolveGatewayAsync(device, options, innerCt))
-                    .Catch((UpnpException _) =>
-                        Observable.Empty<InternetGateway?>()))   // unusable candidate: contributes nothing
-                .Where(gateway => gateway is not null)
-                .Select(gateway => gateway!)
+            return await DiscoverGateways(client)
                 .FirstAsync()
                 .ToTask(linked.Token)
                 .ConfigureAwait(false);

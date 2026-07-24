@@ -73,6 +73,32 @@ public class PortMappingTests
     // ---- Gateway discovery ----
 
     [Fact]
+    public void DiscoverGateways_StreamsUsableGateways_DeduplicatedByDevice()
+    {
+        var controlPoint = new FakeControlPoint();
+        var http = new FakeHttpHandler();
+        using var client = new UpnpClient(controlPoint, http.CreateClient());
+        http.Map(Location, Fixture("linksys_WAG200G_desc.xml"));
+
+        var gateways = new List<InternetGateway>();
+        using var subscription = PortMapper.DiscoverGateways(client).Subscribe(gateways.Add);
+
+        static MSearchResponse Announce() => new()
+        {
+            Location = new Uri(Location),
+            USN = USN.Parse("uuid:gateway::urn:schemas-upnp-org:device:InternetGatewayDevice:1").Value,
+            BOOTID = 1,
+            LocalIpEndPoint = new IPEndPoint(IPAddress.Parse("192.168.1.42"), 1900)
+        };
+
+        controlPoint.Responses.OnNext(Announce());
+        controlPoint.Responses.OnNext(Announce() with { BOOTID = 2 });   // reboot: new SSDP identity, same device
+
+        var gateway = Assert.Single(gateways);                           // deduplicated by UDN
+        Assert.Equal(PppServiceType, gateway.WanConnectionService.Description.ServiceType);
+    }
+
+    [Fact]
     public async Task DiscoverGateway_ResolvesWanServiceAndLocalAddress()
     {
         var (gateway, _, _, client) = await DiscoverGatewayAsync();

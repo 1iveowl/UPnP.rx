@@ -52,6 +52,14 @@ await foreach (var m in gateway.GetPortMappingsAsync())
     Console.WriteLine($"{m.Protocol} {m.ExternalPort} -> {m.InternalClient}:{m.InternalPort}");
 ```
 
+Rx-first? The scalar discovery is `FirstAsync` sugar over an observable — subscribe to the stream itself (multi-homed networks can have several gateways):
+
+```csharp
+using var upnp = new UpnpClient(myAddresses);
+using var gateways = PortMapper.DiscoverGateways(upnp).Subscribe(g =>
+    Console.WriteLine(g.Device.Description.FriendlyName));
+```
+
 ## Quick start — the general client
 
 ```csharp

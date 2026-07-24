@@ -1,6 +1,10 @@
 @page "/"
 @using Sample.Dashboard.Client.Services
 @using Sample.Dashboard.Client.ViewModels
+@* WASM-only, no prerender: the page's services (SignalR client, view model)
+   exist only in the browser's DI container - server-side prerendering would
+   try to resolve them on the server and fail. *@
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
 @inherits ReactiveUI.Blazor.ReactiveInjectableComponentBase<DashboardViewModel>
 @inject DeviceStreamClient Stream
 

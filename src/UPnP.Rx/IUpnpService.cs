@@ -23,4 +23,8 @@ public interface IUpnpService
         string action,
         IReadOnlyDictionary<string, string>? arguments = null,
         CancellationToken ct = default);
+
+    /// <summary>The service's evented state as a shared stream (GENA); see <see cref="UpnpService.Events"/>.</summary>
+    /// <exception cref="UpnpException">The service declares no <c>eventSubURL</c>.</exception>
+    IObservable<Eventing.UpnpEvent> Events();
 }

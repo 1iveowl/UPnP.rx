@@ -31,6 +31,7 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
     private readonly CancellationTokenSource _lifetime = new();
     private readonly ConcurrentDictionary<string, DescriptionCacheEntry> _descriptions = new();
     private readonly Lock _startLock = new();
+    private readonly Eventing.EventingContext _eventing;
     private int _disposed;
 
     private bool IsDisposed => Volatile.Read(ref _disposed) != 0;
@@ -63,6 +64,7 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
         // wall-clock timer must not be a hidden second clock capping them at 100 s.
         _httpClient = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
         _ownsHttpClient = true;
+        _eventing = new Eventing.EventingContext(_httpClient, _options, _lifetime.Token);
     }
 
     /// <summary>
@@ -88,6 +90,7 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
         _ownsHttpClient = httpClient is null;
         _options = options ?? new UpnpClientOptions();
         _addresses = [.. addresses];
+        _eventing = new Eventing.EventingContext(_httpClient, _options, _lifetime.Token);
     }
 
     /// <summary>
@@ -210,6 +213,7 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
         }
 
         _lifetime.Cancel();
+        _eventing.Dispose();
         _lifetime.Dispose();
 
         if (_ownsControlPoint)
@@ -318,11 +322,11 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
 
         return new DiscoveredDevice(
             usn, location, server, bootId, configId, hasParsingError, localEndPoint,
-            ct => GetOrFetchDescriptionAsync(location, configId, bootId, maxAge, ct));
+            ct => GetOrFetchDescriptionAsync(location, configId, bootId, maxAge, localEndPoint?.Address, ct));
     }
 
     private Task<DescribedDevice> GetOrFetchDescriptionAsync(
-        Uri location, int? configId, uint bootId, TimeSpan maxAge, CancellationToken ct)
+        Uri location, int? configId, uint bootId, TimeSpan maxAge, IPAddress? localAddress, CancellationToken ct)
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
 
@@ -341,7 +345,7 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
             var entry = _descriptions.GetOrAdd(
                 key,
                 _ => new DescriptionCacheEntry(
-                    new Lazy<Task<DescribedDevice>>(() => FetchAndEvictOnFailureAsync(key, location)),
+                    new Lazy<Task<DescribedDevice>>(() => FetchAndEvictOnFailureAsync(key, location, localAddress)),
                     _options.TimeProvider.GetTimestamp(),
                     maxAge));
 
@@ -358,11 +362,11 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
     }
 
     /// <summary>Only successful descriptions stay cached — a transient fetch failure must not poison the device forever.</summary>
-    private async Task<DescribedDevice> FetchAndEvictOnFailureAsync(string key, Uri location)
+    private async Task<DescribedDevice> FetchAndEvictOnFailureAsync(string key, Uri location, IPAddress? localAddress)
     {
         try
         {
-            return await FetchDescriptionAsync(location).ConfigureAwait(false);
+            return await FetchDescriptionAsync(location, localAddress).ConfigureAwait(false);
         }
         catch
         {
@@ -371,7 +375,7 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
         }
     }
 
-    private async Task<DescribedDevice> FetchDescriptionAsync(Uri location)
+    private async Task<DescribedDevice> FetchDescriptionAsync(Uri location, IPAddress? localAddress)
     {
         using var timeout = new CancellationTokenSource(_options.DescriptionTimeout, _options.TimeProvider);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token, _lifetime.Token);
@@ -392,7 +396,7 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
         }
 
         return DescriptionParser.ParseDeviceDescription(xml, location).Match(
-            description => new DescribedDevice(description, _httpClient, _options, _lifetime.Token),
+            description => new DescribedDevice(description, _httpClient, _options, _eventing, localAddress, _lifetime.Token),
             error => throw new UpnpException($"The description at {location} is unparsable: {error}"));
     }
 }

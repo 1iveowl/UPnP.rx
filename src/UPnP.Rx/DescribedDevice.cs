@@ -13,6 +13,8 @@ public sealed class DescribedDevice
         DeviceDescription description,
         HttpClient httpClient,
         UpnpClientOptions options,
+        Eventing.EventingContext eventing,
+        System.Net.IPAddress? localAddress,
         CancellationToken lifetime)
     {
         Description = description;
@@ -21,7 +23,7 @@ public sealed class DescribedDevice
             .. description
                 .SelfAndDescendants()
                 .SelectMany(device => device.Services)
-                .Select(service => new UpnpService(service, httpClient, options, lifetime))
+                .Select(service => new UpnpService(service, httpClient, options, eventing, localAddress, lifetime))
         ];
     }
 

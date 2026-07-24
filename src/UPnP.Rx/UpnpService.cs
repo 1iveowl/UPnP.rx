@@ -23,6 +23,8 @@ public sealed class UpnpService : IUpnpService
     private readonly HttpClient _httpClient;
     private readonly UpnpClientOptions _options;
     private readonly CancellationToken _lifetime;
+    private readonly Eventing.EventingContext _eventing;
+    private readonly System.Net.IPAddress? _localAddress;
     private readonly Lock _scpdLock = new();
     private Task<Scpd>? _scpdTask;
 
@@ -30,12 +32,39 @@ public sealed class UpnpService : IUpnpService
         ServiceDescription description,
         HttpClient httpClient,
         UpnpClientOptions options,
+        Eventing.EventingContext eventing,
+        System.Net.IPAddress? localAddress,
         CancellationToken lifetime)
     {
         Description = description;
         _httpClient = httpClient;
         _options = options;
+        _eventing = eventing;
+        _localAddress = localAddress;
         _lifetime = lifetime;
+    }
+
+    /// <summary>
+    /// The service's evented state as a stream (UDA 2.0 clause 4, GENA).
+    /// Subscribing sends SUBSCRIBE to <see cref="ServiceDescription.EventSubUrl"/>;
+    /// disposing the last subscription sends UNSUBSCRIBE. The stream is shared:
+    /// any number of Rx subscribers cost the device one GENA subscription, and a
+    /// late subscriber first receives the last-known state flagged
+    /// <see cref="Eventing.PropertyChange.IsReplay"/>. Renewal, SEQ-gap recovery
+    /// and resubscription run automatically on the options' TimeProvider and
+    /// surface as <see cref="Eventing.UpnpEvent"/> values - per-item failure
+    /// never terminates the stream while <see cref="UpnpClientOptions.AutoResubscribe"/>
+    /// is on. Temperature: cold until first subscriber, then hot and shared.
+    /// </summary>
+    /// <exception cref="UpnpException">The service declares no <c>eventSubURL</c>.</exception>
+    public IObservable<Eventing.UpnpEvent> Events()
+    {
+        if (Description.EventSubUrl is null)
+        {
+            throw new UpnpException($"The service {Description.ServiceType} declares no eventSubURL - it is not evented.");
+        }
+
+        return _eventing.GetOrCreateSource(Description.EventSubUrl, _localAddress);
     }
 
     /// <summary>The service entry from the device description document.</summary>

@@ -54,6 +54,11 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 │   │   │                          #   DisposeAsync=delete, Dispose=abrupt (lease expires on router)
 │   │   ├── PortMappingEntry.cs, Protocol.cs   # (Entry avoids namespace/type collision)
 │   │   └── IInternetGateway.cs, IPortMappingLease.cs, ConnectionStatusInfo.cs
+│   ├── Eventing/              # UPnP.Rx.Eventing — GENA (4.0): UpnpEvent union, GenaHeaders,
+│   │                          #   GenaParser (pure), EventCallbackListener (NOTIFY routing,
+│   │                          #   200/412), IGenaTransport + HttpGenaTransport,
+│   │                          #   GenaSubscriptionSource (shared engine: replay, renewal,
+│   │                          #   SEQ/gap recovery), EventingContext (client-wide wiring)
 │   └── Parsing/               # UPnP.Rx.Parsing — pure, total, lenient
 │       ├── DescriptionParser.cs   # DDD → DeviceDescription; URLBase honored; & repair
 │       ├── ScpdParser.cs          # SCPD → Scpd (actions, state variables, ranges)
@@ -104,6 +109,7 @@ tests/UPnP.Rx.Tests/
 samples/
 ├── Sample.PortMapper/         # ✅ discover gateway, external IP, list mappings, --map demo
 ├── Sample.Browser/            # ✅ discover everything, dump device trees + services
+├── Sample.Eventing/           # ✅ subscribe to a service, print UpnpEvents (author test guide)
 ├── Sample.Dashboard/          # ✅ Blazor host: SSDP listening + SignalR hub with roster replay
 │                              #    (design + backlog: plan/sample-dashboard-plan.md)
 └── Sample.Dashboard.Client/   # ✅ WASM: SignalR → DynamicData → ReactiveUI → FluentUI cards

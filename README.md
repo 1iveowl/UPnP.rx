@@ -43,11 +43,15 @@ dotnet run --project samples/Sample.Browser
 ```
 
 ```
-● FRITZ!Box 7590  [http://192.168.178.1:49000/igddesc.xml]
-  urn:schemas-upnp-org:device:InternetGatewayDevice:2  (AVM FRITZ!Box 7590)
-    ⚙ urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1
-    …
+FRITZ!Box 7590  [http://192.168.178.1:49000/igddesc.xml]
+urn:schemas-upnp-org:device:InternetGatewayDevice:2  (AVM FRITZ!Box 7590)
+├─ · urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1
+└─ urn:schemas-upnp-org:device:WANDevice:2  (AVM)
+   └─ ...
 ```
+
+(colored in the terminal; glyphs chosen to render on every platform, including
+the legacy Windows console)
 
 `dotnet run --project samples/Sample.PortMapper` finds your router and lists its
 port-mapping table; add `--map` to hold an auto-renewing mapping. Run on the

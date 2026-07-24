@@ -1,11 +1,25 @@
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Text;
 using UPnP.Rx;
 using UPnP.Rx.Model;
 
-// Sample.Browser — discover every UPnP device on the network and dump its
+// Sample.Browser - discover every UPnP device on the network and dump its
 // device tree and services. Requires a real network; multicast does not work
 // in containers.
+//
+// Rendering notes: colors via Console.ForegroundColor (portable, no ANSI
+// escapes); glyphs restricted to code page 437 (box-drawing + middle dot) so
+// even the legacy Windows console renders them.
+
+try
+{
+    Console.OutputEncoding = Encoding.UTF8;   // modern terminals; harmless if it sticks
+}
+catch (Exception)
+{
+    // Legacy console: the CP437-safe glyph set below still renders fine.
+}
 
 var addresses = NetworkInterface.GetAllNetworkInterfaces()
     .Where(nic => nic.OperationalStatus is OperationalStatus.Up
@@ -18,12 +32,17 @@ var addresses = NetworkInterface.GetAllNetworkInterfaces()
 
 if (addresses.Length is 0)
 {
-    Console.WriteLine("No usable IPv4 interfaces found.");
+    WriteLine(ConsoleColor.Red, "No usable IPv4 interfaces found.");
     return;
 }
 
-Console.WriteLine($"Browsing from: {string.Join(", ", addresses.Select(a => a.ToString()))}");
-Console.WriteLine("Discovering (press Enter to stop)…\n");
+Write(ConsoleColor.Cyan, "UPnP.Rx");
+Console.WriteLine(" network browser");
+Write(ConsoleColor.DarkGray, "Browsing from: ");
+Console.WriteLine(string.Join(", ", addresses.Select(a => a.ToString())));
+Write(ConsoleColor.DarkGray, "Discovering (press Enter to stop)...");
+Console.WriteLine();
+Console.WriteLine();
 
 using var upnp = new UpnpClient(addresses);
 
@@ -36,8 +55,9 @@ using var subscription = upnp
     .Subscribe(device =>
     {
         Interlocked.Increment(ref found);
-        Console.WriteLine($"● {device.Description.FriendlyName}  [{device.Description.Location}]");
-        Print(device.Description, indent: "  ");
+        Write(ConsoleColor.Yellow, device.Description.FriendlyName ?? "(unnamed device)");
+        WriteLine(ConsoleColor.DarkGray, $"  [{device.Description.Location}]");
+        PrintDeviceLine(device.Description, connector: "", childPrefix: "");
         Console.WriteLine();
     });
 
@@ -45,33 +65,64 @@ await Task.Delay(TimeSpan.FromSeconds(15), TimeProvider.System);
 
 if (Volatile.Read(ref found) is 0)
 {
-    Console.WriteLine("""
+    WriteLine(ConsoleColor.Yellow, """
         Nothing answered in 15 seconds. Things to check:
-          • Running inside Docker/WSL/a devcontainer? Multicast doesn't work there;
+          - Running inside Docker/WSL/a devcontainer? Multicast doesn't work there;
             run this sample on the host.
-          • Is a VPN active? Try disconnecting.
-          • On Windows, the "SSDP Discovery" service (SSDPSRV) occupies UDP 1900 and
+          - Is a VPN active? Try disconnecting.
+          - On Windows, the "SSDP Discovery" service (SSDPSRV) occupies UDP 1900 and
             keeps clients from seeing responses. Pause it while discovering
-            (elevated prompt): net stop SSDPSRV — and resume after: net start SSDPSRV
-          • Some networks block SSDP (AP isolation, IGMP snooping) — try another
+            (elevated prompt): net stop SSDPSRV - and resume after: net start SSDPSRV
+          - Some networks block SSDP (AP isolation, IGMP snooping) - try another
             network or a wired connection.
-        Still listening — devices announce themselves periodically…
+        Still listening - devices announce themselves periodically...
         """);
 }
 
 Console.ReadLine();
 
-static void Print(DeviceDescription device, string indent)
+Write(ConsoleColor.Cyan, $"{Volatile.Read(ref found)}");
+Console.WriteLine(" device(s) found.");
+
+static void PrintDeviceLine(DeviceDescription device, string connector, string childPrefix)
 {
-    Console.WriteLine($"{indent}{device.DeviceType}  ({device.Manufacturer} {device.ModelName})");
+    Write(ConsoleColor.DarkGray, connector);
+    Write(ConsoleColor.Gray, device.DeviceType ?? "(no deviceType)");
+
+    var maker = $"{device.Manufacturer} {device.ModelName}".Trim();
+    WriteLine(ConsoleColor.DarkGray, maker.Length is 0 ? "" : $"  ({maker})");
+
+    // Services first, then embedded devices, with proper tree connectors.
+    var lastIndex = device.Services.Count + device.EmbeddedDevices.Count - 1;
+    var index = 0;
 
     foreach (var service in device.Services)
     {
-        Console.WriteLine($"{indent}  ⚙ {service.ServiceType}");
+        var isLast = index++ == lastIndex;
+        Write(ConsoleColor.DarkGray, childPrefix + (isLast ? "└─ " : "├─ "));
+        WriteLine(ConsoleColor.DarkCyan, $"· {service.ServiceType}");
     }
 
     foreach (var embedded in device.EmbeddedDevices)
     {
-        Print(embedded, indent + "  ");
+        var isLast = index++ == lastIndex;
+        PrintDeviceLine(
+            embedded,
+            childPrefix + (isLast ? "└─ " : "├─ "),
+            childPrefix + (isLast ? "   " : "│  "));
     }
+}
+
+static void Write(ConsoleColor color, string text)
+{
+    var previous = Console.ForegroundColor;
+    Console.ForegroundColor = color;
+    Console.Write(text);
+    Console.ForegroundColor = previous;
+}
+
+static void WriteLine(ConsoleColor color, string text)
+{
+    Write(color, text);
+    Console.WriteLine();
 }

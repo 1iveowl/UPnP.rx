@@ -427,3 +427,9 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Local planning documents (not committed)
+/plan/
+
+# macOS
+.DS_Store

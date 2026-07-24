@@ -15,6 +15,31 @@
 
 <body>
     <Routes />
+    <script>
+        // Surface any client-side unhandled error ON the page (not only in the
+        // F12 console): Blazor writes unhandled exceptions via console.error,
+        // and boot failures arrive as window error / unhandledrejection events.
+        (function () {
+            function show(message) {
+                var details = document.getElementById('blazor-error-details');
+                var bar = document.getElementById('blazor-error-ui');
+                if (details && bar && !details.textContent) {
+                    details.textContent = message;
+                    bar.style.display = 'block';
+                }
+            }
+            var original = console.error;
+            console.error = function () {
+                original.apply(console, arguments);
+                var text = Array.prototype.map.call(arguments, String).join(' ');
+                if (text.indexOf('Unhandled exception') >= 0 || text.indexOf('crit:') >= 0) {
+                    show(text.split('\n').slice(0, 8).join('\n'));
+                }
+            };
+            window.addEventListener('error', function (e) { show(e.message + ' (' + e.filename + ':' + e.lineno + ')'); });
+            window.addEventListener('unhandledrejection', function (e) { show(String(e.reason)); });
+        })();
+    </script>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 

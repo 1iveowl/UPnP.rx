@@ -46,13 +46,50 @@ backend on the LAN doing the listening, a UI anywhere.
 `Microsoft.FluentUI.AspNetCore.Components` 4.14.3, `DynamicData` 9.4.33,
 `ReactiveUI.Blazor` 23.2.28, `Microsoft.AspNetCore.SignalR.Client` 10.0.10.
 
+## UI specification (author, 2026-07-24; implemented same day)
+
+- **Collapsed by default**: the list shows one heading row per device - name, maker/model,
+  service + embedded-device count badges, chevron. Nothing else.
+- **Unfold on click**: expanding a device shows its content "neatly presented" - an identity
+  block (type, UDN, location link) followed by the device's tree.
+- **Drill-down via sub-headers**: devices with large trees (e.g. a Vera Z-Wave gateway with
+  dozens of embedded devices) expand level by level - each embedded device is itself a
+  collapsed sub-header (name, service/device counts) that unfolds on click. Services render
+  as monospace rows.
+- **Filter box**: live text filter over name/manufacturer/device type, implemented as a
+  DynamicData `Filter` fed by `WhenAnyValue(Filter)` - the search showcases Rx too.
+- **Render pump**: `Revision` OAPH ticks on every cache changeset so the page re-renders on
+  adds, removals *and in-place updates* (fixes a gap where an updated device with an
+  unchanged count would not re-render).
+- **ErrorBoundary** wraps the page: a client-side exception now renders its type + message
+  in an inline panel instead of only the generic "unhandled error" banner - both a UX and a
+  diagnosability fix.
+- Wire format: `DeviceDto` carries the **full tree** (`DeviceNodeDto` recursion) so
+  drill-down needs no extra round trips.
+
+**Open question for the author**: "all messages for that device" is currently interpreted as
+the device's *description content* (the tree above). If it should mean the raw **SSDP
+messages** observed per device (alive/byebye log with timestamps), the library needs a small
+addition first - `UpnpClient` does not expose the raw announcement stream per device; that
+would be a tap on `IControlPoint`'s observables surfaced per-UDN. Flag which reading is
+intended.
+
 ## Iteration backlog (for author review)
 
-1. **Device detail flyout** - click a card → `FluentDialog` with the full device tree and
-   per-service action invocation (SCPD-driven form via `ValidateAndOrderArguments`).
-2. **v2 eventing hook**: when GENA lands, subscribe evented state variables and update cards
-   live - the dashboard becomes the eventing demo.
-3. **Roster v1.1**: replace the sample's ConcurrentDictionary with the library's live roster
+1. **Per-service action invocation** in the expanded view - SCPD-driven form via
+   `ValidateAndOrderArguments`.
+2. **Per-device SSDP message log** - pending the open question above.
+3. **v2 eventing hook**: when GENA lands, subscribe evented state variables and update the
+   expanded view live - the dashboard becomes the eventing demo.
+4. **Roster v1.1**: replace the sample's ConcurrentDictionary with the library's live roster
    observable once it exists; delete the byebye/alive trade-off note above.
-4. Reconnect UX polish (toast on reconnect, stale-badge while disconnected).
-5. Screenshot/GIF in the README once the author has run it against a real network.
+5. Reconnect UX polish (toast on reconnect, stale-badge while disconnected).
+6. Screenshot/GIF in the README once the author has run it against a real network.
+
+## Debugging note (open)
+
+The author still sees the generic error banner on a real network run (cards render fine,
+7 devices). The singleton-view-model disposal bug and the double `StartAsync` are fixed;
+the ErrorBoundary + inline exception panel added in the UI pass will identify any remaining
+client-side throw - next report should carry the exception type + message (or the F12
+console text).

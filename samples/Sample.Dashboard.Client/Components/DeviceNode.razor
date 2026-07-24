@@ -1,0 +1,73 @@
+@using Sample.Dashboard.Client.Models
+
+<div class="node">
+    @foreach (var service in Node!.Services)
+    {
+        <div class="svc" title="@service">· @Short(service)</div>
+    }
+
+    @foreach (var (child, index) in Node.Children.Select((c, i) => (c, i)))
+    {
+        var key = $"{child.Udn}#{index}";
+
+        <div class="subhead" @onclick="() => Toggle(key)">
+            <span class="chev">@(_open.Contains(key) ? "▾" : "▸")</span>
+            <span>@Label(child)</span>
+            <span class="muted">@Summary(child)</span>
+        </div>
+
+        @if (_open.Contains(key))
+        {
+            <DeviceNode Node="child" />
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public DeviceNodeDto? Node { get; set; }
+
+    private readonly HashSet<string> _open = [];
+
+    private void Toggle(string key)
+    {
+        if (!_open.Remove(key))
+        {
+            _open.Add(key);
+        }
+    }
+
+    private static string Label(DeviceNodeDto node) =>
+        node.FriendlyName is { Length: > 0 } name ? name : Short(node.DeviceType ?? "(device)");
+
+    private static string Summary(DeviceNodeDto node)
+    {
+        var parts = new List<string>();
+
+        if (node.Services.Length > 0)
+        {
+            parts.Add($"{node.Services.Length} service(s)");
+        }
+
+        if (node.Children.Length > 0)
+        {
+            parts.Add($"{node.Children.Length} device(s)");
+        }
+
+        var maker = $"{node.Manufacturer} {node.Model}".Trim();
+
+        if (maker.Length > 0)
+        {
+            parts.Add(maker);
+        }
+
+        return string.Join(" · ", parts);
+    }
+
+    // "urn:schemas-upnp-org:service:WANIPConnection:2" -> "WANIPConnection:2"
+    private static string Short(string urn)
+    {
+        var parts = urn.Split(':');
+        return parts.Length >= 2 ? $"{parts[^2]}:{parts[^1]}" : urn;
+    }
+}

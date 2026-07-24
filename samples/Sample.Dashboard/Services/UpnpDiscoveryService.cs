@@ -110,18 +110,22 @@ public sealed class UpnpDiscoveryService(
         return new DeviceDto(
             Key: NormalizeKey(root.Udn ?? root.Location.ToString()),
             FriendlyName: root.FriendlyName,
-            DeviceType: root.DeviceType,
             Manufacturer: root.Manufacturer,
             Model: root.ModelName,
             Location: root.Location.ToString(),
-            Services: [.. all
-                .SelectMany(d => d.Services)
-                .Select(s => s.ServiceType)
-                .Where(t => t is not null)
-                .Select(t => t!)
-                .Distinct()],
-            DeviceCount: all.Count);
+            ServiceCount: all.SelectMany(d => d.Services).Count(),
+            DeviceCount: all.Count,
+            Root: ToNode(root));
     }
+
+    private static DeviceNodeDto ToNode(UPnP.Rx.Model.DeviceDescription device) => new(
+        FriendlyName: device.FriendlyName,
+        DeviceType: device.DeviceType,
+        Manufacturer: device.Manufacturer,
+        Model: device.ModelName,
+        Udn: device.Udn,
+        Services: [.. device.Services.Select(s => s.ServiceType).OfType<string>()],
+        Children: [.. device.EmbeddedDevices.Select(ToNode)]);
 
     private static string NormalizeKey(string raw) =>
         raw.Trim().ToLowerInvariant() is var lower && lower.StartsWith("uuid:", StringComparison.Ordinal)

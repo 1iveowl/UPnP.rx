@@ -1,4 +1,5 @@
 @page "/"
+@using Sample.Dashboard.Client.Components
 @using Sample.Dashboard.Client.Services
 @using Sample.Dashboard.Client.ViewModels
 @* WASM-only, no prerender: the page's services (SignalR client, view model)
@@ -10,67 +11,80 @@
 
 <PageTitle>UPnP.Rx dashboard</PageTitle>
 
-<FluentStack Orientation="Orientation.Vertical" VerticalGap="16">
+<ErrorBoundary>
+    <ChildContent>
+        <div class="dash-header">
+            <h1 class="dash-title">UPnP.Rx network dashboard</h1>
+            <FluentBadge Appearance="Appearance.Accent">@ViewModel!.Count device(s)</FluentBadge>
+            <FluentBadge>@ViewModel!.Status</FluentBadge>
+            <input class="filter" placeholder="Filter by name, maker or type…"
+                   value="@ViewModel!.Filter"
+                   @oninput="e => ViewModel!.Filter = e.Value?.ToString() ?? string.Empty" />
+        </div>
 
-    <FluentStack VerticalAlignment="VerticalAlignment.Center" HorizontalGap="12">
-        <FluentLabel Typo="Typography.PageTitle">UPnP.Rx network dashboard</FluentLabel>
-        <FluentBadge Appearance="Appearance.Accent">@ViewModel!.Count device(s)</FluentBadge>
-        <FluentBadge>@ViewModel!.Status</FluentBadge>
-    </FluentStack>
+        @if (ViewModel!.Count == 0)
+        {
+            <FluentStack VerticalAlignment="VerticalAlignment.Center" HorizontalGap="12">
+                <FluentProgressRing />
+                <FluentLabel>Listening for devices - they appear here live as they announce themselves…</FluentLabel>
+            </FluentStack>
+        }
 
-    @if (ViewModel!.Count == 0)
-    {
-        <FluentStack VerticalAlignment="VerticalAlignment.Center" HorizontalGap="12">
-            <FluentProgressRing />
-            <FluentLabel>Listening for devices - they appear here live as they announce themselves…</FluentLabel>
-        </FluentStack>
-    }
-
-    <FluentGrid Spacing="3">
         @foreach (var device in ViewModel!.Devices.ToArray())
         {
-            <FluentGridItem xs="12" sm="6" lg="4">
-                <FluentCard>
-                    <FluentStack Orientation="Orientation.Vertical" VerticalGap="8">
-                        <FluentLabel Typo="Typography.Subject">@(device.FriendlyName ?? "(unnamed device)")</FluentLabel>
-                        <FluentLabel Typo="Typography.Body">@device.Manufacturer @device.Model</FluentLabel>
-                        <code style="font-size: 0.75rem;">@device.DeviceType</code>
-                        <FluentAnchor Href="@device.Location" Target="_blank" Appearance="Appearance.Hypertext">
-                            @device.Location
-                        </FluentAnchor>
-                        <FluentStack Wrap="true" HorizontalGap="4" VerticalGap="4">
-                            @foreach (var service in device.Services.Take(6))
-                            {
-                                <FluentBadge title="@service">@ShortName(service)</FluentBadge>
-                            }
-                            @if (device.Services.Length > 6)
-                            {
-                                <FluentBadge Appearance="Appearance.Neutral">+@(device.Services.Length - 6) more</FluentBadge>
-                            }
-                        </FluentStack>
+            <div class="device-card">
+                <div class="device-head" @onclick="() => Toggle(device.Key)">
+                    <span class="chev">@(_open.Contains(device.Key) ? "▾" : "▸")</span>
+                    <div>
+                        <div class="device-name">@(device.FriendlyName ?? "(unnamed device)")</div>
+                        <div class="device-sub">@device.Manufacturer @device.Model</div>
+                    </div>
+                    <div class="device-badges">
+                        <FluentBadge>@device.ServiceCount service(s)</FluentBadge>
                         @if (device.DeviceCount > 1)
                         {
-                            <FluentLabel Typo="Typography.Body">@device.DeviceCount devices in tree</FluentLabel>
+                            <FluentBadge Appearance="Appearance.Neutral">@device.DeviceCount devices</FluentBadge>
                         }
-                    </FluentStack>
-                </FluentCard>
-            </FluentGridItem>
-        }
-    </FluentGrid>
+                    </div>
+                </div>
 
-</FluentStack>
+                @if (_open.Contains(device.Key))
+                {
+                    <div class="device-body">
+                        <dl class="identity">
+                            <dt>Type</dt><dd class="urn">@device.Root.DeviceType</dd>
+                            <dt>UDN</dt><dd class="urn">@device.Root.Udn</dd>
+                            <dt>Location</dt>
+                            <dd><a href="@device.Location" target="_blank">@device.Location</a></dd>
+                        </dl>
+                        <DeviceNode Node="device.Root" />
+                    </div>
+                }
+            </div>
+        }
+    </ChildContent>
+    <ErrorContent Context="exception">
+        <div class="error-panel">
+            The dashboard hit an error: <strong>@exception.GetType().Name</strong> - @exception.Message
+            <br />Reload the page to recover; the full stack is in the browser console (F12).
+        </div>
+    </ErrorContent>
+</ErrorBoundary>
 
 @code {
+    private readonly HashSet<string> _open = [];
+
+    private void Toggle(string key)
+    {
+        if (!_open.Remove(key))
+        {
+            _open.Add(key);
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
         await Stream.StartAsync();
         await base.OnInitializedAsync();
-    }
-
-    // "urn:schemas-upnp-org:service:WANIPConnection:2" -> "WANIPConnection:2"
-    private static string ShortName(string serviceType)
-    {
-        var parts = serviceType.Split(':');
-        return parts.Length >= 2 ? $"{parts[^2]}:{parts[^1]}" : serviceType;
     }
 }

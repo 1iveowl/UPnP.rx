@@ -320,9 +320,16 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
             return null;
         }
 
+        // On macOS/Linux the SSDP socket is wildcard-bound (multicast delivery
+        // requires it) and the envelope reports that bound address - 0.0.0.0
+        // means "unknown", not an address of ours.
+        var local = localEndPoint is not null && LocalRoute.IsUsable(localEndPoint.Address)
+            ? localEndPoint
+            : null;
+
         return new DiscoveredDevice(
-            usn, location, server, bootId, configId, hasParsingError, localEndPoint,
-            ct => GetOrFetchDescriptionAsync(location, configId, bootId, maxAge, localEndPoint?.Address, ct));
+            usn, location, server, bootId, configId, hasParsingError, local,
+            ct => GetOrFetchDescriptionAsync(location, configId, bootId, maxAge, local?.Address, ct));
     }
 
     private Task<DescribedDevice> GetOrFetchDescriptionAsync(

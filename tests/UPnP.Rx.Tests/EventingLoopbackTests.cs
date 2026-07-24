@@ -129,6 +129,28 @@ public sealed class EventingLoopbackTests : IDisposable
         Assert.Equal("UNSUBSCRIBE", _lastMethod);
     }
 
+    [Fact]
+    public async Task WildcardDiscoveryAddress_CallbackHostComesFromRouteLookup()
+    {
+        // macOS/Linux reality: the discovery envelope carries the wildcard
+        // address (0.0.0.0), because the SSDP socket is wildcard-bound. The
+        // callback host must then come from a route lookup toward the device -
+        // devices refuse CALLBACK: <http://0.0.0.0:…> with HTTP 412.
+        var options = new UpnpClientOptions();
+        using var httpClient = new HttpClient();
+        using var lifetime = new CancellationTokenSource();
+        using var eventing = new EventingContext(httpClient, options, lifetime.Token);
+
+        var events = new List<UpnpEvent>();
+        using var subscription = eventing
+            .GetOrCreateSource(new Uri($"http://127.0.0.1:{_devicePort}/event"), IPAddress.Any)
+            .Subscribe(events.Add);
+
+        await WaitForAsync(() => _callbackUrl is not null && events.OfType<Subscribed>().Any());
+
+        Assert.StartsWith("http://127.0.0.1:", _callbackUrl);
+    }
+
     public void Dispose()
     {
         _device.Stop();

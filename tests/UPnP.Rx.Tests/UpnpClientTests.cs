@@ -86,6 +86,32 @@ public class UpnpClientTests
     }
 
     [Fact]
+    public void DiscoverDevices_WildcardLocalEndPoint_SurfacesAsUnknown()
+    {
+        var (client, controlPoint, _) = CreateClient();
+        using var _1 = client;
+
+        var seen = new List<DiscoveredDevice>();
+        using var subscription = client.DiscoverDevices().Subscribe(seen.Add);
+
+        // macOS/Linux reality: the SSDP socket is wildcard-bound, so upstream
+        // reports 0.0.0.0:1900 as the receiving endpoint. That must never
+        // surface as "our address" - it once became CALLBACK: <http://0.0.0.0:…>
+        // and devices refused the SUBSCRIBE with HTTP 412.
+        controlPoint.Notifies.OnNext(new Notify
+        {
+            NTS = NTS.Alive,
+            Location = new Uri(Location),
+            USN = USN.Parse("uuid:device-3::upnp:rootdevice").Value,
+            BOOTID = 1,
+            LocalIpEndPoint = new IPEndPoint(IPAddress.Any, 1900)
+        });
+
+        var device = Assert.Single(seen);
+        Assert.Null(device.LocalEndPoint);
+    }
+
+    [Fact]
     public void DiscoverDevices_DropsAnnouncementsWithoutLocation()
     {
         var (client, controlPoint, _) = CreateClient();

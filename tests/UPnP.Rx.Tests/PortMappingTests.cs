@@ -195,6 +195,41 @@ public class PortMappingTests
     }
 
     [Fact]
+    public async Task AddPortMapping_WildcardDiscoveryAddress_ResolvesInternalClientFromRoute()
+    {
+        // macOS/Linux reality: the SSDP envelope reports the wildcard-bound
+        // socket (0.0.0.0), so the default internal client must come from a
+        // route lookup toward the gateway - never 0.0.0.0 on the wire.
+        var controlPoint = new FakeControlPoint();
+        var http = new FakeHttpHandler();
+        using var client = new UpnpClient(controlPoint, http.CreateClient());
+
+        http.Map(Location, Fixture("linksys_WAG200G_desc.xml"));
+        http.Map(ControlUrl, _ => (HttpStatusCode.OK, ResponseEnvelope("AddPortMapping", PppServiceType)));
+
+        var task = PortMapper.DiscoverGatewayAsync(client, TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        controlPoint.Responses.OnNext(new MSearchResponse
+        {
+            Location = new Uri(Location),
+            USN = USN.Parse("uuid:gateway::urn:schemas-upnp-org:device:InternetGatewayDevice:1").Value,
+            BOOTID = 1,
+            LocalIpEndPoint = new IPEndPoint(IPAddress.Any, 1900)
+        });
+
+        var gateway = await task;
+        Assert.NotNull(gateway);
+        Assert.Null(gateway.LocalAddress);
+
+        await using var lease = await gateway.AddPortMappingAsync(
+            18090, 18090, Protocol.Tcp, "wildcard test", TimeSpan.Zero,
+            ct: TestContext.Current.CancellationToken);
+
+        Assert.True(IPAddress.TryParse(lease.Mapping.InternalClient, out var sent));
+        Assert.False(sent!.Equals(IPAddress.Any));
+    }
+
+    [Fact]
     public async Task GetStatusInfo_ParsesConnectionState()
     {
         var (gateway, _, http, client) = await DiscoverGatewayAsync();

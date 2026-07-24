@@ -251,6 +251,7 @@ Real-hardware smoke test (an actual router for IGD, a real media device for desc
 **Upstream issue candidates (note, do not fix from this repo — §3 rule):**
 1. `SSDP.UPnP.PCL`: no `ConfigureAwait(false)` anywhere (0 of 26 awaits; SimpleHttpListener.Rx applies it consistently) — a UI-app consumer can deadlock/hop contexts unnecessarily.
 2. `SSDP.UPnP.PCL`: `Device` sync-`Dispose` + documented "call `ByeByeAsync` first" — `IAsyncDisposable` candidate for 7.1 (already noted in the disposal model).
+3. `SSDP.UPnP.PCL`/`SimpleHttpListener.Rx`: `LocalIpEndPoint` on received SSDP messages is the socket's *bound* endpoint — on macOS/Linux the multicast socket binds the wildcard address (`ControlPoint.CreateInterface`), so every envelope reports `0.0.0.0:1900` instead of the receiving interface (found 2026-07-24 when it became `CALLBACK: <http://0.0.0.0:…>` and devices refused SUBSCRIBE with 412). Correct fix upstream: `ReceiveMessageFromAsync` + `SocketFlags`/packet-info to report the true destination interface. UPnP.Rx defends locally: wildcard is normalized to "unknown" at the discovery boundary and a routing-table lookup answers instead (`LocalRoute`).
 
 ---
 

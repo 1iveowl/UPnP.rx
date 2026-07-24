@@ -47,9 +47,19 @@ public sealed class InternetGateway : IInternetGateway
 
     /// <summary>
     /// This machine's address on the network shared with the gateway (from the
-    /// discovery exchange); the default internal client for new mappings.
+    /// discovery exchange, when it revealed one); the default internal client
+    /// for new mappings.
     /// </summary>
     public IPAddress? LocalAddress { get; }
+
+    /// <summary>
+    /// The envelope answers when the SSDP socket was interface-bound; otherwise
+    /// the routing table says which of our addresses faces the gateway.
+    /// </summary>
+    private IPAddress? DefaultInternalClient() =>
+        LocalRoute.IsUsable(LocalAddress) ? LocalAddress
+        : WanConnectionService.Description.ControlUrl is { } control ? LocalRoute.Resolve(control)
+        : null;
 
     /// <summary>Resolves the gateway's WAN connection service from a described device, best version first.</summary>
     internal static UpnpService? ResolveWanService(DescribedDevice device) =>
@@ -88,7 +98,7 @@ public sealed class InternetGateway : IInternetGateway
     /// The lease duration; <see cref="TimeSpan.Zero"/> for an indefinite mapping —
     /// documented opt-out of both auto-renewal and expiry-on-abrupt-dispose.
     /// </param>
-    /// <param name="internalClient">The LAN-side host; defaults to <see cref="LocalAddress"/>.</param>
+    /// <param name="internalClient">The LAN-side host; defaults to <see cref="LocalAddress"/>, or to the interface that routes toward the gateway when discovery did not reveal one.</param>
     /// <param name="ct">Cancels the initial mapping call.</param>
     /// <exception cref="UpnpActionException">The gateway refused (e.g. 718 ConflictInMappingEntry).</exception>
     /// <exception cref="UpnpException">No internal client address is known, or the call failed.</exception>
@@ -296,9 +306,9 @@ public sealed class InternetGateway : IInternetGateway
         bool useAnyPort,
         CancellationToken ct)
     {
-        var client = internalClient ?? LocalAddress
+        var client = internalClient ?? DefaultInternalClient()
             ?? throw new UpnpException(
-                "No internal client address: pass internalClient explicitly (the discovery exchange did not reveal a local address).");
+                "No internal client address: pass internalClient explicitly (the discovery exchange did not reveal a local address, and no route toward the gateway was found).");
 
         var mapping = new PortMappingEntry
         {

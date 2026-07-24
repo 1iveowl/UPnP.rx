@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Net;
-using System.Net.Sockets;
 using Microsoft.Extensions.Logging;
 
 namespace UPnP.Rx.Eventing;
@@ -36,7 +35,9 @@ internal sealed class EventingContext(
         return _sources.GetOrAdd(eventSubUrl, url =>
         {
             var listener = EnsureListener();
-            var callbackHost = (localAddress ?? ResolveLocalAddress(url)).ToString();
+            var callbackHost = (LocalRoute.IsUsable(localAddress) ? localAddress : LocalRoute.Resolve(url))
+                ?? throw new UpnpException(
+                    $"No local address faces {url.Host} - cannot offer the device an event callback URL.");
 
             return new GenaSubscriptionSource(
                 url,
@@ -57,17 +58,6 @@ internal sealed class EventingContext(
             return _listener ??= EventCallbackListener.Create(
                 options.EventCallbackPort, options.Logger, clientLifetime);
         }
-    }
-
-    /// <summary>
-    /// Which local address routes toward the device: a connectionless connect
-    /// makes the OS pick the outgoing interface, without sending anything.
-    /// </summary>
-    private static IPAddress ResolveLocalAddress(Uri deviceUrl)
-    {
-        using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-        socket.Connect(deviceUrl.Host, deviceUrl.Port);
-        return ((IPEndPoint)socket.LocalEndPoint!).Address;
     }
 
     public void Dispose()

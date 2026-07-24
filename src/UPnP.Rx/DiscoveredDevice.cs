@@ -34,7 +34,9 @@ public sealed class DiscoveredDevice
     /// <summary>
     /// The local endpoint the announcement arrived on — this machine's address on
     /// the network shared with the device (used e.g. as the default internal
-    /// client for port mappings).
+    /// client for port mappings and the event callback host). Null when unknown:
+    /// on macOS/Linux the SSDP socket is wildcard-bound, so the receiving
+    /// interface is not revealed and consumers fall back to a route lookup.
     /// </summary>
     public System.Net.IPEndPoint? LocalEndPoint { get; }
 

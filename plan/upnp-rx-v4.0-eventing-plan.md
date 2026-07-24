@@ -84,10 +84,21 @@ IObservable<UpnpEvent> Events();
 
 ## 3. Phases (one commit each, on dev/4.0.0; version bump to 4.0.0 in E1)
 
-**Status 2026-07-24: E1-E6 implemented and committed (119 tests green, incl. a real-socket
-loopback integration test). E7 (releases/4.0.0 branch, tag, publish) is deliberately NOT
+**Status 2026-07-24: E1-E6 implemented and committed (122 tests green, incl. real-socket
+loopback integration tests). E7 (releases/4.0.0 branch, tag, publish) is deliberately NOT
 executed - it waits for the author's code review and the §5 hardware validation, per
 instruction. No pushes from this session.**
+
+**Found in author validation (2026-07-24):** "Watch live" failed with SUBSCRIBE → HTTP 412
+on every strict device (MIOS, which skips callback validation, was the only device that
+accepted). Root cause: on macOS/Linux upstream reports the wildcard-bound SSDP socket
+(`0.0.0.0:1900`) as the envelope's local endpoint, and we trusted it - the CALLBACK header
+advertised `http://0.0.0.0:…`. Fixed at three layers (`LocalRoute` helper): wildcard is
+normalized to "unknown" at the discovery boundary, eventing and port mapping fall back to a
+routing-table lookup toward the device, and the loopback/discovery/port-mapping tests now
+feed the wildcard envelope reality instead of a kind fake. Windows was never affected
+(upstream binds the interface address there). Recorded as upstream issue candidate #3 in
+the main plan §9.
 
 | Phase | Deliverable |
 |---|---|

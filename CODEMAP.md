@@ -9,7 +9,7 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 | 0 | Repo infrastructure (props, editorconfig, slnx, CI skeleton, test project) | ✅ done |
 | 1 | Model records, `ParseResult<T>`, `DescriptionParser` + fixtures | ✅ done |
 | 2 | `ScpdParser`, `SoapComposer`/`SoapParser` | ✅ done |
-| 3 | Edge: `UpnpClient` / `DiscoveredDevice` / `DescribedDevice` / `UpnpService` | — |
+| 3 | Edge: `UpnpClient` / `DiscoveredDevice` / `DescribedDevice` / `UpnpService` | ✅ done |
 | 4 | `UPnP.Rx.PortMapping` + `PortMappingLease` + `Sample.PortMapper` | — |
 | 5 | UDA 2.0 clause 2/3 compliance review + fixes | — |
 | 6 | Packaging, README, samples polish, CI publish job | — |
@@ -29,7 +29,13 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 ├── UPnP.Rx.slnx
 ├── .github/workflows/ci.yml   # restore → build -warnaserror → test → pack (publish job: Phase 6)
 ├── src/UPnP.Rx/               # the library (single package)
-│   ├── UPnP.Rx.csproj
+│   ├── UPnP.Rx.csproj         # deps: SSDP.UPnP.PCL, System.Reactive, Logging.Abstractions
+│   ├── UpnpClient.cs          # edge: discovery over IControlPoint, lazy start (Defer),
+│   │                          #   description cache (Location+ConfigId), M-SEARCH fan-out
+│   ├── DiscoveredDevice.cs, DescribedDevice.cs, UpnpService.cs
+│   ├── UpnpClientOptions.cs   # decision 6: search target/MX; TimeProvider (init-only); CPFN
+│   ├── SearchTargets.cs       # RootDevice/All/DeviceType/ServiceType/Uuid over STType
+│   ├── UpnpException.cs       # + UpnpActionException carrying UpnpError
 │   ├── Model/                 # UPnP.Rx.Model — immutable records
 │   │   ├── ParseResult.cs     # copied from SSDP.UPnP.PCL (decision 5)
 │   │   ├── DeviceDescription.cs   # DDD tree; Location + BaseUrl; SelfAndDescendants()
@@ -45,6 +51,8 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 └── tests/UPnP.Rx.Tests/       # xUnit v3 + FakeTimeProvider
     ├── UPnP.Rx.Tests.csproj
     ├── DescriptionParserTests.cs, ScpdParserTests.cs, SoapTests.cs, ParseResultTests.cs
+    ├── UpnpClientTests.cs     # discovery/dedup/cache/invoke/fault/lifecycle
+    ├── TestHelpers/           # FakeControlPoint (IControlPoint seam), FakeHttpHandler
     └── Fixtures/              # real captures (miniupnp testdesc: Linksys WAG200G w/ URLBase +
                                #   in-UDN line break, Orange Livebox IGD:2), WANIPConnection:1
                                #   SCPD (standardized template subset) + malformed variants

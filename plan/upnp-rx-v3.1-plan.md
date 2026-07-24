@@ -65,7 +65,51 @@ gain. Investigate before building:
    defaults on Blazor WASM (dashboard plan, ecosystem findings).
 4. **SSDP.UPnP.PCL README**: the Windows SSDPSRV pause hint (docs-only).
 
-## 6. Release mechanics
+## 6. Technology landscape reflections (recorded 2026-07-24, post-3.0.0 release; download counts as of that date)
+
+**Decision: the dashboard stays on ReactiveUI for now.** The author weighed a switch and
+chose continuity - the current setup works, its quirks are documented, and the alternatives
+have real losses. Recorded so the reasoning survives:
+
+**CommunityToolkit.Mvvm (24.9M downloads vs ReactiveUI's 18.9M; CTM's velocity is far
+higher - four years vs fourteen to those totals; Microsoft-maintained, source-generated,
+inherently trim/AOT-safe - the WasmRuntime/builder-init failure class cannot occur in it).**
+- What a switch would buy: deletion of every ReactiveUI workaround we wrote (explicit
+  command schedulers, RxAppBuilder init, trimmer roots), mainstream docs/support, simpler
+  commands (`[RelayCommand]`, `IsRunning`).
+- **What would be lost (why we stayed)**: `WhenAnyValue`/`ToProperty` declarativeness - CTM
+  has no stream algebra, so stream→property plumbing becomes explicit subscriptions; and the
+  "Rx end to end" narrative of the sample. DynamicData and raw Rx are unaffected either way.
+- Migration inventory if ever done (half a day, client only): swap package + delete init and
+  trimmer roots; `ReactiveObject`→`ObservableObject`, OAPHs→`[ObservableProperty]` set from
+  subscriptions, `WhenAnyValue(Filter)`→`OnFilterChanged` partial pushing a subject;
+  ReactiveCommands→`[RelayCommand]` async methods with explicit `await LoadAsync()`
+  chaining; pages get a ~20-line INPC→StateHasChanged base component. Server/library
+  untouched.
+- **Natural decision point: the 3.1 roster work**, which reshapes the view models anyway.
+
+**R3 (Cysharp, 3.7M)** - Rx redesigned on **TimeProvider**, i.e. the same clock model as our
+house time model (Rx 7 lacks it; we built policy around the gap and hit its WASM scheduler
+rejecting .NET 10). Costs: its own `Observable<T>` (not `System.IObservable<T>`) - a public-
+contract change for the library, so only ever a candidate as *internal engine or adapter
+package* (`UPnP.Rx.R3`), never as the API. Young; adoption partly Unity-driven. Worth a real
+evaluation in 3.1 or later.
+
+**Kept/complementary**: `System.IObservable` stays the library's public contract
+(framework-neutral, BCL); DynamicData (21.8M) stays - no equal for collections-over-time;
+`IAsyncEnumerable`/Channels complement pull-shaped pipelines but cannot replace hot
+multicast streams.
+
+**Functional vocabulary**: CSharpFunctionalExtensions (35.4M) is `ParseResult<T>` grown up
+(`Map`/`Bind`/railway) if composition demand appears; LanguageExt (46.9M) is powerful but a
+paradigm commitment; OneOf (66.7M) light unions. C# discriminated unions are progressing in
+the language - which is why the copied 40-line `ParseResult` (decision 5, zero coupling)
+ages well: when the language lands unions, we migrate a record, not a dependency.
+
+**For joy, not roadmap**: Bolero (F# Elmish Blazor, 115K) as the intellectually honest MVU
+counterpart; F# consumers of the library already get a good experience from the current API.
+
+## 7. Release mechanics
 
 3.1 follows the house discipline: phase commits on `main`, `releases/3.1.0` branch frozen at
 tag, Trusted Publishing on the tag push. The 3.0.0 release must ship first - it is currently

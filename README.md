@@ -221,11 +221,30 @@ var args = scpd.ValidateAndOrderArguments("AddPortMapping", myArguments);
 
 Both need a real network (multicast does not work in containers).
 
+## About this project
+
+The work leading to UPnP.Rx goes back more than a decade — through
+[HttpMachine.PCL](https://github.com/1iveowl/HttpMachine),
+[SimpleHttpListener.Rx](https://github.com/1iveowl/SimpleHttpListener.Rx) and
+[SSDP.UPnP.PCL](https://github.com/1iveowl/SSDP.UPnP.PCL), each hand-built and
+refined over years of real-world use. UPnP.Rx is the first library in the
+family built with AI assistance from the very first commit.
+
+I still write code, and I review what the AI produces. For a library of this
+size, resting on this much prior work, AI made the building of it perhaps ten
+times faster — but it could not have created it by itself. I set the direction,
+settled the design decisions, and reviewing the generated code sometimes meant
+demanding fundamental changes; even those, though, were far faster to refactor
+with AI in the loop. What did not change is the bar: the project plan, the
+settled policies (time model, disposal model, Rx rules), the UDA 2.0 compliance
+review and an adversarial pre-release code review are all in this repo — the
+same rigor as the hand-built siblings, applied faster.
+
 ## Version history
 
 | Version | Notes |
 |---|---|
-| 2.0.0 | First release of UPnP.Rx: discovery → description → control, IGD port mapping with auto-renewing leases. Versioned 2.0 to reflect its lineage — it builds on years of learnings from SSDP.UPnP.PCL, SimpleHttpListener.Rx and HttpMachine.PCL rather than starting from scratch. |
+| 3.0.0 | First release of UPnP.Rx: discovery → description → control, IGD port mapping with auto-renewing leases. Versioned to reflect its lineage — it builds on years of learnings from SSDP.UPnP.PCL, SimpleHttpListener.Rx and HttpMachine.PCL rather than starting from scratch. |
 
 ## Why .NET 10?
 

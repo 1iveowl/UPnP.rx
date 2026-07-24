@@ -86,10 +86,23 @@ intended.
 5. Reconnect UX polish (toast on reconnect, stale-badge while disconnected).
 6. Screenshot/GIF in the README once the author has run it against a real network.
 
-## Debugging note (open)
+## Debugging note (RESOLVED)
 
-The author still sees the generic error banner on a real network run (cards render fine,
-7 devices). The singleton-view-model disposal bug and the double `StartAsync` are fixed;
-the ErrorBoundary + inline exception panel added in the UI pass will identify any remaining
-client-side throw - next report should carry the exception type + message (or the F12
-console text).
+The blank page + generic error banner had a deterministic root cause, found by driving the
+served app with headless Chromium and capturing the console: **ReactiveUI 23 requires
+explicit builder-pattern initialization** (`RxAppBuilder.CreateReactiveUIBuilder()
+.WithBlazorWasm().BuildApp()` before anything calls `WhenAnyValue`). Without it, the
+property-observation mixin throws a `TypeInitializationException` during page construction -
+which an ErrorBoundary inside the page can never catch, hence the blank page. The old view
+model had escaped this by accident (a `ToProperty`-first code path); adding the filter's
+`WhenAnyValue` surfaced it. Fixes in place:
+
+- Explicit ReactiveUI builder init at WASM startup (the actual fix).
+- `TrimmerRootAssembly` roots for ReactiveUI/Splat (Release-publish safety).
+- On-page error surfacing: a console.error/window-error hook writes the real exception text
+  into the Blazor error bar - construction-phase failures are readable without F12.
+- Verified with the headless probe: page renders, hub connects ("live"), no console errors.
+
+Debugging technique worth keeping: `scratchpad` Playwright probe (launch server, capture
+console/pageerror/failed requests, dump body + error bar). Candidate: check a variant into
+`tools/` as a smoke test for the dashboard.

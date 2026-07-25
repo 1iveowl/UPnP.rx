@@ -136,6 +136,17 @@ callback listener 405/500 answers.
   hand-rolled ref-count over that gate rather than bare `Publish().RefCount()` (which cannot
   replay per-variable state).
 
+- **Q6 (author, 2026-07-25) - permanent SUBSCRIBE refusals terminate the stream, with the
+  reason surfaced as data.** Found in author validation: Sonos `QPlay:1` advertises an
+  `eventSubURL` but answers SUBSCRIBE with HTTP 405 (control-only service; per UDA 2.0 a
+  non-evented service must ship an *empty* eventSubURL - Sonos doesn't). A method-level
+  refusal (405/501) of the *initial* SUBSCRIBE cannot succeed on retry, so retry-forever
+  would hammer the device for nothing. The engine now emits
+  `SubscriptionRefused(HttpStatus, Reason)` - the last event before the stream ends with
+  `OnError` - and `AutoResubscribe` deliberately does not apply (it exists for recoverable
+  failures). Every other failure keeps the recovery posture, including 412 (transient
+  callback-validation trouble) and 5xx.
+
 ## 4b. 4.1 pull-in review (author asked: does anything deferred belong in 4.0?)
 
 Reviewed the full 4.1 list; verdict: **nothing structural moves**. The roster stays 4.1 - Q5's

@@ -43,6 +43,18 @@ public sealed record Resubscribed(string Sid) : UpnpEvent;
 /// <param name="ActualSeq">The event key that actually arrived.</param>
 public sealed record GapDetected(uint ExpectedSeq, uint ActualSeq) : UpnpEvent;
 
+/// <summary>
+/// The device refused the initial SUBSCRIBE in a way that cannot succeed on
+/// retry (HTTP 405/501: the endpoint does not implement eventing, despite the
+/// service advertising an <c>eventSubURL</c> - seen in the wild, e.g. Sonos's
+/// QPlay). This is the stream's last event before it terminates with
+/// <c>OnError</c>; auto-resubscribe does not apply, because the refusal is
+/// method-level and permanent.
+/// </summary>
+/// <param name="HttpStatus">The refusing HTTP status code (405 or 501).</param>
+/// <param name="Reason">Why the engine gives up instead of retrying.</param>
+public sealed record SubscriptionRefused(int HttpStatus, string Reason) : UpnpEvent;
+
 /// <summary>One variable from a parsed NOTIFY property set. Immutable.</summary>
 /// <param name="Name">The state variable's name.</param>
 /// <param name="Value">The value as carried (entity-decoded by XML parsing; otherwise verbatim).</param>

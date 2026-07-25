@@ -150,12 +150,10 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
 
     private async Task RunAttemptsAsync(CancellationToken ct)
     {
-        var attempt = 0;
+        var everSubscribed = false;
 
         while (!ct.IsCancellationRequested)
         {
-            attempt++;
-
             // A fresh token per attempt: NOTIFYs route by token, so a NOTIFY
             // racing ahead of the SUBSCRIBE response (real Sonos behavior) is
             // still ours, and stale NOTIFYs for earlier attempts fall into 412.
@@ -185,6 +183,24 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
                 }
                 catch (UpnpException e) when (!ct.IsCancellationRequested)
                 {
+                    if (e is GenaHttpException { StatusCode: 405 or 501 } refusal)
+                    {
+                        // A method-level refusal is permanent: the endpoint does
+                        // not implement eventing (devices advertise eventSubURLs
+                        // they don't honor - e.g. Sonos's QPlay). Retrying would
+                        // hammer the device forever for nothing, so the reason is
+                        // surfaced as data and the stream ends - regardless of
+                        // AutoResubscribe, which exists for recoverable failures.
+                        var reason =
+                            $"The device refused SUBSCRIBE with HTTP {refusal.StatusCode}: the service " +
+                            "advertises an eventSubURL but does not implement eventing. The refusal is " +
+                            "permanent, so the stream ends instead of retrying.";
+
+                        Emit(new SubscriptionRefused(refusal.StatusCode, reason));
+                        Error(new UpnpException(reason, e));
+                        return;
+                    }
+
                     Emit(new RenewalFailed($"SUBSCRIBE failed: {e.Message}"));
 
                     if (!_options.AutoResubscribe)
@@ -197,7 +213,10 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
                     continue;
                 }
 
-                Emit(attempt == 1 ? new Subscribed(sid, granted) : new Resubscribed(sid));
+                // Subscribed marks the first successful establishment - a retried
+                // initial SUBSCRIBE is not a "re"-subscription to the consumer.
+                Emit(everSubscribed ? new Resubscribed(sid) : new Subscribed(sid, granted));
+                everSubscribed = true;
 
                 // Renew at half-life on the one clock; never faster than 1 s.
                 var period = TimeSpan.FromTicks(Math.Max(granted.Ticks / 2, TimeSpan.TicksPerSecond));

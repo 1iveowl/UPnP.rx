@@ -134,6 +134,8 @@ public sealed class DeviceHub(
         UPnP.Rx.Eventing.GapDetected g =>
             new ServiceEventDto("GapDetected", null, null, g.ActualSeq, false, false,
                 $"expected {g.ExpectedSeq}"),
+        UPnP.Rx.Eventing.SubscriptionRefused refused =>
+            new ServiceEventDto("SubscriptionRefused", null, null, 0, false, false, refused.Reason),
         _ => new ServiceEventDto(e.GetType().Name, null, null, 0, false, false, null)
     };
 

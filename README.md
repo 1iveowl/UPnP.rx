@@ -208,6 +208,20 @@ covered. Planned next: a live device roster with expiry (4.1).
 - Pass an `ILogger` via `UpnpClientOptions.Logger` to see dropped announcements
   and skipped descriptions.
 
+**Eventing (`Events()`) trouble?**
+
+- **The callback listener needs an inbound port.** Subscribing starts a small
+  HTTP listener for the device's NOTIFYs - expect a firewall prompt on first
+  use and allow it. By default the port is ephemeral; set
+  `UpnpClientOptions.EventCallbackPort` to a fixed port if you need a firewall
+  rule.
+- **`SubscriptionRefused` with HTTP 405/501**: some devices advertise an
+  `eventSubURL` for services that are not actually evented (Sonos's `QPlay:1`
+  is the classic case). The refusal is permanent, so instead of retrying
+  forever the stream reports the reason as a `SubscriptionRefused` event and
+  then terminates with `OnError`. Transient failures (timeouts, 5xx during a
+  reboot, SEQ gaps) keep the auto-recovery behavior.
+
 ## Advanced
 
 Bring your own SSDP control point (for interception, custom sockets, or tests) and/or `HttpClient`:

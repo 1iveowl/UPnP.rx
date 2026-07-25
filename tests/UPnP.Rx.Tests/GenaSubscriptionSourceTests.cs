@@ -13,13 +13,16 @@ public class GenaSubscriptionSourceTests
         public int RenewCount;
         public int UnsubscribeCount;
         public bool FailRenewals;
+        public Exception? FailSubscribe;
         public TimeSpan GrantedTimeout { get; set; } = TimeSpan.FromMinutes(10);
 
         public Task<(string Sid, TimeSpan? Timeout)> SubscribeAsync(
             Uri eventSubUrl, Uri callback, TimeSpan requestedTimeout, CancellationToken ct)
         {
             SubscribeCount++;
-            return Task.FromResult(($"uuid:sid-{SubscribeCount}", (TimeSpan?)GrantedTimeout));
+            return FailSubscribe is { } failure
+                ? Task.FromException<(string Sid, TimeSpan? Timeout)>(failure)
+                : Task.FromResult(($"uuid:sid-{SubscribeCount}", (TimeSpan?)GrantedTimeout));
         }
 
         public Task RenewAsync(Uri eventSubUrl, string sid, TimeSpan requestedTimeout, CancellationToken ct)
@@ -165,6 +168,44 @@ public class GenaSubscriptionSourceTests
         subscription.Dispose();
 
         await WaitForAsync(() => _transport.UnsubscribeCount == 1);
+    }
+
+    [Fact]
+    public async Task PermanentSubscribeRefusal_SurfacesReason_AndTerminates()
+    {
+        // HTTP 405/501 cannot succeed on retry (the endpoint doesn't implement
+        // eventing - e.g. Sonos QPlay): the reason arrives as data, then the
+        // stream ends, AutoResubscribe notwithstanding.
+        _transport.FailSubscribe = new GenaHttpException("The SUBSCRIBE request was refused with HTTP 405.", 405);
+        var source = CreateSource();
+        var events = new List<UpnpEvent>();
+        Exception? error = null;
+        using var subscription = source.Subscribe(events.Add, e => error = e, () => { });
+
+        await WaitForAsync(() => error is not null);
+
+        var refused = Assert.Single(events.OfType<SubscriptionRefused>());
+        Assert.Equal(405, refused.HttpStatus);
+        Assert.Contains("does not implement eventing", refused.Reason);
+        Assert.IsType<UpnpException>(error);
+        Assert.Equal(1, _transport.SubscribeCount);  // no retry against a permanent refusal
+    }
+
+    [Fact]
+    public async Task TransientSubscribeFailure_KeepsRetrying()
+    {
+        _transport.FailSubscribe = new GenaHttpException("The SUBSCRIBE request was refused with HTTP 503.", 503);
+        var source = CreateSource();
+        var events = new List<UpnpEvent>();
+        using var subscription = source.Subscribe(events.Add);
+
+        await WaitForAsync(() => events.OfType<RenewalFailed>().Any());
+
+        _transport.FailSubscribe = null;
+        _time.Advance(TimeSpan.FromSeconds(10));     // the engine's retry delay
+
+        await WaitForAsync(() => events.OfType<Subscribed>().Any());
+        Assert.Equal(2, _transport.SubscribeCount);
     }
 
     [Fact]

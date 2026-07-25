@@ -20,6 +20,17 @@ internal interface IGenaTransport
     Task UnsubscribeAsync(Uri eventSubUrl, string sid, CancellationToken ct);
 }
 
+/// <summary>
+/// A GENA request the device answered with a non-success HTTP status - carries
+/// the code so the engine can tell permanent refusals (405/501) from transient
+/// failures.
+/// </summary>
+internal sealed class GenaHttpException(string message, int statusCode) : UpnpException(message)
+{
+    /// <summary>The HTTP status the device answered with.</summary>
+    internal int StatusCode { get; } = statusCode;
+}
+
 /// <summary>Production transport: GENA verbs over the client's HttpClient.</summary>
 internal sealed class HttpGenaTransport(HttpClient httpClient, UpnpClientOptions options) : IGenaTransport
 {
@@ -91,7 +102,7 @@ internal sealed class HttpGenaTransport(HttpClient httpClient, UpnpClientOptions
         {
             var status = (int)response.StatusCode;
             response.Dispose();
-            throw new UpnpException($"The {operation} request was refused with HTTP {status}.");
+            throw new GenaHttpException($"The {operation} request was refused with HTTP {status}.", status);
         }
 
         return response;

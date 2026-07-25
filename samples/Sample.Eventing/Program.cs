@@ -120,6 +120,9 @@ using var subscription = chosen.Events().Subscribe(
             case GapDetected g:
                 WriteLine(ConsoleColor.Red, $"  SEQ GAP  expected {g.ExpectedSeq}, got {g.ActualSeq}");
                 break;
+            case SubscriptionRefused refused:
+                WriteLine(ConsoleColor.Red, $"  REFUSED (HTTP {refused.HttpStatus})  {refused.Reason}");
+                break;
         }
     },
     error => WriteLine(ConsoleColor.Red, $"  STREAM ERROR  {error.Message}"));

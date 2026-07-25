@@ -44,7 +44,10 @@ public class GenaSubscriptionSourceTests
     private readonly FakeTimeProvider _time = new();
     private Func<NotifyRequest, CancellationToken, Task>? _route;
 
-    private GenaSubscriptionSource CreateSource(bool autoResubscribe = true) => new(
+    private GenaSubscriptionSource CreateSource(bool autoResubscribe = true) =>
+        CreateSourceWithLifetime(CancellationToken.None, autoResubscribe);
+
+    private GenaSubscriptionSource CreateSourceWithLifetime(CancellationToken lifetime, bool autoResubscribe = true) => new(
         new Uri("http://192.168.1.9/event/sub"),
         token => new Uri($"http://192.168.1.42:49500/upnp/events/{token}"),
         _transport,
@@ -55,7 +58,7 @@ public class GenaSubscriptionSourceTests
         },
         new UpnpClientOptions { TimeProvider = _time, AutoResubscribe = autoResubscribe },
         NullLogger.Instance,
-        CancellationToken.None);
+        lifetime);
 
     private static async Task WaitForAsync(Func<bool> condition)
     {
@@ -263,6 +266,49 @@ public class GenaSubscriptionSourceTests
         await WaitForAsync(() => error is not null);
 
         Assert.IsType<UpnpException>(error);
+    }
+
+    [Fact]
+    public async Task ConcurrentNotifies_KeepTheirPropertyBatchesContiguous()
+    {
+        // Review RX-1: two NOTIFYs handled concurrently (the callback listener
+        // imposes no serialization) must not interleave their property batches.
+        // SEQ is omitted so only contiguity is asserted, not ordering.
+        var source = CreateSource();
+        var events = new List<UpnpEvent>();
+        using var subscription = source.Subscribe(events.Add);
+        await WaitForAsync(() => _route is not null);
+
+        static string Body(string prefix) =>
+            "<e:propertyset xmlns:e=\"urn:schemas-upnp-org:event-1-0\">" +
+            string.Concat(Enumerable.Range(1, 3).Select(i => $"<e:property><{prefix}{i}>v</{prefix}{i}></e:property>")) +
+            "</e:propertyset>";
+
+        var ct = TestContext.Current.CancellationToken;
+        await Task.WhenAll(
+            Task.Run(() => _route!(new NotifyRequest("uuid:sid-1", null, Body("A")), ct), ct),
+            Task.Run(() => _route!(new NotifyRequest("uuid:sid-1", null, Body("B")), ct), ct));
+
+        var prefixes = events.OfType<PropertyChange>().Select(change => change.Name[0]).ToList();
+        Assert.Equal(6, prefixes.Count);
+        Assert.Single(prefixes.Take(3).Distinct());          // AAA or BBB…
+        Assert.Single(prefixes.Skip(3).Distinct());          // …then the other
+    }
+
+    [Fact]
+    public void SubscribeAfterClientDisposal_CompletesImmediately()
+    {
+        // Review RX-3: a fresh engine on a disposed client would be born
+        // canceled and the observer would wait forever - complete instead.
+        using var lifetime = new CancellationTokenSource();
+        lifetime.Cancel();
+        var source = CreateSourceWithLifetime(lifetime.Token);
+
+        var completed = false;
+        using var subscription = source.Subscribe(_ => { }, _ => { }, () => completed = true);
+
+        Assert.True(completed);
+        Assert.Equal(0, _transport.SubscribeCount);
     }
 
     [Fact]

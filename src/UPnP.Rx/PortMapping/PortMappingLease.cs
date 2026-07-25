@@ -23,7 +23,11 @@ public sealed class PortMappingLease : IPortMappingLease
     private readonly InternetGateway _gateway;
     private readonly UpnpClientOptions _options;
     private readonly CancellationTokenSource _cts = new();
-    private readonly Subject<PortMappingEvent> _events = new();
+    private readonly Subject<PortMappingEvent> _subject = new();
+    // Synchronized view (review RX-4): sync Dispose can complete the stream
+    // while the renewal loop is mid-emission on another thread - the wrapper
+    // keeps that race inside the Rx grammar.
+    private readonly ISubject<PortMappingEvent> _events;
     private readonly Task _renewalLoop;
     private InternetGateway? _ownedGateway;
     private int _disposed;
@@ -40,6 +44,7 @@ public sealed class PortMappingLease : IPortMappingLease
         _gateway = gateway;
         Mapping = mapping;
         _options = options;
+        _events = Subject.Synchronize(_subject);
         _renewalLoop = mapping.LeaseDuration > TimeSpan.Zero
             ? RunRenewalLoopAsync()
             : Task.CompletedTask;
@@ -78,7 +83,7 @@ public sealed class PortMappingLease : IPortMappingLease
         }
 
         _events.OnCompleted();
-        _events.Dispose();
+        _subject.Dispose();
         _cts.Dispose();
 
         if (_ownedGateway is not null)

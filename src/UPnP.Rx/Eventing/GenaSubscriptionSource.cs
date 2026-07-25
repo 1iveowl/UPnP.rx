@@ -23,6 +23,11 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
 
     private static readonly TimeSpan _retryDelay = TimeSpan.FromSeconds(10);
 
+    // Load-bearing: System.Threading.Lock is reentrant (verified on net10.0).
+    // The engine depends on it - awaits of already-completed tasks continue
+    // inline, so emissions can re-enter the gate on the thread that already
+    // holds it (e.g. while Subscribe starts the engine). A non-reentrant
+    // primitive here would deadlock.
     private readonly Lock _gate = new();
     private readonly List<IObserver<UpnpEvent>> _observers = [];
     private readonly Dictionary<string, PropertyChange> _lastKnown = new(StringComparer.OrdinalIgnoreCase);
@@ -53,6 +58,16 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
 
         lock (_gate)
         {
+            if (_clientLifetime.IsCancellationRequested)
+            {
+                // The owning client is gone: a fresh engine would be born
+                // canceled and this observer would wait forever (review RX-3).
+                // Complete immediately - the same graceful end ShutdownAsync
+                // gives observers that were present at disposal.
+                observer.OnCompleted();
+                return Disposable.Empty;
+            }
+
             var isFirst = _observers.Count == 0;
 
             if (isFirst)
@@ -294,46 +309,55 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
         }
 
         var seq = notify.Seq;
+        var triggerResubscribe = false;
 
-        if (seq is { } actual)
+        // One gate for the whole message (review RX-1): the SEQ expectation,
+        // the gap emission and the property batch move together, so NOTIFYs
+        // delivered concurrently cannot race the expectation into a false gap
+        // or interleave their batches. Compliant devices await our 200 before
+        // the next NOTIFY, but the engine's invariants must not depend on
+        // device politeness.
+        lock (_gate)
         {
-            if (actual != seqTracker.Expected)
+            if (seq is { } actual)
             {
-                Emit(new GapDetected(seqTracker.Expected, actual));
-
-                if (_options.AutoResubscribe)
+                if (actual != seqTracker.Expected)
                 {
-                    try
-                    {
-                        resubscribe.Cancel();    // fresh SUBSCRIBE → fresh SEQ 0 state
-                    }
-                    catch (ObjectDisposedException)
-                    {
-                        // The attempt already ended; nothing to trigger.
-                    }
+                    EmitLocked(new GapDetected(seqTracker.Expected, actual));
+                    triggerResubscribe = _options.AutoResubscribe;
+                }
 
-                    return;
+                if (!triggerResubscribe)
+                {
+                    // UDA 2.0 §4.2.3: the event key wraps from uint.MaxValue to
+                    // 1 - 0 only ever marks a subscription's initial state.
+                    seqTracker.Expected = actual == uint.MaxValue ? 1 : actual + 1;
                 }
             }
 
-            // UDA 2.0 §4.2.3: the event key wraps from uint.MaxValue to 1 - 0
-            // only ever marks a subscription's initial state.
-            seqTracker.Expected = actual == uint.MaxValue ? 1 : actual + 1;
+            if (!triggerResubscribe)
+            {
+                var isInitial = seq is 0;
+
+                foreach (var property in parsed.Value)
+                {
+                    var change = new PropertyChange(property.Name, property.Value, seq ?? 0, isInitial, IsReplay: false);
+                    _lastKnown[change.Name] = change;
+                    EmitLocked(change);
+                }
+            }
         }
 
-        var isInitial = seq is 0;
-
-        lock (_gate)
+        if (triggerResubscribe)
         {
-            foreach (var property in parsed.Value)
+            // Outside the gate: cancelling runs engine continuations inline.
+            try
             {
-                var change = new PropertyChange(property.Name, property.Value, seq ?? 0, isInitial, IsReplay: false);
-                _lastKnown[change.Name] = change;
-
-                foreach (var observer in _observers.ToArray())
-                {
-                    observer.OnNext(change);
-                }
+                resubscribe.Cancel();            // fresh SUBSCRIBE → fresh SEQ 0 state
+            }
+            catch (ObjectDisposedException)
+            {
+                // The attempt already ended; nothing to trigger.
             }
         }
     }
@@ -342,10 +366,16 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
     {
         lock (_gate)
         {
-            foreach (var observer in _observers.ToArray())
-            {
-                observer.OnNext(value);
-            }
+            EmitLocked(value);
+        }
+    }
+
+    /// <summary>Delivers to every observer; the caller holds <see cref="_gate"/>.</summary>
+    private void EmitLocked(UpnpEvent value)
+    {
+        foreach (var observer in _observers.ToArray())
+        {
+            observer.OnNext(value);
         }
     }
 

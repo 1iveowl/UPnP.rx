@@ -76,16 +76,16 @@ internal sealed class EventingContext(
     {
         _disposed = true;
 
-        foreach (var source in _sources.Values)
+        try
         {
-            try
-            {
-                await source.ShutdownAsync().ConfigureAwait(false);
-            }
-            catch (Exception e)
-            {
-                options.Logger.LogDebug(e, "An event subscription's goodbye failed during disposal.");
-            }
+            // Goodbyes in parallel (review RX-5): each is already bounded by
+            // ActionTimeout, so the whole graceful path is too.
+            await Task.WhenAll(_sources.Values.Select(source => source.ShutdownAsync()))
+                .ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            options.Logger.LogDebug(e, "An event subscription's goodbye failed during disposal.");
         }
 
         _listener?.Dispose();

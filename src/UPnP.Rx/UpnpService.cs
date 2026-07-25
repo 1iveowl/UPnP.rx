@@ -57,6 +57,10 @@ public sealed class UpnpService : IUpnpService
     /// surface as <see cref="UpnpEvent"/> values - per-item failure
     /// never terminates the stream while <see cref="UpnpClientOptions.AutoResubscribe"/>
     /// is on. Temperature: cold until first subscriber, then hot and shared.
+    /// Handlers should not block: notifications are delivered under the
+    /// engine's internal gate (that is what makes late-subscriber replay
+    /// atomic) - do async work in the pipeline, not in the subscriber
+    /// (house Rx rule 1 applies here doubly).
     /// </summary>
     /// <exception cref="UpnpException">The service declares no <c>eventSubURL</c>.</exception>
     public IObservable<UpnpEvent> Events()

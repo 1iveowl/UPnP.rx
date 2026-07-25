@@ -1,4 +1,7 @@
 @page "/"
+@using System.Reactive.Concurrency
+@using System.Reactive.Disposables
+@using System.Reactive.Linq
 @using Sample.Dashboard.Client.Components
 @using Sample.Dashboard.Client.Services
 @using Sample.Dashboard.Client.ViewModels
@@ -9,6 +12,7 @@
 @inherits ReactiveUI.Blazor.ReactiveInjectableComponentBase<DashboardViewModel>
 @implements IDisposable
 @inject DeviceStreamClient Stream
+@inject IToastService ToastService
 
 <PageTitle>UPnP.Rx dashboard</PageTitle>
 
@@ -90,9 +94,25 @@ net start SSDPSRV</pre>
                             <FluentBadge Appearance="Appearance.Neutral">@(device.DeviceCount - 1) embedded</FluentBadge>
                         }
                         <div @onclick:stopPropagation="true">
-                            <FluentButton Appearance="Appearance.Stealth" Title="Re-read this device's description"
-                                          OnClick="@(async () => await Stream.RefreshDeviceAsync(device.Key))">
-                                <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.ArrowClockwise())" />
+                            @* Feedback per state: spinner while the re-read runs,
+                               a short-lived checkmark when the fresh description
+                               landed, a toast when the device refused. *@
+                            <FluentButton Appearance="Appearance.Stealth"
+                                          Title="@(_refreshed.Contains(device.Key) ? "Description re-read" : "Re-read this device's description")"
+                                          Disabled="@_refreshing.Contains(device.Key)"
+                                          OnClick="@(() => RefreshDeviceAsync(device.Key))">
+                                @if (_refreshing.Contains(device.Key))
+                                {
+                                    <FluentProgressRing Style="width: 14px; height: 14px;" />
+                                }
+                                else if (_refreshed.Contains(device.Key))
+                                {
+                                    <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Checkmark())" />
+                                }
+                                else
+                                {
+                                    <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.ArrowClockwise())" />
+                                }
                             </FluentButton>
                         </div>
                     </div>
@@ -138,6 +158,42 @@ net start SSDPSRV</pre>
     // search keeps its key, so its card comes back the way the user left it.
     private Task RescanAsync() => Stream.RescanAsync();
 
+    private readonly HashSet<string> _refreshing = [];
+    private readonly HashSet<string> _refreshed = [];
+    private readonly CompositeDisposable _checkmarkTimers = new();
+
+    private async Task RefreshDeviceAsync(string key)
+    {
+        if (!_refreshing.Add(key))
+        {
+            return;
+        }
+
+        try
+        {
+            var error = await Stream.RefreshDeviceAsync(key);
+
+            if (error is not null)
+            {
+                ToastService.ShowError($"Re-reading the description failed: {error}");
+                return;
+            }
+
+            _refreshed.Add(key);
+            _checkmarkTimers.Add(Observable
+                .Timer(TimeSpan.FromSeconds(1.5), DefaultScheduler.Instance)
+                .Subscribe(tick =>
+                {
+                    _refreshed.Remove(key);
+                    _ = InvokeAsync(StateHasChanged);
+                }));
+        }
+        finally
+        {
+            _refreshing.Remove(key);
+        }
+    }
+
     // Devices occasionally serve a description without a friendlyName (seen on
     // Sonos mid-boot) - fall back to something identifying rather than "(unnamed)".
     private static string CardLabel(DeviceDto device)
@@ -169,6 +225,7 @@ net start SSDPSRV</pre>
     void IDisposable.Dispose()
     {
         _rescanSubscription?.Dispose();
+        _checkmarkTimers.Dispose();
         ViewModel?.Dispose();
     }
 }

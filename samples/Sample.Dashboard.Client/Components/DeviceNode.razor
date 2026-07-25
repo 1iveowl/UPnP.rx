@@ -116,7 +116,7 @@
     [Parameter, EditorRequired]
     public string DeviceKey { get; set; } = string.Empty;
 
-    private const int MaxLiveRows = 8;
+    private const int _maxLiveRows = 8;
 
     private readonly HashSet<string> _open = [];
     private readonly HashSet<string> _openServices = [];
@@ -167,7 +167,7 @@
 
                     list.Insert(0, e);
 
-                    if (list.Count > MaxLiveRows)
+                    if (list.Count > _maxLiveRows)
                     {
                         list.RemoveAt(list.Count - 1);
                     }

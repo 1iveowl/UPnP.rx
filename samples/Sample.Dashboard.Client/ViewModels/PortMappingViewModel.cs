@@ -18,7 +18,7 @@ namespace Sample.Dashboard.Client.ViewModels;
 /// </summary>
 public sealed partial class PortMappingViewModel : ReactiveObject, IDisposable
 {
-    private const int MaxEventRows = 25;
+    private const int _maxEventRows = 25;
 
     private readonly CompositeDisposable _cleanup = [];
     private readonly SourceList<LeaseEventDto> _events = new();
@@ -116,7 +116,7 @@ public sealed partial class PortMappingViewModel : ReactiveObject, IDisposable
         {
             list.Insert(0, e);
 
-            if (list.Count > MaxEventRows)
+            if (list.Count > _maxEventRows)
             {
                 list.RemoveAt(list.Count - 1);
             }

@@ -17,7 +17,7 @@ A modern, functional, Rx-based **UPnP control point** for .NET 10: discover devi
 
 ## Overview
 
-UPnP.Rx covers the full control-point chain of the UPnP Device Architecture 2.0:
+UPnP.Rx covers the full control-point chain of the [UPnP Device Architecture 2.0](https://upnp.org/specs/arch/UPnP-arch-DeviceArchitecture-v2.0-20140901.pdf):
 
 - **Discovery** (UDA clause 1) - SSDP via [SSDP.UPnP.PCL](https://www.nuget.org/packages/SSDP.UPnP.PCL), exposed as observable streams of discovered devices.
 - **Description** (clause 2) - device description documents and SCPDs fetched lazily, parsed into immutable records, cached by `LOCATION` + `CONFIGID`.

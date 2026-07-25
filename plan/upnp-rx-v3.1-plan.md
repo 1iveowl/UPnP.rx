@@ -1,8 +1,9 @@
 # UPnP.Rx v3.1 plan (drafted 2026-07-24; 3.0.0 released to NuGet the same day)
 
-> **Superseded in sequencing (2026-07-24):** the author pulled GENA eventing forward as the
-> next release (4.0.0, see plan/upnp-rx-v4.0-eventing-plan.md); the candidates below defer
-> and will most likely ship as 4.1.0. Content preserved unchanged as the record.
+> **Superseded (2026-07-25):** consolidated into [upnp-rx-v4.1-plan.md](upnp-rx-v4.1-plan.md)
+> after the 4.0.0 release - several items below shipped during 4.0 (reconnect toast,
+> source generators, rescan-as-manual-heal, upstream candidates 3-5). Content preserved
+> unchanged as the record.
 
 The working document for the first post-3.0 iteration. Candidates are collected here as they
 surface; the author decides scope before implementation, per house workflow. Items called

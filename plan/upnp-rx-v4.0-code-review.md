@@ -173,9 +173,48 @@ raised this), immutable records everywhere else.
   O(observers) work and zero I/O under it. Every alternative keeps an equivalent critical
   section and adds indirection, a dependency, or a semantic regression.
 
+### Upstream leverage (author question, 2026-07-25): could upstream changes remove locks?
+
+Verified against the upstream sources, lock by lock:
+
+- **`_startLock` - YES: this one is upstream-caused and would vanish.**
+  `ControlPoint.Start` (SSDP.UPnP.PCL) guards itself with an unsynchronized `IsStarted`
+  bool and *throws* on a second call - two racing callers either double-start the socket
+  subscriptions or one takes an `SSDPException`. Our lock exists solely to compensate.
+  Upstream fix, two flavors: (a) minimal - make `Start` idempotent and thread-safe (an
+  `Interlocked` gate that turns the second call into a no-op); (b) idiomatic - drop
+  explicit `Start` entirely and let the shared observables start lazily on first
+  subscription (`Defer` inside, the same discipline UPnP.Rx applies one layer up). Either
+  way `UpnpClient.EnsureStarted` and `_startLock` are deleted, and flavor (b) removes the
+  start-once concept from the whole stack. **Recorded as upstream issue candidate #5.**
+- **`_listenerLock` - no.** The laziness it guards is ours (no socket bind, no firewall
+  prompt until eventing is first used) and the ephemeral port must be known synchronously
+  to compose CALLBACK URLs - a lazily-binding upstream listener observable can't hand the
+  port over before subscription. The alternatives (bind eagerly at client construction, or
+  `Lazy<T>` with its identical hidden lock) are worse or equal.
+- **`_scpdLock` - no.** Pure client-side caching of a plain HTTP fetch; no upstream
+  library is even involved.
+- **`_gate` - no, and no upstream API could absorb it.** Its critical section binds *our*
+  subscribers' snapshot+attach to *our* emissions (Q5 replay atomicity) - upstream sits on
+  the far side of the transport and never touches either. Housing a "per-key replay
+  subject" in a shared upstream package would relocate the lock into the author's other
+  repo, not remove it; that trades visibility for distance.
+
+One adjacent elegance win while in upstream territory: fixing candidate #4 (RefCounted
+streams surviving dispose-then-resubscribe) would delete the dashboard's
+generation-overlap workaround - not a lock, but the same family of bespoke concurrency
+reasoning that upstream shape currently forces downstream.
+
+On "locks feel like a hack": the primitive itself is what Rx is built from - every
+`Synchronize`, subject and RefCount holds one. The smell worth banning is *ad-hoc shared
+mutable state with unnamed invariants*; each surviving lock here guards one named
+invariant with documented scope, and the count is now trending down - four today, three
+after upstream candidate #5 ships.
+
 ### Verdict
 
-All four locks stay; each is the smallest honest expression of a lifecycle or
+All four locks stay for now (one pending its upstream fix); each is the smallest honest
+expression of a lifecycle or
 replay-atomicity concern that Rx's primitives either cannot express (per-variable replay,
 retry-on-fault caching) or would re-implement with their own hidden locks. Where the
 concern really is stream-shaped, this codebase already reaches for the Rx tool -

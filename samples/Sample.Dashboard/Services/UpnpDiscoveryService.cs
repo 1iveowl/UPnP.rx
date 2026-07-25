@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Reactive;
 using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using Microsoft.AspNetCore.SignalR;
 using Sample.Dashboard.Client.Models;
 using Sample.Dashboard.Hubs;
@@ -66,8 +68,8 @@ public sealed class UpnpDiscoveryService(
     DeviceRoster roster,
     ILogger<UpnpDiscoveryService> logger) : IHostedService
 {
-    private IDisposable? _deviceUp;
-    private IDisposable? _deviceGone;
+    private readonly Subject<Unit> _rescans = new();
+    private IDisposable? _discovery;
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
@@ -80,12 +82,72 @@ public sealed class UpnpDiscoveryService(
         logger.LogInformation(
             "Discovering from {Addresses}.", string.Join(", ", network.Addresses.Select(a => a.ToString())));
 
-        var _client = network.Client;
+        // A rescan is a stream event: each request selects a fresh discovery
+        // pipeline and Switch disposes the previous one before subscribing the
+        // next - restart semantics without any lock around subscription state.
+        // Synchronize serializes rescan requests arriving from concurrent hub
+        // connections (the Rx grammar requires serialized OnNext).
+        _discovery = _rescans
+            .Synchronize()
+            .StartWith(Unit.Default)
+            .Select(_ => DiscoveryPipeline(network.Client))
+            .Switch()
+            .Subscribe(
+                _ => { },
+                e => logger.LogError(e, "The discovery pipeline terminated."));
 
-        // DiscoverDevices (not DiscoverDescribedDevices): its per-subscription
-        // dedup is USN+BOOTID, so periodic re-announcements can re-add a device
-        // after a byebye removed it. Async work stays in the pipeline (Rx rule 1).
-        _deviceUp = _client
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// The manual heal for a roster gone stale: a device is invisible until the
+    /// server restarts when its describe failed once, or when it re-announced
+    /// with an unchanged BOOTID after a byebye - either way the long-lived
+    /// subscription's dedup swallows every later announcement. A rescan swaps
+    /// in a fresh pipeline (fresh M-SEARCH, fresh dedup state); the RosterReset
+    /// broadcast tells every client to drop its cards, which ends their live
+    /// watches through component disposal (UNSUBSCRIBE on device).
+    /// </summary>
+    public async Task RescanAsync()
+    {
+        if (network.Client is null)
+        {
+            return;
+        }
+
+        roster.Devices.Clear();
+        roster.Described.Clear();
+        roster.Discovered.Clear();
+
+        logger.LogInformation("Rescan: roster cleared, discovery restarted with a fresh search.");
+        await hub.Clients.All.SendAsync(HubEvents.RosterReset);
+
+        _rescans.OnNext(Unit.Default);
+    }
+
+    /// <summary>
+    /// One discovery generation: device-up and device-lost handling merged into
+    /// a single subscribable pipeline. Either half dying is logged and ends
+    /// quietly (the other keeps running); the next rescan rebuilds both.
+    /// </summary>
+    private IObservable<Unit> DiscoveryPipeline(UpnpClient client) =>
+        Observable.Merge(
+            DeviceUpStream(client).Catch((Exception e) =>
+            {
+                logger.LogError(e, "The discovery stream terminated.");
+                return Observable.Empty<Unit>();
+            }),
+            DeviceGoneStream(client).Catch((Exception e) =>
+            {
+                logger.LogError(e, "The device-lost stream terminated.");
+                return Observable.Empty<Unit>();
+            }));
+
+    // DiscoverDevices (not DiscoverDescribedDevices): its per-subscription
+    // dedup is USN+BOOTID, so periodic re-announcements can re-add a device
+    // after a byebye removed it. Async work stays in the pipeline (Rx rule 1).
+    private IObservable<Unit> DeviceUpStream(UpnpClient client) =>
+        client
             .DiscoverDevices()
             .SelectMany(device => Observable
                 .FromAsync(async ct =>
@@ -104,12 +166,10 @@ public sealed class UpnpDiscoveryService(
                 roster.Described[pair.Dto.Key] = pair.Described;
                 roster.Discovered[pair.Dto.Key] = pair.Envelope;
                 await hub.Clients.All.SendAsync(HubEvents.DeviceUp, pair.Dto, ct);
-            }))
-            .Subscribe(
-                _ => { },
-                e => logger.LogError(e, "The discovery stream terminated."));
+            }));
 
-        _deviceGone = _client
+    private IObservable<Unit> DeviceGoneStream(UpnpClient client) =>
+        client
             .DeviceLost()
             .Select(device => device.Usn?.DeviceUUID)
             .Where(uuid => !string.IsNullOrEmpty(uuid))
@@ -123,18 +183,13 @@ public sealed class UpnpDiscoveryService(
                 {
                     await hub.Clients.All.SendAsync(HubEvents.DeviceGone, key, ct);
                 }
-            }))
-            .Subscribe(
-                _ => { },
-                e => logger.LogError(e, "The device-lost stream terminated."));
-
-        return Task.CompletedTask;
-    }
+            }));
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
-        _deviceUp?.Dispose();
-        _deviceGone?.Dispose();
+        _discovery?.Dispose();
+        // The rescan subject is not disposed abruptly: a straggling hub call
+        // may still OnNext, which is a harmless no-op on an undisposed subject.
         // The client belongs to NetworkClientProvider; DI disposes it.
         return Task.CompletedTask;
     }

@@ -20,6 +20,12 @@
             <FluentBadge Appearance="Appearance.Accent">@ViewModel!.Count device(s)</FluentBadge>
             <FluentBadge>@ViewModel!.Status</FluentBadge>
             <div class="dash-tools">
+                <FluentButton Appearance="Appearance.Outline"
+                              Title="Clear the list and search the network again - ends all live watches"
+                              OnClick="@RescanAsync">
+                    <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.ArrowClockwise())" Slot="start" />
+                    Rescan
+                </FluentButton>
                 <FluentSearch Placeholder="Filter by name, maker or type…"
                               Immediate="true"
                               ImmediateDelay="200"
@@ -113,6 +119,12 @@ net start SSDPSRV</pre>
         {
             _open.Add(key);
         }
+    }
+
+    private async Task RescanAsync()
+    {
+        _open.Clear();                   // the cards are going away; stale keys with them
+        await Stream.RescanAsync();
     }
 
     // Devices occasionally serve a description without a friendlyName (seen on

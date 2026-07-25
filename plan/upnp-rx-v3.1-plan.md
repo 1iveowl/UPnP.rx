@@ -23,6 +23,14 @@ structure, the recorded gaps that keep resurfacing:
 
 ## 2. Self-healing descriptions - INVESTIGATION, not yet a commitment
 
+**First concrete evidence (2026-07-25, during 4.0 validation):** a device vanished from the
+dashboard roster until server restart. Cause: the long-lived discovery subscription's
+per-subscription dedup (USN#BOOTID) swallows every later announcement once a device's
+describe failed once, or once it re-announced with an unchanged BOOTID after a byebye. The
+dashboard gained a Rescan button as the manual heal (swaps in a fresh pipeline via
+Rx Switch - fresh M-SEARCH, fresh dedup state); the roster investigation below should make
+this automatic.
+
 Shipped in 3.0 already: BOOTID in the description cache key (reboot re-reads), CACHE-CONTROL
 max-age TTL on cache entries (a sparse read heals within one advertisement cycle),
 `InvalidateDescriptions(location)` escape hatch, and a manual per-card refresh in the

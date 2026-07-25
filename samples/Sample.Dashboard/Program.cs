@@ -17,7 +17,8 @@ builder.Services.AddSignalR();
 builder.Services.AddSingleton<NetworkClientProvider>();
 builder.Services.AddSingleton<DeviceRoster>();
 builder.Services.AddSingleton<GatewayService>();
-builder.Services.AddHostedService<UpnpDiscoveryService>();
+builder.Services.AddSingleton<UpnpDiscoveryService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<UpnpDiscoveryService>());
 
 var app = builder.Build();
 

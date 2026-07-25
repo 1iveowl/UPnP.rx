@@ -13,8 +13,18 @@ namespace Sample.Dashboard.Hubs;
 public sealed class DeviceHub(
     DeviceRoster roster,
     GatewayService gatewayService,
-    Services.NetworkClientProvider network) : Hub
+    Services.NetworkClientProvider network,
+    Services.UpnpDiscoveryService discovery) : Hub
 {
+    /// <summary>
+    /// Clears the roster and searches the network afresh. Restarting the
+    /// discovery subscription resets its per-subscription dedup, so devices
+    /// swallowed by a failed describe or a same-BOOTID re-announcement come
+    /// back; the RosterReset broadcast makes every client drop its cards,
+    /// which ends their live watches (UNSUBSCRIBE via component disposal).
+    /// </summary>
+    public Task Rescan() => discovery.RescanAsync();
+
     /// <summary>
     /// Drops the cached description and re-reads the device - the manual heal
     /// for a stale/sparse read (full self-healing is a v3.1 investigation).

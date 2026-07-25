@@ -32,6 +32,9 @@ public sealed class DeviceStreamClient : IAsyncDisposable
         _connection.On<DeviceDto>(HubEvents.DeviceUp, dto => _cache.AddOrUpdate(dto));
         _connection.On<string>(HubEvents.DeviceGone, key => _cache.RemoveKey(key));
         _connection.On<LeaseEventDto>(HubEvents.LeaseEvent, e => _leaseEvents.OnNext(e));
+        // A rescan (from any client) resets the roster: dropping the cache
+        // unmounts every device card, whose disposal ends its live watches.
+        _connection.On(HubEvents.RosterReset, () => _cache.Clear());
 
         _connection.Reconnecting += _ =>
         {
@@ -80,6 +83,28 @@ public sealed class DeviceStreamClient : IAsyncDisposable
     /// <summary>Invalidates + re-reads one device's description; the result arrives as a DeviceUp broadcast.</summary>
     public Task<string?> RefreshDeviceAsync(string key) =>
         InvokeAsync<string?>(HubEvents.RefreshDevice, "Not connected to the server.", key);
+
+    /// <summary>
+    /// Clears the server roster and searches the network afresh. Every client's
+    /// cards drop via the RosterReset broadcast, ending all live watches;
+    /// devices repopulate live as they answer the new search.
+    /// </summary>
+    public async Task RescanAsync()
+    {
+        if (_connection.State is not HubConnectionState.Connected)
+        {
+            return;
+        }
+
+        try
+        {
+            await _connection.InvokeAsync(HubEvents.Rescan);
+        }
+        catch (Exception)
+        {
+            // The roster staying put is the visible signal; nothing to surface here.
+        }
+    }
 
     /// <summary>
     /// A service's live GENA events as an observable: subscribing opens a hub

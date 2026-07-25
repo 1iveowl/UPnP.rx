@@ -58,9 +58,10 @@ internal static class DtoMapper
 }
 
 /// <summary>
-/// Projects discovery into DTOs and broadcasts roster changes over SignalR.
-/// The WebAssembly client never needs a socket; the shared UpnpClient comes
-/// from <see cref="NetworkClientProvider"/> (the gateway service uses it too).
+/// Projects the library's device roster into DTOs and broadcasts changes over
+/// SignalR. Since 4.1 this is a thin consumer of <see cref="UpnpClient.Roster"/> -
+/// presence, expiry, reboot detection and description self-healing all live in
+/// the library; this service only describes, maps and broadcasts.
 /// </summary>
 public sealed class UpnpDiscoveryService(
     NetworkClientProvider network,
@@ -82,35 +83,28 @@ public sealed class UpnpDiscoveryService(
         logger.LogInformation(
             "Discovering from {Addresses}.", string.Join(", ", network.Addresses.Select(a => a.ToString())));
 
-        // A rescan is a stream event: each request selects a fresh discovery
-        // pipeline (fresh M-SEARCH, fresh dedup state) and Switch swaps the
-        // generations - restart semantics with no subscription bookkeeping.
-        // Synchronize serializes requests from concurrent hub connections (the
-        // Rx grammar requires serialized OnNext). Switch's dispose-then-
-        // subscribe order is safe since SimpleHttpListener.Rx 7.3.0 /
-        // SSDP.UPnP.PCL 8.0.0: the shared listener streams stop and restart
-        // reliably (upstream issue candidate #4, fixed).
+        // A rescan is a stream event: Switch swaps in a fresh Roster()
+        // subscription - the shared roster engine stops on last-unsubscribe and
+        // restarts from a clean slate with a fresh M-SEARCH, which is exactly
+        // rescan semantics. Synchronize serializes requests from concurrent hub
+        // connections.
         _rescanLoop = _rescans
             .Synchronize()
             .StartWith(Unit.Default)
-            .Select(_ => DiscoveryPipeline(network.Client))
+            .Select(_ => RosterPipeline(network.Client))
             .Switch()
             .Subscribe(
                 _ => { },
-                e => logger.LogError(e, "The discovery pipeline terminated."));
+                e => logger.LogError(e, "The roster pipeline terminated."));
 
         return Task.CompletedTask;
     }
 
     /// <summary>
-    /// The manual heal for a roster gone stale: a device is invisible until the
-    /// server restarts when its describe failed once, or when it re-announced
-    /// with an unchanged BOOTID after a byebye - either way the long-lived
-    /// subscription's dedup swallows every later announcement. A rescan swaps
-    /// in a fresh pipeline (fresh M-SEARCH, fresh dedup state); the RosterReset
-    /// broadcast puts every client into rescan mode: live watches end at once
-    /// (UNSUBSCRIBE on device), stale cards stay grayed until the first fresh
-    /// device arrives, then the list resets and rebuilds.
+    /// Clears the local projection and swaps in a fresh roster subscription
+    /// (fresh engine, fresh M-SEARCH). The RosterReset broadcast puts every
+    /// client into rescan mode: live watches end at once, stale cards stay
+    /// grayed until the first fresh device arrives.
     /// </summary>
     public async Task RescanAsync()
     {
@@ -129,57 +123,44 @@ public sealed class UpnpDiscoveryService(
         _rescans.OnNext(Unit.Default);
     }
 
-    /// <summary>
-    /// One discovery generation: device-up and device-lost handling merged into
-    /// a single subscribable pipeline. Either half dying is logged and ends
-    /// quietly (the other keeps running); the next rescan rebuilds both.
-    /// </summary>
-    private IObservable<Unit> DiscoveryPipeline(UpnpClient client) =>
-        Observable.Merge(
-            DeviceUpStream(client).Catch((Exception e) =>
-            {
-                logger.LogError(e, "The discovery stream terminated.");
-                return Observable.Empty<Unit>();
-            }),
-            DeviceGoneStream(client).Catch((Exception e) =>
-            {
-                logger.LogError(e, "The device-lost stream terminated.");
-                return Observable.Empty<Unit>();
-            }));
-
-    // DiscoverDevices (not DiscoverDescribedDevices): its per-subscription
-    // dedup is USN+BOOTID, so periodic re-announcements can re-add a device
-    // after a byebye removed it. Async work stays in the pipeline (Rx rule 1).
-    private IObservable<Unit> DeviceUpStream(UpnpClient client) =>
-        client
-            .DiscoverDevices()
-            .SelectMany(device => Observable
-                .FromAsync(async ct =>
+    /// <summary>One roster generation. Async work stays in the pipeline (Rx rule 1); per-item failure is contained.</summary>
+    private IObservable<Unit> RosterPipeline(UpnpClient client) =>
+        client.Roster()
+            .SelectMany(change => Observable
+                .FromAsync(ct => HandleChangeAsync(change, ct))
+                .Catch((Exception e) =>
                 {
-                    var described = await device.GetDescriptionAsync(ct);
-                    return (Dto: DtoMapper.ToDto(described), Described: described, Envelope: device);
-                })
-                .Catch((UpnpException e) =>
-                {
-                    logger.LogDebug(e, "Skipping {Location}.", device.Location);
-                    return Observable.Empty<(DeviceDto Dto, DescribedDevice Described, DiscoveredDevice Envelope)>();
-                }))
-            .SelectMany(pair => Observable.FromAsync(async ct =>
-            {
-                roster.Devices[pair.Dto.Key] = pair.Dto;
-                roster.Described[pair.Dto.Key] = pair.Described;
-                roster.Discovered[pair.Dto.Key] = pair.Envelope;
-                await hub.Clients.All.SendAsync(HubEvents.DeviceUp, pair.Dto, ct);
-            }));
+                    logger.LogDebug(e, "Skipping a roster change for {Location}.", change.Device.Location);
+                    return Observable.Empty<Unit>();
+                }));
 
-    private IObservable<Unit> DeviceGoneStream(UpnpClient client) =>
-        client
-            .DeviceLost()
-            .Select(device => device.Usn?.DeviceUUID)
-            .Where(uuid => !string.IsNullOrEmpty(uuid))
-            .Select(uuid => DtoMapper.NormalizeKey($"uuid:{uuid}"))
-            .SelectMany(key => Observable.FromAsync(async ct =>
+    private async Task HandleChangeAsync(UPnP.Rx.Roster.RosterChange change, CancellationToken ct)
+    {
+        switch (change)
+        {
+            case UPnP.Rx.Roster.DeviceAppeared or UPnP.Rx.Roster.DeviceUpdated:
             {
+                // Describe (the library caches; self-healed and rebooted
+                // devices re-fetch automatically) and broadcast. A device whose
+                // describe fails stays off the dashboard until its next roster
+                // cycle (expiry + reappearance) or a manual rescan.
+                var described = await change.Device.GetDescriptionAsync(ct);
+                var dto = DtoMapper.ToDto(described);
+
+                roster.Devices[dto.Key] = dto;
+                roster.Described[dto.Key] = described;
+                roster.Discovered[dto.Key] = change.Device;
+                await hub.Clients.All.SendAsync(HubEvents.DeviceUp, dto, ct);
+                break;
+            }
+            case UPnP.Rx.Roster.DeviceExpired or UPnP.Rx.Roster.DeviceLeft:
+            {
+                if (change.Device.Usn?.DeviceUUID is not { Length: > 0 } uuid)
+                {
+                    break;
+                }
+
+                var key = DtoMapper.NormalizeKey($"uuid:{uuid}");
                 roster.Described.TryRemove(key, out _);
                 roster.Discovered.TryRemove(key, out _);
 
@@ -187,7 +168,11 @@ public sealed class UpnpDiscoveryService(
                 {
                     await hub.Clients.All.SendAsync(HubEvents.DeviceGone, key, ct);
                 }
-            }));
+
+                break;
+            }
+        }
+    }
 
     public Task StopAsync(CancellationToken cancellationToken)
     {

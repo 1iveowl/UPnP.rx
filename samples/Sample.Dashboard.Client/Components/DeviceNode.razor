@@ -413,13 +413,20 @@
         if (!_forms.ContainsKey(formKey))
         {
             // TryAdd: sloppy SCPDs can repeat argument names (leniency - first
-            // one wins); enums prefill their first allowed value so the
-            // dropdown always holds a valid choice.
+            // one wins). Prefill chain: the SCPD's declared default, else the
+            // first allowed value (dropdowns always hold a valid choice), else
+            // the InstanceID convention - the UPnP AV architecture hands
+            // instance IDs out via ConnectionManager.PrepareForConnection,
+            // which practically no device implements (Sonos included), so the
+            // answer is the static instance 0 on real hardware.
             var form = new Dictionary<string, string>();
 
             foreach (var argument in action.InArguments)
             {
-                form.TryAdd(argument.Name, argument.DefaultValue ?? argument.AllowedValues.FirstOrDefault() ?? "");
+                form.TryAdd(argument.Name,
+                    argument.DefaultValue
+                        ?? argument.AllowedValues.FirstOrDefault()
+                        ?? (string.Equals(argument.Name, "InstanceID", StringComparison.OrdinalIgnoreCase) ? "0" : ""));
             }
 
             _forms[formKey] = form;

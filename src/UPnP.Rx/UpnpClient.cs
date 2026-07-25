@@ -325,23 +325,51 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
         return _roster;
     }
 
-    /// <summary>The roster's raw feed: every alive announcement with its advertisement lifetime, undeduplicated.</summary>
+    /// <summary>
+    /// Every parsed SSDP envelope as it arrives - M-SEARCH responses,
+    /// <c>ssdp:alive</c>, <c>ssdp:byebye</c> - undeduplicated and kind-tagged,
+    /// timestamped on the options' <see cref="TimeProvider"/>: the device
+    /// activity timeline. Deliberately passive: subscribing does <em>not</em>
+    /// send an M-SEARCH (<see cref="Roster"/> and <see cref="DiscoverDevices"/>
+    /// solicit; this observes), and nothing is replayed - retention is the
+    /// consumer's policy. Parsed-envelope level by design; a raw wire log
+    /// remains upstream territory.
+    /// </summary>
+    /// <remarks>Temperature: cold - each subscription observes the shared SSDP streams; the listeners come up lazily upstream.</remarks>
+    public IObservable<Announcement> Announcements() =>
+        Observable.Defer(() =>
+        {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
+
+            return AnnouncementStream()
+                .Select(item => new Announcement(
+                    item.Kind, item.Device, item.MaxAge, _options.TimeProvider.GetUtcNow()));
+        });
+
+    /// <summary>The roster's raw feed: every alive/response envelope with its advertisement lifetime, undeduplicated.</summary>
     internal IObservable<(DiscoveredDevice Device, TimeSpan MaxAge)> RosterAnnouncements() =>
+        AnnouncementStream()
+            .Where(item => item.Kind is not AnnouncementKind.ByeBye)
+            .Select(item => (item.Device, item.MaxAge));
+
+    private IObservable<(AnnouncementKind Kind, DiscoveredDevice Device, TimeSpan MaxAge)> AnnouncementStream() =>
         _controlPoint
             .MSearchResponseObservable()
-            .Select(response => (Device: ToDiscovered(
+            .Select(response => (Kind: AnnouncementKind.SearchResponse, Device: ToDiscovered(
                 response.USN, response.Location, response.Server, response.BOOTID,
                 response.CONFIGID, response.HasParsingError, response.LocalIpEndPoint,
                 response.CacheControl), MaxAge: response.CacheControl))
             .Merge(_controlPoint
                 .NotifyObservable()
                 .Where(notify => notify.NTS == NTS.Alive)
-                .Select(notify => (Device: ToDiscovered(
+                .Select(notify => (Kind: AnnouncementKind.Alive, Device: ToDiscovered(
                     notify.USN, notify.Location, notify.Server, notify.BOOTID,
                     notify.CONFIGID, notify.HasParsingError, notify.LocalIpEndPoint,
                     notify.CacheControl), MaxAge: notify.CacheControl)))
+            .Merge(DeviceLost()
+                .Select(device => (Kind: AnnouncementKind.ByeBye, Device: (DiscoveredDevice?)device, MaxAge: TimeSpan.Zero)))
             .Where(item => item.Device is not null)
-            .Select(item => (item.Device!, item.MaxAge));
+            .Select(item => (item.Kind, item.Device!, item.MaxAge));
 
     /// <summary>The roster engine's opening sweep - the default search on every interface.</summary>
     internal Task SendRosterSearchAsync(CancellationToken ct) =>

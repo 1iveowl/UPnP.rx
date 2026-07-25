@@ -225,6 +225,36 @@ public class RosterTests
     }
 
     [Fact]
+    public async Task Announcements_TimelineIsUndeduplicated_KindTagged_AndClockStamped()
+    {
+        using var client = CreateClient();
+        var seen = new List<Announcement>();
+        using var subscription = client.Announcements().Subscribe(seen.Add);
+
+        Announce();                                     // alive
+        _time.Advance(TimeSpan.FromSeconds(30));
+        Announce();                                     // periodic repeat - NOT deduplicated
+        _controlPoint.Responses.OnNext(new MSearchResponse
+        {
+            Location = new Uri(Location),
+            USN = USN.Parse("uuid:roster-1::upnp:rootdevice").Value,
+            BOOTID = 1,
+            CacheControl = TimeSpan.FromSeconds(100)
+        });
+        ByeBye();
+        await WaitForAsync(() => seen.Count == 4);
+
+        Assert.Equal(AnnouncementKind.Alive, seen[0].Kind);
+        Assert.Equal(AnnouncementKind.Alive, seen[1].Kind);
+        Assert.Equal(AnnouncementKind.SearchResponse, seen[2].Kind);
+        Assert.Equal(AnnouncementKind.ByeBye, seen[3].Kind);
+        Assert.Equal(TimeSpan.FromSeconds(100), seen[0].MaxAge);
+        Assert.Equal(TimeSpan.Zero, seen[3].MaxAge);
+        Assert.Equal(TimeSpan.FromSeconds(30), seen[1].Seen - seen[0].Seen);
+        Assert.Empty(_controlPoint.SentSearches);       // passive: no M-SEARCH sent
+    }
+
+    [Fact]
     public void SubscribeAfterClientDisposal_CompletesImmediately()
     {
         var client = CreateClient();

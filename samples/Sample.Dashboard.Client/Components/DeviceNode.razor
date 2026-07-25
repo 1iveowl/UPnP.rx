@@ -22,6 +22,40 @@
                                   OnClick="() => ToggleWatch(serviceKey, service)">
                         @(_watching.ContainsKey(serviceKey) ? "Stop watching" : "Watch live")
                     </FluentButton>
+                    @* Curated quick controls for the two AV services everyone
+                       actually touches; everything else goes through the
+                       generic action forms below. Watch live keeps them in
+                       sync with changes made on the device itself. *@
+                    @if (IsAvTransport(service))
+                    {
+                        <span class="quick-controls">
+                            <FluentButton Appearance="Appearance.Stealth" Title="Previous" OnClick='@(() => TransportAsync(serviceKey, service, "Previous"))'>⏮</FluentButton>
+                            <FluentButton Appearance="Appearance.Stealth" Title="Play" OnClick='@(() => TransportAsync(serviceKey, service, "Play"))'>▶</FluentButton>
+                            <FluentButton Appearance="Appearance.Stealth" Title="Pause" OnClick='@(() => TransportAsync(serviceKey, service, "Pause"))'>⏸</FluentButton>
+                            <FluentButton Appearance="Appearance.Stealth" Title="Next" OnClick='@(() => TransportAsync(serviceKey, service, "Next"))'>⏭</FluentButton>
+                            @if (_transportState.TryGetValue(serviceKey, out var transportState))
+                            {
+                                <FluentBadge>@transportState</FluentBadge>
+                            }
+                        </span>
+                    }
+                    @if (IsRenderingControl(service))
+                    {
+                        <span class="quick-controls">
+                            <FluentButton Appearance="Appearance.Stealth" Title="Mute / unmute"
+                                          OnClick="() => MuteAsync(serviceKey, service)">
+                                @(_muted.GetValueOrDefault(serviceKey) ? "🔇" : "🔊")
+                            </FluentButton>
+                            <FluentSlider TValue="int" Min="0" Max="100" Step="1" Style="width: 140px;"
+                                          Value="@_volume.GetValueOrDefault(serviceKey, 25)"
+                                          ValueChanged="@(value => VolumeAsync(serviceKey, service, value))" />
+                            <span class="muted">@_volume.GetValueOrDefault(serviceKey, 25)</span>
+                        </span>
+                    }
+                    @if (_quickError.TryGetValue(serviceKey, out var quickError))
+                    {
+                        <span class="svc-error">@quickError</span>
+                    }
                 </div>
 
                 @if (_liveEvents.TryGetValue(serviceKey, out var live) && live.Count > 0)
@@ -31,7 +65,11 @@
                     {
                         <div class="svc-row">
                             <span class="svc-name">@(e.Name ?? e.Kind)</span>
-                            <span class="@(e.Kind == "PropertyChange" ? "" : "muted")">@Shorten(e.Value)</span>
+                            @if (e.Channel is not null)
+                            {
+                                <span class="muted">[@e.Channel]</span>
+                            }
+                            <span class="@(e.Kind is "PropertyChange" or "AvChange" ? "" : "muted")">@Shorten(e.Value)</span>
                             @if (e.IsReplay)
                             {
                                 <span class="muted">(replay)</span>
@@ -215,6 +253,11 @@
             .Subscribe(
                 e =>
                 {
+                    if (e.Kind == "AvChange")
+                    {
+                        SyncQuickState(serviceKey, e);
+                    }
+
                     var list = _liveEvents[serviceKey];
 
                     // A permanent refusal ends the stream right after its
@@ -252,6 +295,77 @@
         }
 
         _ = InvokeAsync(StateHasChanged);
+    }
+
+    private readonly Dictionary<string, int> _volume = [];
+    private readonly Dictionary<string, bool> _muted = [];
+    private readonly Dictionary<string, string> _transportState = [];
+    private readonly Dictionary<string, string> _quickError = [];
+
+    private static bool IsAvTransport(string serviceType) =>
+        serviceType.Contains(":AVTransport:", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsRenderingControl(string serviceType) =>
+        serviceType.Contains(":RenderingControl:", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Volume/mute/transport state arriving over a live watch keeps the strip in sync.</summary>
+    private void SyncQuickState(string serviceKey, ServiceEventDto e)
+    {
+        switch (e.Name)
+        {
+            case "Volume" when (e.Channel is null or "Master") && int.TryParse(e.Value, out var volume):
+                _volume[serviceKey] = volume;
+                break;
+            case "Mute" when e.Channel is null or "Master":
+                _muted[serviceKey] = e.Value is "1" or "true";
+                break;
+            case "TransportState" when e.Value is not null:
+                _transportState[serviceKey] = e.Value;
+                break;
+        }
+    }
+
+    // Quick controls are the curated exception to the Q3 confirm-step: fixed,
+    // well-known, low-risk arguments on exactly two service types.
+    private Task TransportAsync(string serviceKey, string serviceType, string action) =>
+        QuickInvokeAsync(serviceKey, serviceType, action,
+            action == "Play"
+                ? new Dictionary<string, string> { ["InstanceID"] = "0", ["Speed"] = "1" }
+                : new Dictionary<string, string> { ["InstanceID"] = "0" });
+
+    private Task MuteAsync(string serviceKey, string serviceType)
+    {
+        var target = !_muted.GetValueOrDefault(serviceKey);
+        _muted[serviceKey] = target;
+        return QuickInvokeAsync(serviceKey, serviceType, "SetMute", new Dictionary<string, string>
+        {
+            ["InstanceID"] = "0",
+            ["Channel"] = "Master",
+            ["DesiredMute"] = target ? "1" : "0"
+        });
+    }
+
+    private Task VolumeAsync(string serviceKey, string serviceType, int volume)
+    {
+        _volume[serviceKey] = volume;
+        return QuickInvokeAsync(serviceKey, serviceType, "SetVolume", new Dictionary<string, string>
+        {
+            ["InstanceID"] = "0",
+            ["Channel"] = "Master",
+            ["DesiredVolume"] = volume.ToString()
+        });
+    }
+
+    private async Task QuickInvokeAsync(string serviceKey, string serviceType, string action, Dictionary<string, string> arguments)
+    {
+        _quickError.Remove(serviceKey);
+
+        var result = await Stream.InvokeActionAsync(DeviceKey, Node!.Udn, serviceType, action, arguments);
+
+        if (result.Error is not null)
+        {
+            _quickError[serviceKey] = result.Error;
+        }
     }
 
     private readonly HashSet<string> _openActions = [];

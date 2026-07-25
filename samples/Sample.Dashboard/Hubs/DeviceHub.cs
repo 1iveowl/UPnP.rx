@@ -122,7 +122,13 @@ public sealed class DeviceHub(
             });
 
         using var subscription = service.Events().Subscribe(
-            e => channel.Writer.TryWrite(ToDto(e)),
+            e =>
+            {
+                foreach (var dto in ToDtos(e))
+                {
+                    channel.Writer.TryWrite(dto);
+                }
+            },
             error =>
             {
                 // A terminal stream error (e.g. a permanent SUBSCRIBE refusal)
@@ -164,6 +170,35 @@ public sealed class DeviceHub(
 
             yield return dto;
         }
+    }
+
+    /// <summary>
+    /// AV services event a single LastChange variable of escaped XML; decode it
+    /// into one readable row per variable (Kind "AvChange", channel and
+    /// instance surfaced) - the quick controls and the live feed both ride
+    /// these. Unparsable payloads fall back to the raw row (leniency).
+    /// </summary>
+    private static IEnumerable<ServiceEventDto> ToDtos(UPnP.Rx.Eventing.UpnpEvent e)
+    {
+        if (e is UPnP.Rx.Eventing.PropertyChange { Name: "LastChange" } change)
+        {
+            var parsed = UPnP.Rx.Eventing.Av.LastChangeParser.Parse(change.Value);
+
+            if (parsed.IsSuccess && parsed.Value.Count > 0)
+            {
+                foreach (var av in parsed.Value)
+                {
+                    yield return new ServiceEventDto(
+                        "AvChange", av.Name, av.Value, change.Seq,
+                        change.IsInitialState, change.IsReplay, null,
+                        av.Channel, av.InstanceId);
+                }
+
+                yield break;
+            }
+        }
+
+        yield return ToDto(e);
     }
 
     private static ServiceEventDto ToDto(UPnP.Rx.Eventing.UpnpEvent e) => e switch

@@ -321,6 +321,13 @@ a {
     margin-bottom: 6px;
 }
 
+.quick-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 10px;
+}
+
 .svc-action {
     cursor: pointer;
     user-select: none;

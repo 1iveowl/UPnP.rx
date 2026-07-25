@@ -30,7 +30,11 @@ public sealed record LeaseEventDto(
     string? Message,
     DateTimeOffset Timestamp);
 
-/// <summary>One GENA event from a watched service, streamed over the hub.</summary>
+/// <summary>
+/// One GENA event from a watched service, streamed over the hub. AV LastChange
+/// payloads arrive pre-decoded as Kind "AvChange" rows with the channel and
+/// instance surfaced.
+/// </summary>
 public sealed record ServiceEventDto(
     string Kind,
     string? Name,
@@ -38,4 +42,6 @@ public sealed record ServiceEventDto(
     uint Seq,
     bool IsInitialState,
     bool IsReplay,
-    string? Message);
+    string? Message,
+    string? Channel = null,
+    int InstanceId = 0);

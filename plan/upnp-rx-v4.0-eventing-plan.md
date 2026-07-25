@@ -84,10 +84,11 @@ IObservable<UpnpEvent> Events();
 
 ## 3. Phases (one commit each, on dev/4.0.0; version bump to 4.0.0 in E1)
 
-**Status 2026-07-24: E1-E6 implemented and committed (122 tests green, incl. real-socket
-loopback integration tests). E7 (releases/4.0.0 branch, tag, publish) is deliberately NOT
-executed - it waits for the author's code review and the §5 hardware validation, per
-instruction. No pushes from this session.**
+**Status: E1-E6 implemented 2026-07-24 (real-socket loopback integration tests included);
+author validation, two review passes (code + Rx/ReactiveUI) and the upstream adoptions
+(SSDP.UPnP.PCL 8.0.0, SimpleHttpListener.Rx 7.3.0) followed 2026-07-24/25.
+E7 executed 2026-07-25 on the author's go: main updated, `releases/4.0.0` branched,
+`v4.0.0` tagged - Trusted Publishing + GitHub release via CI. 132 tests at release.**
 
 **Found in author validation (2026-07-24):** "Watch live" failed with SUBSCRIBE → HTTP 412
 on every strict device (MIOS, which skips callback validation, was the only device that

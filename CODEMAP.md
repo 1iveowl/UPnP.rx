@@ -16,7 +16,7 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 | 7 | v3.0.0 release (branch, tag, Trusted Publishing) | ✅ released |
 | E1-E6 | 4.0.0 GENA eventing: wire layer, callback listener, subscription engine, `Events()`, clause-4 review, dashboard live events (on `dev/4.0.0`) | ✅ done |
 | — | 4.0 pre-release code review (`plan/upnp-rx-v4.0-code-review.md`) + fixes; SimpleHttpListener.Rx 7.2.0 direct ref; 126 tests | ✅ done |
-| E7 | 4.0.0 release (author: review, §5 hardware validation, branch/tag/publish) | ⏳ author |
+| E7 | 4.0.0 release (branch, tag, Trusted Publishing + GitHub release) | ✅ released |
 
 ## Tree (current)
 

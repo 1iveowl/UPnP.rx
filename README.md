@@ -140,7 +140,7 @@ using var subscription = upnp
 - **Pipelines never die from one bad message.** Degraded announcements are surfaced (`DiscoveredDevice.HasParsingError`), unusable ones are dropped with a log note; `OnError` is reserved for the source itself dying.
 - **One clock.** Every timeout and renewal runs on `UpnpClientOptions.TimeProvider` (default `TimeProvider.System`) - inject `FakeTimeProvider` in tests and drive renewals deterministically.
 - **Disposal.** `DisposeAsync` is the graceful path: port-mapping leases delete their mappings, and a client with live event subscriptions sends UNSUBSCRIBE before releasing its resources; disposing an `Events()` subscription likewise says goodbye from the engine's own teardown. Sync `Dispose` releases resources without network goodbyes - finite lease and subscription timeouts make that safe (the device expires them on its own).
-- **Spec review.** Clause 2/3 behavior was audited against the UDA 2.0 text; the findings live in [plan/uda2-compliance-review.md](plan/uda2-compliance-review.md).
+- **Spec review.** Clause 2/3 and clause 4 behavior was audited against the UDA 2.0 text; the findings live in [plan/uda2-compliance-review.md](plan/uda2-compliance-review.md) and [plan/uda2-clause4-compliance-review.md](plan/uda2-clause4-compliance-review.md).
 
 ## Where UPnP.Rx fits
 
@@ -317,7 +317,7 @@ set up front. This code wasn't "vibe-coded" it was managed and directed, with th
 
 | Version | Notes |
 |---|---|
-| 4.0.0 | GENA eventing: `service.Events()` as a shared observable with automatic renewal, SEQ-gap recovery and last-known-state replay; callback listener on SimpleHttpListener.Rx; clause 4 compliance review; dashboard live-event watching; `Sample.Eventing`. |
+| 4.0.0 | GENA eventing: `service.Events()` as a shared observable with automatic renewal, SEQ-gap recovery and last-known-state replay; permanent SUBSCRIBE refusals surfaced as `SubscriptionRefused` (devices advertise eventSubURLs they don't honor - Sonos QPlay/SpeakerGroup); clause 4 compliance review; dashboard live-event watching and rescan; `Sample.Eventing`. Rides SSDP.UPnP.PCL 8.0 (lazy Rx lifecycle) and SimpleHttpListener.Rx 7.3 (packet-info local endpoints, reliable restarts). |
 | 3.0.0 | First release of UPnP.Rx: discovery → description → control, IGD port mapping with auto-renewing leases, SCPD-driven argument validation, and three samples including a Blazor + FluentUI live dashboard. Versioned to reflect its lineage - it builds on years of learnings from SSDP.UPnP.PCL, SimpleHttpListener.Rx and HttpMachine.PCL rather than starting from scratch. |
 
 ## Why .NET 10?

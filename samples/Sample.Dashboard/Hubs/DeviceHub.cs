@@ -18,17 +18,18 @@ public sealed class DeviceHub(
     Services.UpnpDiscoveryService discovery) : Hub
 {
     /// <summary>
-    /// Clears the roster and searches the network afresh. Restarting the
-    /// discovery subscription resets its per-subscription dedup, so devices
-    /// swallowed by a failed describe or a same-BOOTID re-announcement come
-    /// back; the RosterReset broadcast puts every client into rescan mode
-    /// (live watches end at once, stale cards gray out until fresh ones land).
+    /// Clears the projection and swaps in a fresh library-roster subscription
+    /// (fresh engine, fresh M-SEARCH) - the manual big hammer next to the
+    /// roster's automatic healing. The RosterReset broadcast puts every client
+    /// into rescan mode (live watches end at once, stale cards gray out until
+    /// fresh ones land).
     /// </summary>
     public Task Rescan() => discovery.RescanAsync();
 
     /// <summary>
-    /// Drops the cached description and re-reads the device - the manual heal
-    /// for a stale/sparse read (full self-healing is a v3.1 investigation).
+    /// Drops the cached description and re-reads the device on demand - the
+    /// per-device manual heal beside the roster's automatic one (which only
+    /// re-describes after the cached TTL lapses).
     /// </summary>
     public async Task<string?> RefreshDevice(string key)
     {
@@ -180,7 +181,8 @@ public sealed class DeviceHub(
     /// </summary>
     private static IEnumerable<ServiceEventDto> ToDtos(UPnP.Rx.Eventing.UpnpEvent e)
     {
-        if (e is UPnP.Rx.Eventing.PropertyChange { Name: "LastChange" } change)
+        if (e is UPnP.Rx.Eventing.PropertyChange change
+            && string.Equals(change.Name, "LastChange", StringComparison.OrdinalIgnoreCase))
         {
             var parsed = UPnP.Rx.Eventing.Av.LastChangeParser.Parse(change.Value);
 

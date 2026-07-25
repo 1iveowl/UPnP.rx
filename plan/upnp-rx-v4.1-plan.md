@@ -159,7 +159,33 @@ against real Sonos; capture LastChange fixtures while at it) and the release go.
 | R6 | Ergonomics batch (§2.3) + README (controls sections, screenshot slot) |
 | R7 | 4.1.0 release: releases/4.1.0 branch, tag, Trusted Publishing + GitHub release |
 
-## 7. Risks
+## 7. Post-implementation review (2026-07-25, same day; all findings fixed)
+
+Self-review pass over the new 4.1 code, per the author's instruction. Findings, all
+implemented in the review commit:
+
+- **RV-1 (roster, concurrency)** - concurrent announcements for one key could run two
+  self-heals and double-emit `DeviceUpdated` (the same don't-trust-device-politeness
+  reasoning as the eventing RX-1 fix). One heal per key at a time now, guarded by the gate.
+- **RV-2 (dashboard, robustness)** - a sloppy SCPD repeating an argument name crashed the
+  action form's dictionary build; `TryAdd` first-wins per leniency. Enum inputs also
+  prefill their first allowed value, so dropdowns always hold a valid choice.
+- **RV-3 (dashboard, UX/network)** - the volume slider fired one `SetVolume` per step;
+  now coalesced latest-wins (a drag sends a handful of calls, not one per pixel), and
+  live volume sync no longer fights the user's drag.
+- **RV-4 (hub)** - the `LastChange` expansion matched the name case-sensitively; devices
+  vary - now `OrdinalIgnoreCase`, matching the library extension.
+- **RV-5 (test coverage)** - the heal-stays-quiet test accidentally exercised expiry
+  rather than the heal path (its clock advance also lapsed the roster deadline); retimed
+  to genuinely cover "cache lapsed, content identical → silence".
+- **RV-6 (docs)** - stale hub comments from the pre-roster architecture updated; the
+  guarded `.Result` in the cache-state read annotated as known-completed (rule 3).
+
+Verified clean on re-read: the roster engine's gate discipline (mirrors the reviewed
+eventing engine), `Roster()`'s lock-free create-once, the DTO/JSON surface, the confirm
+flow, `SelectAvChanges` purity.
+
+## 8. Risks
 
 - **Roster correctness is where subtle bugs live** (the reason it was deferred twice):
   expiry vs. renewal races, replay-vs-live atomicity, USN identity across boots. The

@@ -27,6 +27,7 @@ internal sealed class RosterSource : IObservable<RosterChange>
     private readonly Lock _gate = new();
     private readonly List<IObserver<RosterChange>> _observers = [];
     private readonly Dictionary<string, Entry> _entries = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _healing = new(StringComparer.OrdinalIgnoreCase);
     private CancellationTokenSource? _engineCts;
 
     internal RosterSource(UpnpClient client, UpnpClientOptions options, CancellationToken clientLifetime)
@@ -206,6 +207,17 @@ internal sealed class RosterSource : IObservable<RosterChange>
             return;
         }
 
+        lock (_gate)
+        {
+            // Announcements are handled concurrently; one heal per key at a
+            // time, or a racing pair could double-emit DeviceUpdated (the same
+            // don't-trust-device-politeness reasoning as the eventing RX-1 fix).
+            if (!_healing.Add(key))
+            {
+                return;
+            }
+        }
+
         try
         {
             var described = await device.GetDescriptionAsync(ct).ConfigureAwait(false);
@@ -220,6 +232,13 @@ internal sealed class RosterSource : IObservable<RosterChange>
             // The failed fetch already evicted itself from the cache; the next
             // announcement retries. Presence is unaffected.
             _logger.LogDebug(e, "Roster re-describe of {Location} failed.", device.Location);
+        }
+        finally
+        {
+            lock (_gate)
+            {
+                _healing.Remove(key);
+            }
         }
     }
 

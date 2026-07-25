@@ -374,6 +374,7 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
 
         var expired = newest.MaxAge > TimeSpan.Zero
             && _options.TimeProvider.GetElapsedTime(newest.Created) > newest.MaxAge;
+        // Guarded .Result: the task is known completed - no blocking (rule 3).
         var hash = newest.Described.IsValueCreated && newest.Described.Value.IsCompletedSuccessfully
             ? newest.Described.Value.Result.ContentHash
             : null;

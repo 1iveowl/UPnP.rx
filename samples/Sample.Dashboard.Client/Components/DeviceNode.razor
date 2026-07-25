@@ -314,7 +314,11 @@
         switch (e.Name)
         {
             case "Volume" when (e.Channel is null or "Master") && int.TryParse(e.Value, out var volume):
-                _volume[serviceKey] = volume;
+                if (!_volumeBusy.Contains(serviceKey))
+                {
+                    _volume[serviceKey] = volume;   // follow the device - unless the user is mid-drag
+                }
+
                 break;
             case "Mute" when e.Channel is null or "Master":
                 _muted[serviceKey] = e.Value is "1" or "true";
@@ -345,15 +349,37 @@
         });
     }
 
-    private Task VolumeAsync(string serviceKey, string serviceType, int volume)
+    private readonly HashSet<string> _volumeBusy = [];
+    private readonly Dictionary<string, int> _volumePending = [];
+
+    private async Task VolumeAsync(string serviceKey, string serviceType, int volume)
     {
+        // The slider fires per step - coalesce to latest-wins so a drag sends a
+        // handful of SetVolume calls, not one per pixel.
         _volume[serviceKey] = volume;
-        return QuickInvokeAsync(serviceKey, serviceType, "SetVolume", new Dictionary<string, string>
+        _volumePending[serviceKey] = volume;
+
+        if (!_volumeBusy.Add(serviceKey))
         {
-            ["InstanceID"] = "0",
-            ["Channel"] = "Master",
-            ["DesiredVolume"] = volume.ToString()
-        });
+            return;
+        }
+
+        try
+        {
+            while (_volumePending.Remove(serviceKey, out var target))
+            {
+                await QuickInvokeAsync(serviceKey, serviceType, "SetVolume", new Dictionary<string, string>
+                {
+                    ["InstanceID"] = "0",
+                    ["Channel"] = "Master",
+                    ["DesiredVolume"] = target.ToString()
+                });
+            }
+        }
+        finally
+        {
+            _volumeBusy.Remove(serviceKey);
+        }
     }
 
     private async Task QuickInvokeAsync(string serviceKey, string serviceType, string action, Dictionary<string, string> arguments)
@@ -386,7 +412,17 @@
 
         if (!_forms.ContainsKey(formKey))
         {
-            _forms[formKey] = action.InArguments.ToDictionary(a => a.Name, a => a.DefaultValue ?? "");
+            // TryAdd: sloppy SCPDs can repeat argument names (leniency - first
+            // one wins); enums prefill their first allowed value so the
+            // dropdown always holds a valid choice.
+            var form = new Dictionary<string, string>();
+
+            foreach (var argument in action.InArguments)
+            {
+                form.TryAdd(argument.Name, argument.DefaultValue ?? argument.AllowedValues.FirstOrDefault() ?? "");
+            }
+
+            _forms[formKey] = form;
         }
     }
 

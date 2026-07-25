@@ -211,12 +211,17 @@ public class RosterTests
         await WaitForAsync(() => _changes.Count == 1);
         await _changes[0].Device.GetDescriptionAsync(TestContext.Current.CancellationToken);
 
-        _time.Advance(TimeSpan.FromSeconds(150));       // hmm: also past roster deadline?
+        _time.Advance(TimeSpan.FromSeconds(90));        // slide the roster deadline to t=190
+        Announce(maxAgeSeconds: 100);
+        await SettleAsync();
+        _time.Advance(TimeSpan.FromSeconds(60));        // t=150: cache TTL (100) lapsed, roster alive
         Announce(maxAgeSeconds: 100);
         await SettleAsync();
 
-        // Byte-identical re-read: presence events only, no DeviceUpdated.
-        Assert.DoesNotContain(_changes, change => change is DeviceUpdated);
+        // The heal ran (cache lapsed) but the re-read was byte-identical:
+        // presence only, no DeviceUpdated, no expiry.
+        Assert.Single(_changes);
+        Assert.IsType<DeviceAppeared>(_changes[0]);
     }
 
     [Fact]

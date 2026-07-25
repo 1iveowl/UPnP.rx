@@ -327,6 +327,14 @@ a {
     overflow-y: auto;
 }
 
+.activity-detail {
+    margin: 2px 0 6px 1.2rem;
+    padding: 6px 10px;
+    border-left: 2px solid var(--neutral-stroke-divider-rest, #e3e5e9);
+    background: var(--neutral-layer-3, #fafbfc);
+    font-size: 0.78rem;
+}
+
 .quick-controls {
     display: inline-flex;
     align-items: center;

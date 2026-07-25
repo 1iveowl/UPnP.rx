@@ -189,14 +189,41 @@ public sealed class UpnpDiscoveryService(
         }
     }
 
-    private static SsdpActivityDto ToActivityDto(Announcement announcement) => new(
+    private SsdpActivityDto ToActivityDto(Announcement announcement) => new(
         announcement.Kind.ToString(),
-        announcement.Device.Usn?.DeviceUUID is { Length: > 0 } uuid
-            ? DtoMapper.NormalizeKey($"uuid:{uuid}")
-            : DtoMapper.NormalizeKey(announcement.Device.Location?.ToString() ?? "?"),
+        ResolveCardKey(announcement.Device),
+        announcement.Device.Usn?.ToUsnString(),
+        announcement.Device.Server?.FullString,
+        announcement.Device.Location?.ToString(),
         announcement.Device.BootId,
+        announcement.Device.ConfigId,
         (int)announcement.MaxAge.TotalSeconds,
+        announcement.Device.HasParsingError,
         announcement.Seen);
+
+    /// <summary>
+    /// Announcements for embedded devices carry the embedded UDN (a Sonos
+    /// renderer's differs from its root's) - attribute them to the owning
+    /// card, or every embedded announcement lands on a key no card renders.
+    /// </summary>
+    private string ResolveCardKey(DiscoveredDevice device)
+    {
+        var fallback = device.Usn?.DeviceUUID is { Length: > 0 } uuid
+            ? DtoMapper.NormalizeKey($"uuid:{uuid}")
+            : DtoMapper.NormalizeKey(device.Location?.ToString() ?? "?");
+
+        foreach (var (key, described) in roster.Described)
+        {
+            if (described.Description.SelfAndDescendants().Any(d =>
+                    d.Udn is not null
+                    && string.Equals(DtoMapper.NormalizeKey(d.Udn), fallback, StringComparison.Ordinal)))
+            {
+                return key;
+            }
+        }
+
+        return fallback;
+    }
 
     public Task StopAsync(CancellationToken cancellationToken)
     {

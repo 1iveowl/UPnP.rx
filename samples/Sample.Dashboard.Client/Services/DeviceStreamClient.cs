@@ -28,6 +28,7 @@ public sealed class DeviceStreamClient : IAsyncDisposable
     private readonly Subject<LeaseEventDto> _leaseEvents = new();
     private readonly Subject<SsdpActivityDto> _ssdpActivity = new();
     private readonly Dictionary<string, List<SsdpActivityDto>> _activity = [];
+    private readonly Dictionary<string, int> _activityCount = [];
     private const int _maxActivityRows = 20;
     private IDisposable? _rescanFallback;
 
@@ -71,6 +72,7 @@ public sealed class DeviceStreamClient : IAsyncDisposable
                 rows.RemoveAt(rows.Count - 1);
             }
 
+            _activityCount[dto.DeviceKey] = _activityCount.GetValueOrDefault(dto.DeviceKey) + 1;
             _ssdpActivity.OnNext(dto);
         });
         // A rescan (from any client) resets the roster. The stale cards stay
@@ -131,9 +133,12 @@ public sealed class DeviceStreamClient : IAsyncDisposable
     /// <summary>Each SSDP activity row as it arrives - subscribe to re-render open timelines.</summary>
     public IObservable<SsdpActivityDto> SsdpActivity => _ssdpActivity.AsObservable();
 
-    /// <summary>The capped, newest-first activity timeline for one device.</summary>
+    /// <summary>The capped, newest-first activity log for one device.</summary>
     public IReadOnlyList<SsdpActivityDto> ActivityFor(string deviceKey) =>
         _activity.TryGetValue(deviceKey, out var rows) ? rows : [];
+
+    /// <summary>Every message seen for the device since page load (the ring caps rows, not this).</summary>
+    public int ActivityCountFor(string deviceKey) => _activityCount.GetValueOrDefault(deviceKey);
 
     /// <summary>The gateway's identity + WAN state, or null when none was found (or not connected).</summary>
     public Task<GatewayDto?> GetGatewayInfoAsync() =>

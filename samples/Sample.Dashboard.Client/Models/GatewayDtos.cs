@@ -22,12 +22,17 @@ public sealed record PortMappingDto(
     double LeaseSeconds,
     bool HeldByServer);
 
-/// <summary>One SSDP envelope for the device activity timeline, broadcast to all browsers.</summary>
+/// <summary>One SSDP envelope for the device activity log, broadcast to all browsers.</summary>
 public sealed record SsdpActivityDto(
     string Kind,
     string DeviceKey,
+    string? Usn,
+    string? Server,
+    string? Location,
     uint BootId,
+    int? ConfigId,
     int MaxAgeSeconds,
+    bool HasParsingError,
     DateTimeOffset Seen);
 
 /// <summary>A renewal-lifecycle event from a server-held lease, broadcast to all browsers.</summary>

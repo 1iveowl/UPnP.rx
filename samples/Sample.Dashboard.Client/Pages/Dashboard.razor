@@ -129,13 +129,19 @@ net start SSDPSRV</pre>
                         </dl>
                         <DeviceNode Node="device.Root" DeviceKey="@device.Key" />
 
+                        <div class="svc-section">
+                            SSDP activity (log)
+                            <span class="muted">· @Stream.ActivityCountFor(device.Key) message(s) since page load</span>
+                        </div>
                         @if (Stream.ActivityFor(device.Key) is { Count: > 0 } activity)
                         {
-                            <div class="svc-section">SSDP activity</div>
                             <div class="activity-feed">
                                 @foreach (var row in activity)
                                 {
-                                    <div class="svc-row">
+                                    var rowKey = $"{row.Seen.UtcTicks}#{row.Usn}";
+
+                                    <div class="svc-row svc-action" @onclick="() => ToggleActivity(rowKey)">
+                                        <span class="chev">@(_expandedActivity.Contains(rowKey) ? "▾" : "▸")</span>
                                         <span class="muted">@row.Seen.ToLocalTime().ToString("HH:mm:ss")</span>
                                         <span class="svc-name">@ActivityLabel(row.Kind)</span>
                                         @if (row.Kind != "ByeBye")
@@ -143,7 +149,38 @@ net start SSDPSRV</pre>
                                             <span class="muted">BOOTID @row.BootId@(row.MaxAgeSeconds > 0 ? $", max-age {row.MaxAgeSeconds}" : "")</span>
                                         }
                                     </div>
+
+                                    @if (_expandedActivity.Contains(rowKey))
+                                    {
+                                        <div class="activity-detail">
+                                            <div class="svc-row"><span class="svc-name">USN</span><span class="urn">@row.Usn</span></div>
+                                            @if (row.Server is not null)
+                                            {
+                                                <div class="svc-row"><span class="svc-name">SERVER</span><span>@row.Server</span></div>
+                                            }
+                                            @if (row.Location is not null)
+                                            {
+                                                <div class="svc-row"><span class="svc-name">LOCATION</span><span class="urn">@row.Location</span></div>
+                                            }
+                                            @if (row.ConfigId is not null)
+                                            {
+                                                <div class="svc-row"><span class="svc-name">CONFIGID</span><span>@row.ConfigId</span></div>
+                                            }
+                                            @if (row.HasParsingError)
+                                            {
+                                                <div class="svc-row svc-error">degraded: parts of this announcement did not parse</div>
+                                            }
+                                        </div>
+                                    }
                                 }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="muted">
+                                Waiting for traffic - devices re-announce every few minutes
+                                (half their max-age), and the log is live-only. Rescan
+                                solicits fresh responses from everyone now.
                             </div>
                         }
                     </div>
@@ -164,6 +201,16 @@ net start SSDPSRV</pre>
     private bool _rescanning;
     private IDisposable? _rescanSubscription;
     private IDisposable? _activitySubscription;
+
+    private readonly HashSet<string> _expandedActivity = [];
+
+    private void ToggleActivity(string rowKey)
+    {
+        if (!_expandedActivity.Remove(rowKey))
+        {
+            _expandedActivity.Add(rowKey);
+        }
+    }
 
     private static string ActivityLabel(string kind) => kind switch
     {

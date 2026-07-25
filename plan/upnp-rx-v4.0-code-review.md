@@ -94,3 +94,92 @@ Engine restart must not replay stale state (B1); SEQ 4294967295 → 1 is not a g
 an observer throwing mid-emission surfaces as `OnError`, not silence (B3); graceful
 shutdown UNSUBSCRIBEs and completes observers (B5); non-NOTIFY → 405 and crashing
 handler → 500 on the callback listener (B6).
+
+---
+
+## Concurrency addendum (2026-07-25): the lock inventory, and whether Rx can replace it
+
+Author question: `Lock` keeps appearing - is it really necessary, or can Rx (or another
+technique) work around it? Assessment below; **no changes made pending author review**.
+
+### The honest premise first
+
+Rx does not eliminate locks - it *relocates* them. `Observable.Synchronize` is a lock
+around notifications; `Subject<T>`, `ReplaySubject<T>`, `Publish().RefCount()` and
+DynamicData's caches all serialize internally with their own gates. So the real question
+per site is never "lock vs. no lock" but **"whose lock: a hidden, proven, composable one
+inside an Rx primitive - or a small visible one of ours?"** The house practice that falls
+out of this review: *stream-shaped* concerns (serializing emissions, fan-in from multiple
+threads) belong to Rx's serialization operators; *lifecycle-shaped* concerns (create-once,
+start-once, ownership handover) get the smallest visible `Lock`; the same state is never
+guarded by both. C# structurally guarantees the worst lock sin can't happen here: `await`
+inside a `lock` block does not compile, so no lock in this codebase is ever held across
+asynchronous I/O.
+
+### The inventory (all of it)
+
+Four `Lock` objects in `src/` (~3.9k LOC), zero in the dashboard samples:
+
+| Site | Concern | Shape |
+|---|---|---|
+| `GenaSubscriptionSource._gate` | replay atomicity + notification serialization + engine lifecycle + SEQ state | mixed (see below) |
+| `UpnpService._scpdLock` | SCPD task cache, retry-on-fault | lifecycle |
+| `UpnpClient._startLock` | control point start-once (upstream allows one `Start`) | lifecycle |
+| `EventingContext._listenerLock` | listener + transport create-once | lifecycle |
+
+Plus, already lock-free or Rx-serialized: `Interlocked` disposal flags (client, lease),
+`Subject.Synchronize` on the lease events (RX-4), `.Synchronize()` + generation overlap in
+the dashboard's rescan (which *replaced* a `Lock` with the Rx idiom when the author first
+raised this), immutable records everywhere else.
+
+### Site-by-site: the alternatives, costed
+
+- **`_startLock`, `_listenerLock`, `_scpdLock` - keep.** All three are create/start-once
+  guards, three lines each, uncontended by design. The standard "lock-free" replacements
+  are `Lazy<T>`/`LazyInitializer` - which take the *same* lock internally
+  (`ExecutionAndPublication`), just invisibly. The SCPD cache additionally requires
+  retry-on-fault (only success is cached), which `Lazy<Task<T>>` cannot express and an Rx
+  formulation (`FromAsync(...).Replay(1).RefCount()`) actively breaks: `ReplaySubject`
+  caches `OnError` terminally, so one transient fetch failure would poison the service
+  forever - rebuilding the connectable on fault lands right back at a CAS loop or a lock.
+  Nothing stream-shaped here; Rx has no purchase. (One honesty note: `_listenerLock`
+  covers the TCP socket bind - a one-time local syscall, acceptable, but it is the only
+  lock in the codebase covering any syscall.)
+- **`GenaSubscriptionSource._gate` - keep, and it deserves the full argument.** The gate
+  does four jobs: (1) serialize notifications (the Rx grammar), (2) make Q5's
+  late-subscriber replay atomic - snapshot read and observer attach must exclude
+  concurrent emission or replay gains a gap/duplicate window, (3) first-subscriber-starts
+  / last-dispose-stops engine ownership, (4) SEQ expectation + batch contiguity (RX-1).
+  The Rx-native candidates, each evaluated:
+  - `Publish().RefCount()` was the *original* design (plan §2.3) and was explicitly
+    displaced by the author's Q5 decision (plan §4): RefCount gives sharing and
+    restart-on-resubscribe, but has no per-variable replay - Q5 is why the hand-rolled
+    ref-count exists at all.
+  - `ReplaySubject` replays the last *N events*, not the last value *per variable*, and
+    its terminal error is permanent (no engine restart). Wrong semantics twice over.
+  - DynamicData's `SourceCache<PropertyChange, string>` genuinely does per-key
+    state-then-deltas atomically - but it would (a) add a library dependency in violation
+    of the §5 dependency lock, (b) reshape the API from the `UpnpEvent` union (with
+    lifecycle events interleaved in order, and the `IsReplay` flag) into changesets,
+    losing decided semantics, and (c) serialize with *its* internal locks - the critical
+    section does not disappear, it moves behind someone else's API plus adapter code.
+  - `Observable.Synchronize` over a raw subject serializes emissions (job 1) but does
+    nothing for jobs 2-4 - the atomic snapshot+attach and the engine ownership would
+    still need a critical section binding them to the emission gate. Same lock, plus a
+    subject.
+  The irreducible core: *some* mutual exclusion must bind "read the snapshot and attach
+  the observer" to "emit and update the snapshot" - that is what per-variable replay
+  **means**. Ours is one reentrant, documented (A5/RX-2), test-exercised gate with only
+  O(observers) work and zero I/O under it. Every alternative keeps an equivalent critical
+  section and adds indirection, a dependency, or a semantic regression.
+
+### Verdict
+
+All four locks stay; each is the smallest honest expression of a lifecycle or
+replay-atomicity concern that Rx's primitives either cannot express (per-variable replay,
+retry-on-fault caching) or would re-implement with their own hidden locks. Where the
+concern really is stream-shaped, this codebase already reaches for the Rx tool -
+`Subject.Synchronize`, `.Synchronize()`, generation overlap - and the dashboard now
+contains no `Lock` at all. Recommendation: adopt the shape rule above ("streams get Rx
+serialization, lifecycles get the smallest visible Lock, never both for one piece of
+state") as the recorded house answer to "when is a lock acceptable", and change no code.

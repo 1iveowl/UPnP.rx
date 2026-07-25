@@ -211,6 +211,13 @@ net start SSDPSRV</pre>
 
     private void ToggleActivity(string rowKey)
     {
+        // Rows rotate out of the ring but their expansion keys would not -
+        // crude cap so a very long session cannot accumulate click residue.
+        if (_expandedActivity.Count > 200)
+        {
+            _expandedActivity.Clear();
+        }
+
         if (!_expandedActivity.Remove(rowKey))
         {
             _expandedActivity.Add(rowKey);

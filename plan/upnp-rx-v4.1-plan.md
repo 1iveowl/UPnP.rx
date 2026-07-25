@@ -189,6 +189,24 @@ Verified clean on re-read: the roster engine's gate discipline (mirrors the revi
 eventing engine), `Roster()`'s lock-free create-once, the DTO/JSON surface, the confirm
 flow, `SelectAvChanges` purity.
 
+## 7b. Memory and performance audit (2026-07-25, author-requested)
+
+Principle verified: every stateful structure is sized by what is PRESENT (devices,
+variables, subscribers), never by what PASSED THROUGH (announcements, notifies,
+subscribe cycles). Bounded by design and now pinned by soak tests (SoakTests.cs):
+roster entries (expiry removes), eventing last-known (per variable), observer lists,
+activity ring (20/device), live-event ring, held leases, hub channels (64, DropOldest).
+
+Three real accumulations found and fixed: (1) the description cache kept one described
+tree per boot generation forever - fresh generations now evict superseded ones for the
+same location; (2) the client's activity rings for departed devices lingered - dropped
+on DeviceGone, plus an age bound (1 h relative to the newest row - stale rhythm misleads
+more than it informs); (3) the expanded-row set accumulated click residue - crudely
+capped. Accepted as bounded-and-fine: EventingContext's one source per ever-watched
+eventSubUrl (network-sized); activity rings persisting across rescans (log continuity is
+the point). Retention config = the two documented constants in DeviceStreamClient -
+sample-grade by intent; long retention belongs in a file log, deliberately deferred.
+
 ## 8. Risks
 
 - **Roster correctness is where subtle bugs live** (the reason it was deferred twice):

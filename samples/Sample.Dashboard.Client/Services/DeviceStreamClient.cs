@@ -29,7 +29,14 @@ public sealed class DeviceStreamClient : IAsyncDisposable
     private readonly Subject<SsdpActivityDto> _ssdpActivity = new();
     private readonly Dictionary<string, List<SsdpActivityDto>> _activity = [];
     private readonly Dictionary<string, int> _activityCount = [];
+
+    // The sample's retention config. Rows cap hard per device; the age bound
+    // (relative to the newest row, so no client clock involved) keeps a
+    // long-running page honest - an hour-old rhythm misleads more than it
+    // informs. Long retention belongs in a file log, deliberately not a
+    // feature of this sample.
     private const int _maxActivityRows = 20;
+    private static readonly TimeSpan _activityMaxAge = TimeSpan.FromHours(1);
     private IDisposable? _rescanFallback;
 
     public DeviceStreamClient(NavigationManager navigation)
@@ -54,7 +61,14 @@ public sealed class DeviceStreamClient : IAsyncDisposable
 
             _cache.AddOrUpdate(dto);
         });
-        _connection.On<string>(HubEvents.DeviceGone, key => _cache.RemoveKey(key));
+        _connection.On<string>(HubEvents.DeviceGone, key =>
+        {
+            _cache.RemoveKey(key);
+            // A departed device's log leaves with it - rings for devices that
+            // never return must not accumulate on a long-running page.
+            _activity.Remove(key);
+            _activityCount.Remove(key);
+        });
         _connection.On<LeaseEventDto>(HubEvents.LeaseEvent, e => _leaseEvents.OnNext(e));
         _connection.On<SsdpActivityDto>(HubEvents.SsdpActivity, dto =>
         {
@@ -67,7 +81,8 @@ public sealed class DeviceStreamClient : IAsyncDisposable
 
             rows.Insert(0, dto);
 
-            if (rows.Count > _maxActivityRows)
+            while (rows.Count > _maxActivityRows
+                || (rows.Count > 1 && dto.Seen - rows[^1].Seen > _activityMaxAge))
             {
                 rows.RemoveAt(rows.Count - 1);
             }

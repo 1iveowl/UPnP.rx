@@ -488,10 +488,18 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
         {
             var entry = _descriptions.GetOrAdd(
                 key,
-                _ => new DescriptionCacheEntry(
-                    new Lazy<Task<DescribedDevice>>(() => FetchAndEvictOnFailureAsync(key, location, localAddress)),
-                    _options.TimeProvider.GetTimestamp(),
-                    maxAge));
+                _ =>
+                {
+                    // A fresh generation supersedes older boots/configs of the
+                    // same device - without this, a flappy device accumulates
+                    // one described tree per reboot for the client's lifetime.
+                    EvictOtherGenerations(location, key);
+
+                    return new DescriptionCacheEntry(
+                        new Lazy<Task<DescribedDevice>>(() => FetchAndEvictOnFailureAsync(key, location, localAddress)),
+                        _options.TimeProvider.GetTimestamp(),
+                        maxAge);
+                });
 
             if (entry.MaxAge > TimeSpan.Zero
                 && _options.TimeProvider.GetElapsedTime(entry.Created) > entry.MaxAge)
@@ -504,6 +512,23 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
             return entry.Described.Value.WaitAsync(ct);
         }
     }
+
+    private void EvictOtherGenerations(Uri location, string keepKey)
+    {
+        var prefix = $"{location}#";
+
+        foreach (var existing in _descriptions.Keys)
+        {
+            if (existing.StartsWith(prefix, StringComparison.Ordinal)
+                && !string.Equals(existing, keepKey, StringComparison.Ordinal))
+            {
+                _descriptions.TryRemove(existing, out _);
+            }
+        }
+    }
+
+    /// <summary>The cache's entry count - test seam for boundedness assertions.</summary>
+    internal int DescriptionCacheCount => _descriptions.Count;
 
     /// <summary>Only successful descriptions stay cached — a transient fetch failure must not poison the device forever.</summary>
     private async Task<DescribedDevice> FetchAndEvictOnFailureAsync(string key, Uri location, IPAddress? localAddress)

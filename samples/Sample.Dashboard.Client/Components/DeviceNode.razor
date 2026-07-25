@@ -56,20 +56,80 @@
                 {
                     @if (detail.Actions.Length > 0)
                     {
-                        <div class="svc-section">Actions (@detail.Actions.Length)</div>
+                        <div class="svc-section">Actions (@detail.Actions.Length) <span class="muted">- click one to invoke it</span></div>
                         @foreach (var action in detail.Actions)
                         {
-                            <div class="svc-row">
+                            var formKey = $"{serviceKey}#{action.Name}";
+
+                            <div class="svc-row svc-action" @onclick="() => ToggleAction(formKey, action)">
+                                <span class="chev">@(_openActions.Contains(formKey) ? "▾" : "▸")</span>
                                 <span class="svc-name">@action.Name</span>
                                 @if (action.InArguments.Length > 0)
                                 {
-                                    <span class="muted">in: @string.Join(", ", action.InArguments)</span>
+                                    <span class="muted">in: @string.Join(", ", action.InArguments.Select(a => a.Name))</span>
                                 }
                                 @if (action.OutArguments.Length > 0)
                                 {
                                     <span class="muted">out: @string.Join(", ", action.OutArguments)</span>
                                 }
                             </div>
+
+                            @if (_openActions.Contains(formKey))
+                            {
+                                <div class="action-form">
+                                    @foreach (var argument in action.InArguments)
+                                    {
+                                        <div class="action-arg">
+                                            <label>@argument.Name</label>
+                                            @if (argument.AllowedValues.Length > 0)
+                                            {
+                                                <FluentSelect TOption="string"
+                                                              Items="@argument.AllowedValues"
+                                                              Value="@_forms[formKey][argument.Name]"
+                                                              ValueChanged="@(value => _forms[formKey][argument.Name] = value ?? "")" />
+                                            }
+                                            else
+                                            {
+                                                <FluentTextField Value="@_forms[formKey][argument.Name]"
+                                                                 ValueChanged="@(value => _forms[formKey][argument.Name] = value ?? "")"
+                                                                 Placeholder="@ArgumentHint(argument)" />
+                                            }
+                                        </div>
+                                    }
+                                    <div class="action-invoke">
+                                        @* Q3: actions with in-arguments mutate real devices - the
+                                           first click arms, the second confirms. *@
+                                        <FluentButton Appearance="@(_armed.Contains(formKey) ? Appearance.Accent : Appearance.Outline)"
+                                                      Disabled="@_invoking.Contains(formKey)"
+                                                      OnClick="() => InvokeActionAsync(formKey, service, action)">
+                                            @(_invoking.Contains(formKey) ? "Invoking…"
+                                                : _armed.Contains(formKey) ? "Confirm - this talks to the device"
+                                                : "Invoke")
+                                        </FluentButton>
+                                    </div>
+                                    @if (_results.TryGetValue(formKey, out var invokeResult))
+                                    {
+                                        @if (invokeResult.Error is not null)
+                                        {
+                                            <div class="svc-error">@invokeResult.Error</div>
+                                        }
+                                        else if (invokeResult.Out.Length == 0)
+                                        {
+                                            <div class="muted">OK - the action returned no out-arguments.</div>
+                                        }
+                                        else
+                                        {
+                                            @foreach (var outValue in invokeResult.Out)
+                                            {
+                                                <div class="svc-row">
+                                                    <span class="svc-name">@outValue.Name</span>
+                                                    <span>@outValue.Value</span>
+                                                </div>
+                                            }
+                                        }
+                                    }
+                                </div>
+                            }
                         }
                     }
                     @if (detail.StateVariables.Length > 0)
@@ -192,6 +252,57 @@
         }
 
         _ = InvokeAsync(StateHasChanged);
+    }
+
+    private readonly HashSet<string> _openActions = [];
+    private readonly HashSet<string> _armed = [];
+    private readonly HashSet<string> _invoking = [];
+    private readonly Dictionary<string, Dictionary<string, string>> _forms = [];
+    private readonly Dictionary<string, InvokeResultDto> _results = [];
+
+    private void ToggleAction(string formKey, ActionDto action)
+    {
+        if (_openActions.Remove(formKey))
+        {
+            _armed.Remove(formKey);
+            return;
+        }
+
+        _openActions.Add(formKey);
+
+        if (!_forms.ContainsKey(formKey))
+        {
+            _forms[formKey] = action.InArguments.ToDictionary(a => a.Name, a => a.DefaultValue ?? "");
+        }
+    }
+
+    private static string ArgumentHint(ArgumentDto argument) =>
+        argument.Minimum is not null || argument.Maximum is not null
+            ? $"{argument.DataType ?? "string"} ({argument.Minimum}..{argument.Maximum})"
+            : argument.DataType ?? "string";
+
+    private async Task InvokeActionAsync(string formKey, string serviceType, ActionDto action)
+    {
+        // Q3: mutating calls (in-arguments present) take a second, explicit click.
+        if (action.InArguments.Length > 0 && _armed.Add(formKey))
+        {
+            return;
+        }
+
+        _armed.Remove(formKey);
+        _invoking.Add(formKey);
+        _results.Remove(formKey);
+
+        try
+        {
+            _results[formKey] = await Stream.InvokeActionAsync(
+                DeviceKey, Node!.Udn, serviceType, action.Name,
+                _forms.GetValueOrDefault(formKey) ?? []);
+        }
+        finally
+        {
+            _invoking.Remove(formKey);
+        }
     }
 
     private static string Shorten(string? value) =>

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.SignalR;
 using Sample.Dashboard.Client.Models;
 using Sample.Dashboard.Services;
 using UPnP.Rx;
+using UPnP.Rx.Model;
 
 namespace Sample.Dashboard.Hubs;
 
@@ -183,6 +184,59 @@ public sealed class DeviceHub(
         _ => new ServiceEventDto(e.GetType().Name, null, null, 0, false, false, null)
     };
 
+    /// <summary>The input metadata the SCPD holds for an in-argument, via its related state variable.</summary>
+    private static ArgumentDto ToArgumentDto(UPnP.Rx.Model.ArgumentDescription argument, UPnP.Rx.Model.Scpd scpd)
+    {
+        var variable = scpd.StateVariables.FirstOrDefault(v =>
+            string.Equals(v.Name, argument.RelatedStateVariable, StringComparison.OrdinalIgnoreCase));
+
+        return new ArgumentDto(
+            argument.Name ?? "?",
+            variable?.DataType,
+            [.. variable?.AllowedValues ?? []],
+            variable?.AllowedRange?.Minimum,
+            variable?.AllowedRange?.Maximum,
+            variable?.DefaultValue);
+    }
+
+    /// <summary>
+    /// Invokes a SOAP action with the given arguments: SCPD-validated and
+    /// ordered by the library, faults returned in the device's own words.
+    /// The confirm-step lives client-side (4.1 decision Q3).
+    /// </summary>
+    public async Task<InvokeResultDto> InvokeAction(
+        string deviceKey, string? udn, string serviceType, string actionName, Dictionary<string, string> arguments)
+    {
+        var service = FindService(deviceKey, udn, serviceType);
+
+        if (service is null)
+        {
+            return new InvokeResultDto([], "Service not found on the roster.");
+        }
+
+        try
+        {
+            var scpd = await service.GetScpdAsync(Context.ConnectionAborted);
+            var ordered = scpd.ValidateAndOrderArguments(actionName, arguments);
+
+            if (!ordered.IsSuccess)
+            {
+                return new InvokeResultDto([], ordered.Error);
+            }
+
+            var result = await service.InvokeAsync(actionName, ordered.Value, Context.ConnectionAborted);
+            return new InvokeResultDto([.. result.Out.Select(pair => new OutValueDto(pair.Key, pair.Value))], null);
+        }
+        catch (UpnpActionException e)
+        {
+            return new InvokeResultDto([], $"The device refused: UPnP error {e.Error.Code} ({e.Error.Description ?? "no description"}).");
+        }
+        catch (UpnpException e)
+        {
+            return new InvokeResultDto([], e.Message);
+        }
+    }
+
     public async Task<ServiceDetailDto> GetServiceDetail(string deviceKey, string? udn, string serviceType)
     {
         try
@@ -202,7 +256,7 @@ public sealed class DeviceHub(
                     a.Name ?? "(unnamed)",
                     [.. a.Arguments
                         .Where(arg => arg.Direction != UPnP.Rx.Model.ArgumentDirection.Out)
-                        .Select(arg => arg.Name ?? "?")],
+                        .Select(arg => ToArgumentDto(arg, scpd))],
                     [.. a.Arguments
                         .Where(arg => arg.Direction == UPnP.Rx.Model.ArgumentDirection.Out)
                         .Select(arg => arg.Name ?? "?")]))],

@@ -124,6 +124,13 @@ public sealed class DeviceStreamClient : IAsyncDisposable
     public Task<string?> DeletePortMappingAsync(ushort externalPort, string protocol) =>
         InvokeAsync<string?>(HubEvents.DeletePortMapping, "Not connected to the server.", externalPort, protocol);
 
+    /// <summary>Invokes a SOAP action on a service; validation, faults and results all arrive as <see cref="InvokeResultDto"/>.</summary>
+    public Task<InvokeResultDto> InvokeActionAsync(
+        string deviceKey, string? udn, string serviceType, string actionName, Dictionary<string, string> arguments) =>
+        InvokeAsync<InvokeResultDto>(HubEvents.InvokeAction,
+            new InvokeResultDto([], "Not connected to the server."),
+            deviceKey, udn!, serviceType, actionName, arguments);
+
     /// <summary>Invalidates + re-reads one device's description; the result arrives as a DeviceUp broadcast.</summary>
     public Task<string?> RefreshDeviceAsync(string key) =>
         InvokeAsync<string?>(HubEvents.RefreshDevice, "Not connected to the server.", key);

@@ -321,6 +321,40 @@ a {
     margin-bottom: 6px;
 }
 
+.svc-action {
+    cursor: pointer;
+    user-select: none;
+}
+
+.svc-action:hover .svc-name {
+    color: var(--accent-foreground-rest, #0e7490);
+}
+
+.action-form {
+    margin: 4px 0 8px 1.2rem;
+    padding: 8px 12px;
+    border-left: 2px solid var(--accent-fill-rest, #0891b2);
+    background: var(--neutral-layer-3, #fafbfc);
+    border-radius: calc(var(--control-corner-radius, 4) * 1px);
+}
+
+.action-arg {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0;
+    font-size: 0.8rem;
+}
+
+.action-arg label {
+    font-family: ui-monospace, Consolas, monospace;
+}
+
+.action-invoke {
+    margin: 8px 0 4px 0;
+}
+
 .error-panel {
     background: var(--neutral-layer-2, #fef2f2);
     border: 1px solid var(--error, #fca5a5);

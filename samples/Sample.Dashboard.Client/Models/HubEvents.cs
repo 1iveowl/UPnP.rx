@@ -36,6 +36,9 @@ public static class HubEvents
     /// <summary>Hub streaming RPC: live GENA events for one service (deviceKey, owning UDN, serviceType).</summary>
     public const string StreamServiceEvents = "StreamServiceEvents";
 
+    /// <summary>Hub RPC: invoke a SOAP action (deviceKey, udn, serviceType, actionName, args); returns <see cref="InvokeResultDto"/>.</summary>
+    public const string InvokeAction = "InvokeAction";
+
     /// <summary>Hub RPC: clear the roster and search the network afresh (resets discovery dedup state).</summary>
     public const string Rescan = "Rescan";
 

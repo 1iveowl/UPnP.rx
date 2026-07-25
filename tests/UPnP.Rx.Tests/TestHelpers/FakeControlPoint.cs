@@ -18,17 +18,10 @@ internal sealed class FakeControlPoint : IControlPoint
 
     public List<(MSearchRequest Request, IPAddress Address)> SentSearches { get; } = [];
 
-    public CancellationToken StartToken { get; private set; }
-
-    public bool IsStarted { get; private set; }
-
-    public void Start(CancellationToken ct)
+    public void HotStart(IObservable<HttpRequestResponse> httpListenerObservable)
     {
-        IsStarted = true;
-        StartToken = ct;
+        // The seam under test is the subjects below; a hot-started stream is unused.
     }
-
-    public void HotStart(IObservable<HttpRequestResponse> httpListenerObservable) => IsStarted = true;
 
     public IObservable<Notify> NotifyObservable() => Notifies;
 

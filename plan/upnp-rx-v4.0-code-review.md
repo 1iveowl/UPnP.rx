@@ -213,7 +213,13 @@ after upstream candidate #5 ships.
 
 ### Verdict
 
-All four locks stay for now (one pending its upstream fix); each is the smallest honest
+**Outcome (2026-07-25, later the same day): both upstream fixes shipped -
+SSDP.UPnP.PCL 8.0.0 (lazy start, candidate #5) and SimpleHttpListener.Rx 7.3.0 (restart
+reliability, candidate #4). `_startLock`/`EnsureStarted` are deleted (three locks remain
+in `src/`), and the dashboard's generation-overlap workaround is retired - rescan is
+plain `Switch` again.**
+
+All remaining locks stay; each is the smallest honest
 expression of a lifecycle or
 replay-atomicity concern that Rx's primitives either cannot express (per-variable replay,
 retry-on-fault caching) or would re-implement with their own hidden locks. Where the

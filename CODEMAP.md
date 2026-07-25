@@ -34,7 +34,7 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 ├── UPnP.Rx.slnx
 ├── .github/workflows/ci.yml   # build -warnaserror → test → pack; Trusted Publishing on v* tags
 ├── src/UPnP.Rx/               # the library (single package)
-│   ├── UPnP.Rx.csproj         # deps: SSDP.UPnP.PCL, SimpleHttpListener.Rx, System.Reactive, Logging.Abstractions
+│   ├── UPnP.Rx.csproj         # deps: SSDP.UPnP.PCL 8, SimpleHttpListener.Rx 7.3, System.Reactive, Logging.Abstractions
 │   ├── UpnpClient.cs          # edge: discovery over IControlPoint, lazy start (Defer),
 │   │                          #   description cache (Location+ConfigId), M-SEARCH fan-out,
 │   │                          #   DiscoverDescribedDevices (discovery+description, UDN-deduped)

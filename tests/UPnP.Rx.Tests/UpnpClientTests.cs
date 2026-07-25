@@ -464,22 +464,6 @@ public class UpnpClientTests
     // ---- Lifecycle ----
 
     [Fact]
-    public void Dispose_CancelsTheControlPointsLifetimeToken()
-    {
-        var (client, controlPoint, _) = CreateClient();
-
-        using (client.DiscoverDevices().Subscribe(_ => { }))
-        {
-            Assert.True(controlPoint.IsStarted);
-            Assert.False(controlPoint.StartToken.IsCancellationRequested);
-        }
-
-        client.Dispose();
-
-        Assert.True(controlPoint.StartToken.IsCancellationRequested);
-    }
-
-    [Fact]
     public void DiscoverDevices_AfterDispose_Throws()
     {
         var (client, _, _) = CreateClient();

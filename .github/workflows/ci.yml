@@ -41,7 +41,8 @@ jobs:
       # Required for NuGet Trusted Publishing: the job exchanges the GitHub OIDC
       # token for a short-lived nuget.org API key — no stored secrets.
       id-token: write
-      contents: read
+      # Required to create the GitHub release for the tag.
+      contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -62,3 +63,17 @@ jobs:
 
       - name: Push to NuGet
         run: dotnet nuget push "artifacts/*.nupkg" --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+      # Only after the package is out, so a failed push leaves no release
+      # claiming otherwise. Attaches the packages and generates notes from the
+      # commit history since the previous tag.
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "${GITHUB_REF_NAME}"
+          artifacts/*.nupkg
+          --repo "${GITHUB_REPOSITORY}"
+          --title "${GITHUB_REF_NAME}"
+          --verify-tag
+          --generate-notes

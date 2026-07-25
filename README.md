@@ -284,31 +284,34 @@ auto-renewing leases and a live renewal-event feed). A word of caution: the
 port-mapping page lets any browser that can reach the server *modify the
 router*, and the sample has no authentication - treat it as a LAN tool.
 
-## About this project
+## About this project - the role of AI
 
 The work leading to UPnP.Rx goes back more than a decade - through
 [HttpMachine.PCL](https://github.com/1iveowl/HttpMachine),
 [SimpleHttpListener.Rx](https://github.com/1iveowl/SimpleHttpListener.Rx) and
 [SSDP.UPnP.PCL](https://github.com/1iveowl/SSDP.UPnP.PCL), each hand-built and
-refined over years of real-world use. UPnP.Rx is the first library in the
+refined over years of real-world use. 
+
+UPnP.Rx is the first library in the
 family built with AI assistance from the very first commit.
 
 I still write code, and I review what the AI produces. For a library of this
-size, resting on this much prior work, AI made the building of it perhaps ten
-times faster - but it could not have created it by itself. I set the direction,
-settled the design decisions, and reviewing the generated code sometimes meant
+size, resting on this much prior work, AI made the building of it much easier - but it could not have created it by itself. I set the direction, settled the design decisions, and reviewing the generated code sometimes meant
 demanding fundamental changes; even those, though, were far faster to refactor
-with AI in the loop. What did not change is the bar: the project plan, the
+with AI in the loop. 
+
+What did not change is the bar: the project plan, the real-life testing across various platforms, the
 settled policies (time model, disposal model, Rx rules), the UDA 2.0 compliance
 review and an adversarial pre-release code review are all in this repo - the
-same attention to detail and focus as the hand-built siblings, applied faster.
+same attention to detail and focus as the siblings over the past 10 years, applied faster.
 
 Everything that steered the work ships with the repo, on purpose: the agent
 instructions ([CLAUDE.md](CLAUDE.md) / [AGENTS.md](AGENTS.md)) and the full
-plan, decision record and reviews under [plan/](plan/). If there is one lesson
-from building this way, it is that **getting those specs right is the key** -
+plan, decision record and reviews under [plan/](plan/). For transparency and for anyone who wants to contribute.
+
+If there is one lesson from building this way, it is that **getting specs right is the key** -
 the quality of what AI produces tracks the quality of the plan and the rules
-set up front.
+set up front. This code wasn't "vibe-coded" it was managed and directed, with the AI as a tool.
 
 ## Version history
 

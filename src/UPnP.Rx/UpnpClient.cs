@@ -14,9 +14,11 @@ namespace UPnP.Rx;
 /// fetch their descriptions lazily with caching, and control their services.
 /// </summary>
 /// <remarks>
-/// Construction is side-effect free; the underlying SSDP control point starts on
-/// the first subscription to <see cref="DiscoverDevices"/> or
-/// <see cref="DeviceLost"/>. Disposal follows the house disposal model:
+/// Construction is side-effect free; since SSDP.UPnP.PCL 8.0 the underlying
+/// control point is itself lazy - its sockets come up on the first subscription
+/// to <see cref="DiscoverDevices"/> or <see cref="DeviceLost"/> and stop when
+/// the last one is disposed (no start-once bookkeeping at any layer).
+/// Disposal follows the house disposal model:
 /// <see cref="DisposeAsync"/> is the graceful path (live event subscriptions say
 /// UNSUBSCRIBE before resources go); <see cref="Dispose"/> is the abrupt one -
 /// no network goodbyes, safe because subscriptions expire on the devices.
@@ -31,7 +33,6 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
     private readonly UpnpClientOptions _options;
     private readonly CancellationTokenSource _lifetime = new();
     private readonly ConcurrentDictionary<string, DescriptionCacheEntry> _descriptions = new();
-    private readonly Lock _startLock = new();
     private readonly EventingContext _eventing;
     private int _disposed;
 
@@ -73,7 +74,7 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
     /// <see cref="HttpClient"/>. The caller keeps ownership of both — disposing
     /// this client will not dispose them.
     /// </summary>
-    /// <param name="controlPoint">The SSDP control point; may already be started (e.g. via <c>HotStart</c>).</param>
+    /// <param name="controlPoint">The SSDP control point; may carry an externally supplied stream (<c>HotStart</c>).</param>
     /// <param name="httpClient">The HTTP client for descriptions and SOAP; a private one is created when null.</param>
     /// <param name="options">The client configuration; defaults when null.</param>
     /// <param name="addresses">Local addresses to send M-SEARCH from; searches are skipped when empty.</param>
@@ -102,8 +103,8 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
     /// <param name="searchTarget">The search target; the options' <see cref="UpnpClientOptions.DefaultSearchTarget"/> when null.</param>
     /// <param name="mx">Maximum device response delay; the options' <see cref="UpnpClientOptions.DefaultMx"/> when null.</param>
     /// <remarks>
-    /// Temperature: cold — each subscription starts the control point if needed,
-    /// sends a fresh M-SEARCH and observes the shared SSDP streams. The stream
+    /// Temperature: cold — each subscription brings the SSDP listeners up if
+    /// needed (lazily, upstream), sends a fresh M-SEARCH and observes the shared SSDP streams. The stream
     /// stays open (devices keep announcing); dispose the subscription to stop.
     /// Degraded announcements are kept (<see cref="DiscoveredDevice.HasParsingError"/>);
     /// only messages without a usable <c>LOCATION</c> are dropped, with a log note.
@@ -115,7 +116,6 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
         Observable.Defer(() =>
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
-            EnsureStarted();
 
             var discovered = _controlPoint
                 .MSearchResponseObservable()
@@ -188,12 +188,11 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
     /// Devices leaving the network (<c>ssdp:byebye</c>). Emitted devices carry no
     /// <see cref="DiscoveredDevice.Location"/> (byebye messages have none).
     /// </summary>
-    /// <remarks>Temperature: cold subscription over the shared SSDP notify stream; starts the control point if needed.</remarks>
+    /// <remarks>Temperature: cold subscription over the shared SSDP notify stream; the listeners come up lazily upstream.</remarks>
     public IObservable<DiscoveredDevice> DeviceLost() =>
         Observable.Defer(() =>
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
-            EnsureStarted();
 
             return _controlPoint
                 .NotifyObservable()
@@ -254,17 +253,6 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
         if (_ownsHttpClient)
         {
             _httpClient.Dispose();
-        }
-    }
-
-    private void EnsureStarted()
-    {
-        lock (_startLock)
-        {
-            if (!_controlPoint.IsStarted)
-            {
-                _controlPoint.Start(_lifetime.Token);
-            }
         }
     }
 

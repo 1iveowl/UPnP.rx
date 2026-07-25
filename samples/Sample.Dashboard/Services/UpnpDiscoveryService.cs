@@ -70,7 +70,6 @@ public sealed class UpnpDiscoveryService(
 {
     private readonly Subject<Unit> _rescans = new();
     private IDisposable? _rescanLoop;
-    private IDisposable? _generation;
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
@@ -83,32 +82,22 @@ public sealed class UpnpDiscoveryService(
         logger.LogInformation(
             "Discovering from {Addresses}.", string.Join(", ", network.Addresses.Select(a => a.ToString())));
 
-        // A rescan is a stream event; Synchronize serializes requests arriving
-        // from concurrent hub connections (the Rx grammar requires serialized
-        // OnNext), which also makes the generation swap below single-threaded.
-        //
-        // The swap deliberately OVERLAPS generations - new subscription first,
-        // old disposal second (which is why this isn't Switch: Switch disposes
-        // first). The control point's shared socket streams are RefCounted;
-        // letting them hit zero subscribers mid-rescan tears the sockets down
-        // while the replacement generation is restarting them, and the accept
-        // loops upstream lose that race (SocketException 89 kills the fresh
-        // generation). Overlap keeps the sockets alive throughout; the new
-        // subscription still sends a fresh M-SEARCH and starts its dedup state
-        // from scratch.
+        // A rescan is a stream event: each request selects a fresh discovery
+        // pipeline (fresh M-SEARCH, fresh dedup state) and Switch swaps the
+        // generations - restart semantics with no subscription bookkeeping.
+        // Synchronize serializes requests from concurrent hub connections (the
+        // Rx grammar requires serialized OnNext). Switch's dispose-then-
+        // subscribe order is safe since SimpleHttpListener.Rx 7.3.0 /
+        // SSDP.UPnP.PCL 8.0.0: the shared listener streams stop and restart
+        // reliably (upstream issue candidate #4, fixed).
         _rescanLoop = _rescans
             .Synchronize()
             .StartWith(Unit.Default)
-            .Subscribe(_ =>
-            {
-                var previous = _generation;
-
-                _generation = DiscoveryPipeline(network.Client).Subscribe(
-                    _ => { },
-                    e => logger.LogError(e, "The discovery pipeline terminated."));
-
-                previous?.Dispose();
-            });
+            .Select(_ => DiscoveryPipeline(network.Client))
+            .Switch()
+            .Subscribe(
+                _ => { },
+                e => logger.LogError(e, "The discovery pipeline terminated."));
 
         return Task.CompletedTask;
     }
@@ -203,7 +192,6 @@ public sealed class UpnpDiscoveryService(
     public Task StopAsync(CancellationToken cancellationToken)
     {
         _rescanLoop?.Dispose();
-        _generation?.Dispose();
         // The rescan subject is not disposed abruptly: a straggling hub call
         // may still OnNext, which is a harmless no-op on an undisposed subject.
         // The client belongs to NetworkClientProvider; DI disposes it.

@@ -375,6 +375,8 @@ public class UpnpClientTests
         Assert.True(device.HasService("urn:schemas-upnp-org:service:Layer3Forwarding:1"));
         Assert.True(device.HasService("urn:upnp-org:serviceId:WANCommonIFC1"));
         Assert.False(device.HasService("WANIPConnection"));    // this router is PPP-only
+        Assert.NotNull(device.TryService("WANPPPConnection"));
+        Assert.Null(device.TryService("WANIPConnection"));     // the non-throwing lookup
         Assert.Equal(5, device.Services.Count);
 
         Assert.Throws<UpnpException>(() => device.Service("NoSuchService"));

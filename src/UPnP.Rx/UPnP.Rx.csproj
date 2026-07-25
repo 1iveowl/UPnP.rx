@@ -21,6 +21,13 @@
     <InternalsVisibleTo Include="UPnP.Rx.Tests" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <!-- No reflection, no serialization, no dynamic code: say so and let the
+         trim/AOT analyzers hold us to it (4.1 plan, ergonomics batch). -->
+    <IsTrimmable>true</IsTrimmable>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
     <PackageReference Include="SimpleHttpListener.Rx" Version="7.3.0" />

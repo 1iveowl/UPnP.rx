@@ -23,9 +23,8 @@ UPnP.Rx covers the full control-point chain of the [UPnP Device Architecture 2.0
 - **Description** (clause 2) - device description documents and SCPDs fetched lazily, parsed into immutable records, cached by `LOCATION` + `CONFIGID`.
 - **Control** (clause 3) - SOAP 1.1 action calls with typed results and typed UPnP faults.
 - **Port mapping** - the flagship: find the internet gateway and map ports in one call, with automatic lease renewal.
-- **Eventing** (clause 4, GENA) - subscribe to a service's evented state as an observable: `service.Events()` handles SUBSCRIBE/renewal/UNSUBSCRIBE, replays last-known state to late subscribers, and recovers from failures and SEQ gaps automatically.
-
-A live device roster with expiry is planned for 4.1.
+- **Eventing** (clause 4, GENA) - subscribe to a service's evented state as an observable: `service.Events()` handles SUBSCRIBE/renewal/UNSUBSCRIBE, replays last-known state to late subscribers, and recovers from failures and SEQ gaps automatically. AV services' `LastChange` payloads decode via `UPnP.Rx.Eventing.Av` (`events.SelectAvChanges()`).
+- **Roster** - `client.Roster()` streams device presence as changes: arrivals, updates (reboots and healed descriptions), `CACHE-CONTROL`-driven expiry for devices that vanish silently, and byebye departures - with the current roster replayed to late subscribers. Bounded state, built for long-lived apps.
 
 ## Installing
 
@@ -317,6 +316,7 @@ set up front. This code wasn't "vibe-coded" it was managed and directed, with th
 
 | Version | Notes |
 |---|---|
+| 4.1.0 | Device roster (`Roster()`: presence changes with replay, max-age expiry, reboot detection and lazy description self-healing), typed AV `LastChange` decoding (`UPnP.Rx.Eventing.Av`), `TryService`, trim/AOT-clean; dashboard: generic SCPD-driven action invocation with confirm-step, and volume/mute/transport quick controls that follow the device live. |
 | 4.0.0 | GENA eventing: `service.Events()` as a shared observable with automatic renewal, SEQ-gap recovery and last-known-state replay; permanent SUBSCRIBE refusals surfaced as `SubscriptionRefused` (devices advertise eventSubURLs they don't honor - Sonos QPlay/SpeakerGroup); clause 4 compliance review; dashboard live-event watching and rescan; `Sample.Eventing`. Rides SSDP.UPnP.PCL 8.0 (lazy Rx lifecycle) and SimpleHttpListener.Rx 7.3 (packet-info local endpoints, reliable restarts). |
 | 3.0.0 | First release of UPnP.Rx: discovery → description → control, IGD port mapping with auto-renewing leases, SCPD-driven argument validation, and three samples including a Blazor + FluentUI live dashboard. Versioned to reflect its lineage - it builds on years of learnings from SSDP.UPnP.PCL, SimpleHttpListener.Rx and HttpMachine.PCL rather than starting from scratch. |
 

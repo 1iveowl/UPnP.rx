@@ -142,6 +142,13 @@ Original questions preserved below.
 
 ## 6. Phases (one commit each, on dev/4.1.0; version bump in R1)
 
+**Status 2026-07-25: R1-R6 implemented (149 tests green; roster loopback against fakes,
+LastChange fixtures synthetic-but-faithful pending author captures). §2.3 outcomes: typed
+SOAP conversions stay deferred (the quick controls were comfortable with strings), RX-6's
+64-event hub cap recorded as accepted sample-grade behavior, trim/AOT declared and
+analyzer-clean. R7 awaits the author's hardware validation (quick controls + action forms
+against real Sonos; capture LastChange fixtures while at it) and the release go.**
+
 | Phase | Deliverable |
 |---|---|
 | R1 | Version 4.1.0; roster core: `RosterChange` union, expiry on TimeProvider, replay - FakeControlPoint + FakeTimeProvider tests |

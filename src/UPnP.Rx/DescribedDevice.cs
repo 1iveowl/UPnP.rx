@@ -62,6 +62,13 @@ public sealed class DescribedDevice
         ?? throw new UpnpException(
             $"The device {Description.FriendlyName ?? Description.Udn} has no service matching '{serviceTypeOrId}'.");
 
+    /// <summary>
+    /// The first service matching <paramref name="serviceTypeOrId"/> (same
+    /// matching rules as <see cref="Service"/>), or <see langword="null"/> when
+    /// the device offers none - the non-throwing lookup for exploratory code.
+    /// </summary>
+    public UpnpService? TryService(string serviceTypeOrId) => Find(serviceTypeOrId);
+
     private UpnpService? Find(string serviceTypeOrId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(serviceTypeOrId);

@@ -193,8 +193,9 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
                         // AutoResubscribe, which exists for recoverable failures.
                         var reason =
                             $"The device refused SUBSCRIBE with HTTP {refusal.StatusCode}: the service " +
-                            "advertises an eventSubURL but does not implement eventing. The refusal is " +
-                            "permanent, so the stream ends instead of retrying.";
+                            "advertises an eventSubURL but does not implement eventing. This is a device " +
+                            "quirk - UDA 2.0 requires a non-evented service to publish an empty " +
+                            "eventSubURL. The refusal is permanent, so the stream ends instead of retrying.";
 
                         Emit(new SubscriptionRefused(refusal.StatusCode, reason));
                         Error(new UpnpException(reason, e));

@@ -77,7 +77,7 @@ action its SCPD declares, with a form generated from the spec itself:
 dotnet run --project samples/Sample.Dashboard      # on the host, then open http://localhost:5287
 ```
 
-![The dashboard: a Sonos Five unfolded - live eventing, transport controls and 42 invocable actions](https://raw.githubusercontent.com/1iveowl/UPnP.rx/main/assets/dashboard.png)
+![The dashboard: a Sonos Five unfolded - live eventing, transport controls and 42 invocable actions](https://raw.githubusercontent.com/1iveowl/UPnP.rx/refs/heads/main/assets/dashboard.png)
 
 *Blazor WebAssembly + FluentUI + ReactiveUI, light and dark - and everything in
 it is built on the library's public API.*

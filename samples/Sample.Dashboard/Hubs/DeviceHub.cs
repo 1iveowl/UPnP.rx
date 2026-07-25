@@ -134,8 +134,33 @@ public sealed class DeviceHub(
             },
             () => channel.Writer.TryComplete());
 
-        await foreach (var dto in channel.Reader.ReadAllAsync(ct))
+        // Cancellation here is the client ending the watch (stop button,
+        // rescan, tab closed) - a normal end of the stream, not an error.
+        // ReadAllAsync(ct) would exit by throwing OperationCanceledException
+        // through this frame (harmless to SignalR, but it trips the debugger's
+        // user-unhandled break on every stop); read explicitly and turn
+        // cancellation into a quiet break instead.
+        while (true)
         {
+            ServiceEventDto? dto;
+
+            try
+            {
+                if (!await channel.Reader.WaitToReadAsync(ct))
+                {
+                    break;                       // stream completed
+                }
+
+                if (!channel.Reader.TryRead(out dto))
+                {
+                    continue;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                break;                           // client walked away
+            }
+
             yield return dto;
         }
     }

@@ -45,13 +45,15 @@ public sealed record GapDetected(uint ExpectedSeq, uint ActualSeq) : UpnpEvent;
 
 /// <summary>
 /// The device refused the initial SUBSCRIBE in a way that cannot succeed on
-/// retry (HTTP 405/501: the endpoint does not implement eventing, despite the
-/// service advertising an <c>eventSubURL</c> - seen in the wild, e.g. Sonos's
-/// QPlay). This is the stream's last event before it terminates with
-/// <c>OnError</c>; auto-resubscribe does not apply, because the refusal is
-/// method-level and permanent.
+/// retry: HTTP 405/501 (the endpoint does not implement eventing, despite the
+/// service advertising an <c>eventSubURL</c>) or 404/410 (the advertised
+/// <c>eventSubURL</c> does not exist on the device - a placeholder like
+/// Sonos's <c>/ssdp/notfound</c>). This is the stream's last event before it
+/// terminates with <c>OnError</c>; auto-resubscribe does not apply, because
+/// the refusal contradicts the device's own description and only a
+/// re-announced (re-described) device can change it.
 /// </summary>
-/// <param name="HttpStatus">The refusing HTTP status code (405 or 501).</param>
+/// <param name="HttpStatus">The refusing HTTP status code (404, 405, 410 or 501).</param>
 /// <param name="Reason">Why the engine gives up instead of retrying.</param>
 public sealed record SubscriptionRefused(int HttpStatus, string Reason) : UpnpEvent;
 

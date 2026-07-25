@@ -215,9 +215,12 @@ covered. Planned next: a live device roster with expiry (4.1).
   use and allow it. By default the port is ephemeral; set
   `UpnpClientOptions.EventCallbackPort` to a fixed port if you need a firewall
   rule.
-- **`SubscriptionRefused` with HTTP 405/501**: some devices advertise an
-  `eventSubURL` for services that are not actually evented (Sonos's `QPlay:1`
-  is the classic case). The refusal is permanent, so instead of retrying
+- **`SubscriptionRefused` with HTTP 404/405/410/501**: some devices advertise
+  an `eventSubURL` for services that are not actually evented - either the
+  endpoint refuses the method (405/501, e.g. Sonos's `QPlay:1`) or the URL is a
+  placeholder that plain doesn't exist (404/410, e.g. the `/ssdp/notfound`
+  stub on Sonos's `SpeakerGroup:1` pseudo-device). Such a refusal contradicts
+  the device's own description and is permanent, so instead of retrying
   forever the stream reports the reason as a `SubscriptionRefused` event and
   then terminates with `OnError`. Transient failures (timeouts, 5xx during a
   reboot, SEQ gaps) keep the auto-recovery behavior.

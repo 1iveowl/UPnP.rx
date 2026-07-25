@@ -146,6 +146,15 @@ callback listener 405/500 answers.
   `OnError` - and `AutoResubscribe` deliberately does not apply (it exists for recoverable
   failures). Every other failure keeps the recovery posture, including 412 (transient
   callback-validation trouble) and 5xx.
+  **Extended (author, 2026-07-25): 404 and 410 join the permanent set.** Found on a newer
+  Sonos (Beam): the `smartspeaker-audio` `SpeakerGroup:1` pseudo-device advertises
+  SCPD/control/event URLs that are all the literal placeholder `/ssdp/notfound` (404).
+  Rationale is device-agnostic, not Sonos accommodation: a 404/410 against a URL the
+  device's *own description* advertised is a self-contradiction retrying cannot heal
+  (a device that fixes its description re-announces - new BOOTID/CONFIGID - which yields a
+  fresh card and a fresh stream), and HTTP defines 410 as explicitly permanent. GENA's
+  error table (UDA 2.0 §4.1.2) defines 400/412/5xx and no retry obligation, so terminating
+  is spec-clean.
 
 ## 4b. 4.1 pull-in review (author asked: does anything deferred belong in 4.0?)
 

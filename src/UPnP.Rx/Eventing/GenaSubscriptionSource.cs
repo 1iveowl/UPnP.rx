@@ -183,19 +183,27 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
                 }
                 catch (UpnpException e) when (!ct.IsCancellationRequested)
                 {
-                    if (e is GenaHttpException { StatusCode: 405 or 501 } refusal)
+                    if (e is GenaHttpException { StatusCode: 404 or 405 or 410 or 501 } refusal)
                     {
-                        // A method-level refusal is permanent: the endpoint does
-                        // not implement eventing (devices advertise eventSubURLs
-                        // they don't honor - e.g. Sonos's QPlay). Retrying would
-                        // hammer the device forever for nothing, so the reason is
-                        // surfaced as data and the stream ends - regardless of
-                        // AutoResubscribe, which exists for recoverable failures.
+                        // These refusals are permanent, not Sonos-specific quirk
+                        // handling: 405/501 mean the endpoint exists but will
+                        // never speak SUBSCRIBE; 404/410 mean the device denies
+                        // the very URL its own description advertised (410 is
+                        // definitionally permanent in HTTP). Retrying cannot
+                        // heal a self-contradiction - a device that fixes its
+                        // description re-announces, which yields a fresh stream.
+                        // So the reason is surfaced as data and the stream ends,
+                        // regardless of AutoResubscribe (which exists for
+                        // recoverable failures). Everything else - 5xx, 412,
+                        // timeouts - keeps the retry posture.
+                        var explanation = refusal.StatusCode is 404 or 410
+                            ? "the eventSubURL its own description advertises does not exist on the device"
+                            : "the service advertises an eventSubURL but does not implement eventing";
                         var reason =
-                            $"The device refused SUBSCRIBE with HTTP {refusal.StatusCode}: the service " +
-                            "advertises an eventSubURL but does not implement eventing. This is a device " +
-                            "quirk - UDA 2.0 requires a non-evented service to publish an empty " +
-                            "eventSubURL. The refusal is permanent, so the stream ends instead of retrying.";
+                            $"The device refused SUBSCRIBE with HTTP {refusal.StatusCode}: {explanation}. " +
+                            "This is a device quirk - UDA 2.0 requires a non-evented service to publish " +
+                            "an empty eventSubURL. The refusal is permanent, so the stream ends instead " +
+                            "of retrying.";
 
                         Emit(new SubscriptionRefused(refusal.StatusCode, reason));
                         Error(new UpnpException(reason, e));

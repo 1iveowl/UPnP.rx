@@ -170,13 +170,17 @@ public class GenaSubscriptionSourceTests
         await WaitForAsync(() => _transport.UnsubscribeCount == 1);
     }
 
-    [Fact]
-    public async Task PermanentSubscribeRefusal_SurfacesReason_AndTerminates()
+    [Theory]
+    [InlineData(404)]   // advertised eventSubURL doesn't exist (Sonos /ssdp/notfound)
+    [InlineData(405)]   // endpoint refuses the method (Sonos QPlay)
+    [InlineData(410)]   // gone - definitionally permanent in HTTP
+    [InlineData(501)]   // method not implemented
+    public async Task PermanentSubscribeRefusal_SurfacesReason_AndTerminates(int status)
     {
-        // HTTP 405/501 cannot succeed on retry (the endpoint doesn't implement
-        // eventing - e.g. Sonos QPlay): the reason arrives as data, then the
-        // stream ends, AutoResubscribe notwithstanding.
-        _transport.FailSubscribe = new GenaHttpException("The SUBSCRIBE request was refused with HTTP 405.", 405);
+        // These cannot succeed on retry - the device contradicts its own
+        // description: the reason arrives as data, then the stream ends,
+        // AutoResubscribe notwithstanding.
+        _transport.FailSubscribe = new GenaHttpException($"The SUBSCRIBE request was refused with HTTP {status}.", status);
         var source = CreateSource();
         var events = new List<UpnpEvent>();
         Exception? error = null;
@@ -185,8 +189,8 @@ public class GenaSubscriptionSourceTests
         await WaitForAsync(() => error is not null);
 
         var refused = Assert.Single(events.OfType<SubscriptionRefused>());
-        Assert.Equal(405, refused.HttpStatus);
-        Assert.Contains("does not implement eventing", refused.Reason);
+        Assert.Equal(status, refused.HttpStatus);
+        Assert.Contains("The refusal is permanent", refused.Reason);
         Assert.IsType<UpnpException>(error);
         Assert.Equal(1, _transport.SubscribeCount);  // no retry against a permanent refusal
     }

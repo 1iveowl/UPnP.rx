@@ -112,7 +112,16 @@ public sealed class DeviceHub(
 
         using var subscription = service.Events().Subscribe(
             e => channel.Writer.TryWrite(ToDto(e)),
-            error => channel.Writer.TryComplete(error),
+            error =>
+            {
+                // A terminal stream error (e.g. a permanent SUBSCRIBE refusal)
+                // is information for the viewer, not a hub failure - completing
+                // the channel with the exception would fault the SignalR
+                // invocation and litter the server log. Deliver the message as
+                // the stream's last item and end normally instead.
+                channel.Writer.TryWrite(new ServiceEventDto("StreamError", null, null, 0, false, false, error.Message));
+                channel.Writer.TryComplete();
+            },
             () => channel.Writer.TryComplete());
 
         await foreach (var dto in channel.Reader.ReadAllAsync(ct))

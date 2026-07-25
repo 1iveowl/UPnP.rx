@@ -1,3 +1,4 @@
+@using System.Reactive.Linq
 @using Sample.Dashboard.Client.Models
 @using Sample.Dashboard.Client.Services
 @inject DeviceStreamClient Stream
@@ -122,6 +123,22 @@
     private readonly Dictionary<string, ServiceDetailDto> _details = [];
     private readonly Dictionary<string, IDisposable> _watching = [];
     private readonly Dictionary<string, List<ServiceEventDto>> _liveEvents = [];
+    private IDisposable? _rescanSubscription;
+
+    protected override void OnInitialized() =>
+        _rescanSubscription = Stream.Rescanning
+            .Where(rescanning => rescanning)
+            .Subscribe(_ =>
+            {
+                // A rescan is rebuilding the roster: these services are already
+                // gone server-side, so every live watch ends now (the last
+                // watcher's disposal sends UNSUBSCRIBE on the device). The
+                // grayed card stays visible until fresh devices arrive.
+                foreach (var key in _watching.Keys.ToArray())
+                {
+                    StopWatching(key);
+                }
+            });
 
     private void ToggleWatch(string serviceKey, string serviceType)
     {
@@ -182,6 +199,8 @@
 
     public void Dispose()
     {
+        _rescanSubscription?.Dispose();
+
         foreach (var subscription in _watching.Values)
         {
             subscription.Dispose();

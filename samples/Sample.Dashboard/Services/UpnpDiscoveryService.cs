@@ -119,8 +119,9 @@ public sealed class UpnpDiscoveryService(
     /// with an unchanged BOOTID after a byebye - either way the long-lived
     /// subscription's dedup swallows every later announcement. A rescan swaps
     /// in a fresh pipeline (fresh M-SEARCH, fresh dedup state); the RosterReset
-    /// broadcast tells every client to drop its cards, which ends their live
-    /// watches through component disposal (UNSUBSCRIBE on device).
+    /// broadcast puts every client into rescan mode: live watches end at once
+    /// (UNSUBSCRIBE on device), stale cards stay grayed until the first fresh
+    /// device arrives, then the list resets and rebuilds.
     /// </summary>
     public async Task RescanAsync()
     {

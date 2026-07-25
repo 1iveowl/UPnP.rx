@@ -20,8 +20,8 @@ public sealed class DeviceHub(
     /// Clears the roster and searches the network afresh. Restarting the
     /// discovery subscription resets its per-subscription dedup, so devices
     /// swallowed by a failed describe or a same-BOOTID re-announcement come
-    /// back; the RosterReset broadcast makes every client drop its cards,
-    /// which ends their live watches (UNSUBSCRIBE via component disposal).
+    /// back; the RosterReset broadcast puts every client into rescan mode
+    /// (live watches end at once, stale cards gray out until fresh ones land).
     /// </summary>
     public Task Rescan() => discovery.RescanAsync();
 

@@ -21,7 +21,8 @@
             <FluentBadge>@ViewModel!.Status</FluentBadge>
             <div class="dash-tools">
                 <FluentButton Appearance="Appearance.Outline"
-                              Title="Clear the list and search the network again - ends all live watches"
+                              Title="Search the network again - ends all live watches; the list resets when fresh devices answer"
+                              Disabled="@_rescanning"
                               OnClick="@RescanAsync">
                     <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.ArrowClockwise())" Slot="start" />
                     Rescan
@@ -34,7 +35,15 @@
             </div>
         </div>
 
-        @if (ViewModel!.Count == 0)
+        @if (_rescanning)
+        {
+            <FluentStack VerticalAlignment="VerticalAlignment.Center" HorizontalGap="12" Style="margin-bottom: 0.75rem;">
+                <FluentProgressRing Style="width: 20px; height: 20px;" />
+                <FluentLabel>Rescanning… the list resets as soon as the first device answers the new search.</FluentLabel>
+            </FluentStack>
+        }
+
+        @if (ViewModel!.Count == 0 && !_rescanning)
         {
             <FluentStack VerticalAlignment="VerticalAlignment.Center" HorizontalGap="12">
                 <FluentProgressRing />
@@ -63,7 +72,9 @@ net start SSDPSRV</pre>
 
         @foreach (var device in ViewModel!.Devices.ToArray())
         {
-            <div class="device-card">
+            @* Grayed + inert while rescanning: the cards are yesterday's list,
+               kept on screen only until the first fresh device replaces them. *@
+            <div class="device-card @(_rescanning ? "stale" : "")">
                 <div class="device-head" @onclick="() => Toggle(device.Key)">
                     <span class="chev">@(_open.Contains(device.Key) ? "▾" : "▸")</span>
                     <div>
@@ -112,6 +123,8 @@ net start SSDPSRV</pre>
 
 @code {
     private readonly HashSet<string> _open = [];
+    private bool _rescanning;
+    private IDisposable? _rescanSubscription;
 
     private void Toggle(string key)
     {
@@ -121,11 +134,9 @@ net start SSDPSRV</pre>
         }
     }
 
-    private async Task RescanAsync()
-    {
-        _open.Clear();                   // the cards are going away; stale keys with them
-        await Stream.RescanAsync();
-    }
+    // Open-state survives the rescan on purpose: a device that answers the new
+    // search keeps its key, so its card comes back the way the user left it.
+    private Task RescanAsync() => Stream.RescanAsync();
 
     // Devices occasionally serve a description without a friendlyName (seen on
     // Sonos mid-boot) - fall back to something identifying rather than "(unnamed)".
@@ -143,11 +154,21 @@ net start SSDPSRV</pre>
 
     protected override async Task OnInitializedAsync()
     {
+        _rescanSubscription = Stream.Rescanning.Subscribe(rescanning =>
+        {
+            _rescanning = rescanning;
+            _ = InvokeAsync(StateHasChanged);
+        });
+
         await Stream.StartAsync();
         await base.OnInitializedAsync();
     }
 
     // The base class cannot be shown to dispose the injected (transient) view
     // model; dispose it explicitly or its cache subscriptions outlive the page.
-    void IDisposable.Dispose() => ViewModel?.Dispose();
+    void IDisposable.Dispose()
+    {
+        _rescanSubscription?.Dispose();
+        ViewModel?.Dispose();
+    }
 }

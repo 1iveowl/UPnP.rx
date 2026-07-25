@@ -1,3 +1,4 @@
+using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using DynamicData;
@@ -18,7 +19,9 @@ public sealed class DeviceStreamClient : IAsyncDisposable
     private readonly HubConnection _connection;
     private readonly SourceCache<DeviceDto, string> _cache = new(d => d.Key);
     private readonly BehaviorSubject<string> _state = new("connecting…");
+    private readonly BehaviorSubject<bool> _rescanning = new(false);
     private readonly Subject<LeaseEventDto> _leaseEvents = new();
+    private IDisposable? _rescanFallback;
 
     public DeviceStreamClient(NavigationManager navigation)
     {
@@ -29,12 +32,41 @@ public sealed class DeviceStreamClient : IAsyncDisposable
             .WithAutomaticReconnect()
             .Build();
 
-        _connection.On<DeviceDto>(HubEvents.DeviceUp, dto => _cache.AddOrUpdate(dto));
+        _connection.On<DeviceDto>(HubEvents.DeviceUp, dto =>
+        {
+            // The first fresh device after a rescan is the reset moment: the
+            // grayed stale list goes, the new one starts building.
+            if (_rescanning.Value)
+            {
+                _rescanFallback?.Dispose();
+                _cache.Clear();
+                _rescanning.OnNext(false);
+            }
+
+            _cache.AddOrUpdate(dto);
+        });
         _connection.On<string>(HubEvents.DeviceGone, key => _cache.RemoveKey(key));
         _connection.On<LeaseEventDto>(HubEvents.LeaseEvent, e => _leaseEvents.OnNext(e));
-        // A rescan (from any client) resets the roster: dropping the cache
-        // unmounts every device card, whose disposal ends its live watches.
-        _connection.On(HubEvents.RosterReset, () => _cache.Clear());
+        // A rescan (from any client) resets the roster. The stale cards stay
+        // up - grayed via Rescanning - until the first fresh device arrives;
+        // watch subscriptions end right away (DeviceNode observes Rescanning).
+        _connection.On(HubEvents.RosterReset, () =>
+        {
+            _rescanning.OnNext(true);
+            _rescanFallback?.Dispose();
+            _rescanFallback = Observable
+                .Timer(TimeSpan.FromSeconds(10), DefaultScheduler.Instance)
+                .Subscribe(_ =>
+                {
+                    // Nothing answered the new search: stale cards would only
+                    // mislead - clear anyway and fall back to the empty state.
+                    if (_rescanning.Value)
+                    {
+                        _cache.Clear();
+                        _rescanning.OnNext(false);
+                    }
+                });
+        });
 
         _connection.Reconnecting += _ =>
         {
@@ -59,6 +91,13 @@ public sealed class DeviceStreamClient : IAsyncDisposable
 
     /// <summary>Connection state as a stream: connecting… / live / reconnecting… / disconnected.</summary>
     public IObservable<string> State => _state.AsObservable();
+
+    /// <summary>
+    /// True from a rescan's RosterReset until the first fresh device arrives
+    /// (or a 10 s fallback fires on a silent network). The page grays the stale
+    /// cards; device nodes end their live watches on the rising edge.
+    /// </summary>
+    public IObservable<bool> Rescanning => _rescanning.AsObservable();
 
     /// <summary>Renewal-lifecycle events from server-held leases, live from the hub.</summary>
     public IObservable<LeaseEventDto> LeaseEvents => _leaseEvents.AsObservable();
@@ -85,9 +124,10 @@ public sealed class DeviceStreamClient : IAsyncDisposable
         InvokeAsync<string?>(HubEvents.RefreshDevice, "Not connected to the server.", key);
 
     /// <summary>
-    /// Clears the server roster and searches the network afresh. Every client's
-    /// cards drop via the RosterReset broadcast, ending all live watches;
-    /// devices repopulate live as they answer the new search.
+    /// Clears the server roster and searches the network afresh. Every client
+    /// enters rescan mode via the RosterReset broadcast: live watches end at
+    /// once, stale cards stay grayed, and the list resets when the first fresh
+    /// device answers.
     /// </summary>
     public async Task RescanAsync()
     {
@@ -199,6 +239,8 @@ public sealed class DeviceStreamClient : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await _connection.DisposeAsync();
+        _rescanFallback?.Dispose();
+        _rescanning.Dispose();
         _state.Dispose();
         _leaseEvents.Dispose();
         Devices.Dispose();

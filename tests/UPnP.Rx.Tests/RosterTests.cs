@@ -255,6 +255,16 @@ public class RosterTests
     }
 
     [Fact]
+    public async Task SearchAsync_Solicits_WithoutAnySubscription()
+    {
+        using var client = CreateClient();
+
+        await client.SearchAsync(ct: TestContext.Current.CancellationToken);
+
+        Assert.Single(_controlPoint.SentSearches);
+    }
+
+    [Fact]
     public void SubscribeAfterClientDisposal_CompletesImmediately()
     {
         var client = CreateClient();

@@ -39,6 +39,9 @@ public static class HubEvents
     /// <summary>Hub RPC: invoke a SOAP action (deviceKey, udn, serviceType, actionName, args); returns <see cref="InvokeResultDto"/>.</summary>
     public const string InvokeAction = "InvokeAction";
 
+    /// <summary>Hub RPC: send one M-SEARCH burst - solicit responses without resetting anything.</summary>
+    public const string Probe = "Probe";
+
     /// <summary>Hub RPC: clear the roster and search the network afresh (resets discovery dedup state).</summary>
     public const string Rescan = "Rescan";
 

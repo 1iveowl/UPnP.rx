@@ -123,7 +123,7 @@ internal sealed class RosterSource : IObservable<RosterChange>
 
             try
             {
-                await _client.SendRosterSearchAsync(ct).ConfigureAwait(false);
+                await _client.SearchAsync(ct: ct).ConfigureAwait(false);
             }
             catch (Exception e) when (e is not OperationCanceledException)
             {

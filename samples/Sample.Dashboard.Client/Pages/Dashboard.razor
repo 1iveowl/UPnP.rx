@@ -177,10 +177,15 @@ net start SSDPSRV</pre>
                         }
                         else
                         {
-                            <div class="muted">
+                            <div class="muted activity-empty">
                                 Waiting for traffic - devices re-announce every few minutes
-                                (half their max-age), and the log is live-only. Rescan
-                                solicits fresh responses from everyone now.
+                                (half their max-age), and the log is live-only.
+                                <FluentButton Appearance="Appearance.Outline"
+                                              Title="Send one M-SEARCH - devices answer within seconds; nothing is reset"
+                                              OnClick="@(() => Stream.ProbeAsync())">
+                                    Solicit responses now
+                                </FluentButton>
+                                <span>(The page-level Rescan also resets the whole list; this only asks.)</span>
                             </div>
                         }
                     </div>

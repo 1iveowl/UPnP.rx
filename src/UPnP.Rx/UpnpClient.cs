@@ -371,9 +371,24 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
             .Where(item => item.Device is not null)
             .Select(item => (item.Kind, item.Device!, item.MaxAge));
 
-    /// <summary>The roster engine's opening sweep - the default search on every interface.</summary>
-    internal Task SendRosterSearchAsync(CancellationToken ct) =>
-        SendSearchesAsync(_options.DefaultSearchTarget, _options.DefaultMx, ct);
+    /// <summary>
+    /// Sends one M-SEARCH burst on every configured interface without
+    /// subscribing anything: a solicitation. Answers arrive on whatever
+    /// streams are observing - <see cref="Roster"/>, <see cref="Announcements"/>,
+    /// active <see cref="DiscoverDevices"/> subscriptions. Does nothing when
+    /// the client has no addresses. (The roster engine uses this for its
+    /// opening sweep; consumers use it to refresh presence or populate an
+    /// activity log on demand, without the reset a re-subscription implies.)
+    /// </summary>
+    /// <param name="searchTarget">The search target; the options' default when null.</param>
+    /// <param name="mx">Maximum device response delay; the options' default when null.</param>
+    /// <param name="ct">Cancels the sends.</param>
+    /// <exception cref="UpnpException">Sending failed on every interface.</exception>
+    public Task SearchAsync(ST? searchTarget = null, TimeSpan? mx = null, CancellationToken ct = default)
+    {
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        return SendSearchesAsync(searchTarget ?? _options.DefaultSearchTarget, mx ?? _options.DefaultMx, ct);
+    }
 
     /// <summary>
     /// What the description cache knows about <paramref name="location"/>:

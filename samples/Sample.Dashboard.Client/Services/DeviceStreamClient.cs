@@ -168,6 +168,24 @@ public sealed class DeviceStreamClient : IAsyncDisposable
     public Task<string?> RefreshDeviceAsync(string key) =>
         InvokeAsync<string?>(HubEvents.RefreshDevice, "Not connected to the server.", key);
 
+    /// <summary>Sends one M-SEARCH burst - populates activity logs and refreshes presence without resetting anything.</summary>
+    public async Task ProbeAsync()
+    {
+        if (_connection.State is not HubConnectionState.Connected)
+        {
+            return;
+        }
+
+        try
+        {
+            await _connection.InvokeAsync(HubEvents.Probe);
+        }
+        catch (Exception)
+        {
+            // Silence is acceptable: the log staying empty is the signal.
+        }
+    }
+
     /// <summary>
     /// Clears the server roster and searches the network afresh. Every client
     /// enters rescan mode via the RosterReset broadcast: live watches end at

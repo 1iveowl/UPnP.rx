@@ -327,6 +327,13 @@ a {
     overflow-y: auto;
 }
 
+.activity-empty {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
 .activity-detail {
     margin: 2px 0 6px 1.2rem;
     padding: 6px 10px;

@@ -27,6 +27,13 @@ public sealed class DeviceHub(
     public Task Rescan() => discovery.RescanAsync();
 
     /// <summary>
+    /// One M-SEARCH burst, nothing reset: devices answer within MX seconds and
+    /// the responses flow into the roster and the activity logs. The light
+    /// sibling of <see cref="Rescan"/>.
+    /// </summary>
+    public Task Probe() => network.Client?.SearchAsync(ct: Context.ConnectionAborted) ?? Task.CompletedTask;
+
+    /// <summary>
     /// Drops the cached description and re-reads the device on demand - the
     /// per-device manual heal beside the roster's automatic one (which only
     /// re-describes after the cached TTL lapses).

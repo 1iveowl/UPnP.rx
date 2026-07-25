@@ -5,6 +5,7 @@ using System.Reactive.Linq;
 using DynamicData;
 using DynamicData.Binding;
 using ReactiveUI;
+using ReactiveUI.SourceGenerators;
 using Sample.Dashboard.Client.Models;
 using Sample.Dashboard.Client.Services;
 
@@ -17,7 +18,7 @@ namespace Sample.Dashboard.Client.ViewModels;
 /// <see cref="Revision"/>, whose property change notification re-renders the
 /// component - adds, removals, in-place updates and filter changes alike.
 /// </summary>
-public sealed class DashboardViewModel : ReactiveObject, IDisposable
+public sealed partial class DashboardViewModel : ReactiveObject, IDisposable
 {
     private readonly CompositeDisposable _cleanup = [];
     private readonly ReadOnlyObservableCollection<DeviceDto> _devices;
@@ -25,6 +26,9 @@ public sealed class DashboardViewModel : ReactiveObject, IDisposable
     private readonly ObservableAsPropertyHelper<int> _revision;
     private readonly ObservableAsPropertyHelper<string> _status;
     private readonly ObservableAsPropertyHelper<bool> _showHints;
+
+    /// <summary>Search text; filters by name, manufacturer or device type (property source-generated).</summary>
+    [Reactive]
     private string _filter = string.Empty;
 
     public DashboardViewModel(DeviceStreamClient client)
@@ -88,13 +92,6 @@ public sealed class DashboardViewModel : ReactiveObject, IDisposable
 
     /// <summary>True when the network has stayed empty for ~5 s - shows the troubleshooting hints.</summary>
     public bool ShowHints => _showHints.Value;
-
-    /// <summary>Search text; filters by name, manufacturer or device type.</summary>
-    public string Filter
-    {
-        get => _filter;
-        set => this.RaiseAndSetIfChanged(ref _filter, value);
-    }
 
     public void Dispose() => _cleanup.Dispose();
 }

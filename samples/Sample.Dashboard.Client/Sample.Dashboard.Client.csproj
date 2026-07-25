@@ -17,6 +17,7 @@
     <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" Version="4.14.3" />
     <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components.Icons" Version="4.14.3" />
     <PackageReference Include="ReactiveUI.Blazor" Version="23.2.28" />
+    <PackageReference Include="ReactiveUI.SourceGenerators" Version="3.1.0" PrivateAssets="all" />
   </ItemGroup>
 
   <!-- ReactiveUI/Splat register services via reflection; keep the IL trimmer

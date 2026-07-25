@@ -5,6 +5,7 @@ using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using DynamicData;
 using ReactiveUI;
+using ReactiveUI.SourceGenerators;
 using Sample.Dashboard.Client.Models;
 using Sample.Dashboard.Client.Services;
 
@@ -15,7 +16,7 @@ namespace Sample.Dashboard.Client.ViewModels;
 /// OAPHs for everything the view renders, and a DynamicData-bound live feed of
 /// lease renewal events streaming from the server-held leases.
 /// </summary>
-public sealed class PortMappingViewModel : ReactiveObject, IDisposable
+public sealed partial class PortMappingViewModel : ReactiveObject, IDisposable
 {
     private const int MaxEventRows = 25;
 
@@ -27,11 +28,33 @@ public sealed class PortMappingViewModel : ReactiveObject, IDisposable
     private readonly ObservableAsPropertyHelper<bool> _isBusy;
     private readonly ObservableAsPropertyHelper<bool> _canAdd;
     private readonly ObservableAsPropertyHelper<int> _eventsRevision;
+
+    // Settable form state: properties are source-generated ([Reactive], review
+    // RUI-7). OAPHs and commands stay hand-written on purpose - the command
+    // outputScheduler must be explicit on WASM (Rx 7 scheduler defect), and
+    // the OAPH pipelines document themselves better in full.
+    /// <summary>The last add/delete error from the server, or null.</summary>
+    [Reactive(SetModifier = AccessModifier.Private)]
     private string? _lastError;
+
+    /// <summary>WAN-side port for the new mapping.</summary>
+    [Reactive]
     private ushort _externalPort = 18080;
+
+    /// <summary>LAN-side port for the new mapping.</summary>
+    [Reactive]
     private ushort _internalPort = 18080;
+
+    /// <summary>TCP or UDP.</summary>
+    [Reactive]
     private string _protocol = "TCP";
+
+    /// <summary>Description stored on the gateway.</summary>
+    [Reactive]
     private string _description = "";
+
+    /// <summary>Lease length in minutes (auto-renewed at half-life by the server).</summary>
+    [Reactive]
     private int _leaseMinutes = 60;
 
     // System.Reactive 7's WASM scheduler enlightenment rejects the .NET 10
@@ -74,6 +97,14 @@ public sealed class PortMappingViewModel : ReactiveObject, IDisposable
         _cleanup.Add(AddCommand.Merge(DeleteCommand)
             .Select(_ => Unit.Default)
             .InvokeCommand(LoadCommand));
+
+        // Review RUI-3: no command body throws today (they catch and return
+        // error strings), but an unobserved ReactiveCommand exception crashes
+        // the default handler - keep the class of failure closed.
+        _cleanup.Add(LoadCommand.ThrownExceptions
+            .Merge(AddCommand.ThrownExceptions)
+            .Merge(DeleteCommand.ThrownExceptions)
+            .Subscribe(e => LastError = e.Message));
 
         _isBusy = LoadCommand.IsExecuting
             .CombineLatest(AddCommand.IsExecuting, DeleteCommand.IsExecuting, (a, b, c) => a || b || c)
@@ -126,48 +157,6 @@ public sealed class PortMappingViewModel : ReactiveObject, IDisposable
 
     /// <summary>Whether the add form is valid.</summary>
     public bool CanAdd => _canAdd.Value;
-
-    /// <summary>The last add/delete error from the server, or null.</summary>
-    public string? LastError
-    {
-        get => _lastError;
-        private set => this.RaiseAndSetIfChanged(ref _lastError, value);
-    }
-
-    /// <summary>WAN-side port for the new mapping.</summary>
-    public ushort ExternalPort
-    {
-        get => _externalPort;
-        set => this.RaiseAndSetIfChanged(ref _externalPort, value);
-    }
-
-    /// <summary>LAN-side port for the new mapping.</summary>
-    public ushort InternalPort
-    {
-        get => _internalPort;
-        set => this.RaiseAndSetIfChanged(ref _internalPort, value);
-    }
-
-    /// <summary>TCP or UDP.</summary>
-    public string Protocol
-    {
-        get => _protocol;
-        set => this.RaiseAndSetIfChanged(ref _protocol, value);
-    }
-
-    /// <summary>Description stored on the gateway.</summary>
-    public string Description
-    {
-        get => _description;
-        set => this.RaiseAndSetIfChanged(ref _description, value);
-    }
-
-    /// <summary>Lease length in minutes (auto-renewed at half-life by the server).</summary>
-    public int LeaseMinutes
-    {
-        get => _leaseMinutes;
-        set => this.RaiseAndSetIfChanged(ref _leaseMinutes, value);
-    }
 
     public void Dispose() => _cleanup.Dispose();
 }

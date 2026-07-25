@@ -3,7 +3,10 @@
 Scope, as requested by the author: (A) verify the house Rx rules against what Rx 7.0.0
 actually is; (B) line-by-line Rx correctness and concurrency review of the library;
 (C) the samples' Rx (server + WASM client); (D) ReactiveUI usage and version currency.
-**Findings only - nothing below is implemented.** Each finding carries a verdict and a
+**Outcome (2026-07-25): author approved the full list; §G items 1-6 implemented same day
+(RUI-6 recorded as plan §8 item 8; RUI-7 adopted for settable properties - OAPHs and
+commands deliberately stay manual, see §8 item 8).**
+**Findings only at review time - implementation followed sign-off.** Each finding carries a verdict and a
 proposed action; §F collects the upstream issues and reflections; §G is the ranked
 implementation list awaiting author sign-off.
 

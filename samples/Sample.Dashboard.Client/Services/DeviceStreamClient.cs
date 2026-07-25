@@ -13,6 +13,11 @@ namespace Sample.Dashboard.Client.Services;
 /// feed a DynamicData cache keyed by device identity. No sockets in the
 /// browser - the server does the listening. Mutation stays private; consumers
 /// get read-only views.
+/// Serialization assumption (review RX-7): subjects and caches here are only
+/// mutated from SignalR callbacks - dispatched sequentially per connection -
+/// on Blazor WASM's single thread. Porting this class to Blazor Server means
+/// multiple dispatch contexts: wrap the mutations (Observable.Synchronize /
+/// Subject.Synchronize) before reusing it there.
 /// </summary>
 public sealed class DeviceStreamClient : IAsyncDisposable
 {

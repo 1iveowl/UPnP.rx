@@ -150,8 +150,11 @@ Original questions preserved below.
 LastChange fixtures synthetic-but-faithful pending author captures). §2.3 outcomes: typed
 SOAP conversions stay deferred (the quick controls were comfortable with strings), RX-6's
 64-event hub cap recorded as accepted sample-grade behavior, trim/AOT declared and
-analyzer-clean. R7 awaits the author's hardware validation (quick controls + action forms
-against real Sonos; capture LastChange fixtures while at it) and the release go.**
+analyzer-clean. "Service enumeration by type" from §2.3 is DROPPED, recorded: `Services`
+is already public and the filter is one consumer-side LINQ line - `TryService` was the
+ergonomic that mattered. R7 awaits the author's hardware validation (quick controls +
+action forms against real Sonos; capture LastChange fixtures while at it) and the
+release go.**
 
 | Phase | Deliverable |
 |---|---|

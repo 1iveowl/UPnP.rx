@@ -20,7 +20,8 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 | R1 | 4.1.0 roster: `RosterChange` union, expiry on TimeProvider, replay, Q2 self-heal (on `dev/4.1.0`) | ✅ done |
 | R2-R5 | Dashboard rides the roster; typed `LastChange` (`Eventing.Av`); generic action invocation; AV quick controls | ✅ done |
 | R6 | `TryService`, trim/AOT declarations, README | ✅ done |
-| — | `Announcements()` device activity timeline (library + dashboard per-card feed) | ✅ done |
+| — | `Announcements()` device activity timeline (library + dashboard per-card feed, expandable rows, counter) | ✅ done |
+| — | `SearchAsync()` solicitation (+ dashboard Probe/'Solicit responses now'); memory audit + SoakTests (three accumulations fixed) | ✅ done |
 | R7 | 4.1.0 release (author: hardware validation, branch/tag/publish) | ⏳ author |
 
 ## Tree (current)
@@ -62,6 +63,11 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 │   │   │                          #   DisposeAsync=delete, Dispose=abrupt (lease expires on router)
 │   │   ├── PortMappingEntry.cs, Protocol.cs   # (Entry avoids namespace/type collision)
 │   │   └── IInternetGateway.cs, IPortMappingLease.cs, ConnectionStatusInfo.cs
+│   ├── Roster/                # UPnP.Rx.Roster (4.1): RosterChange union + RosterSource engine
+│   │                          #   (presence, max-age expiry, replay, lazy self-heal)
+│   ├── Announcement.cs        # Announcements(): kind-tagged parsed-envelope activity feed
+│   ├── Eventing/Av/           # UPnP.Rx.Eventing.Av (4.1): LastChangeParser, AvPropertyChange,
+│   │                          #   SelectAvChanges() — AV LastChange payload decoding
 │   ├── Eventing/              # UPnP.Rx.Eventing — GENA (4.0): UpnpEvent union, GenaHeaders,
 │   │                          #   GenaParser (pure), EventCallbackListener (NOTIFY routing,
 │   │                          #   200/412), IGenaTransport + HttpGenaTransport,

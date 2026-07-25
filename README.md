@@ -66,6 +66,22 @@ net start SSDPSRV    &REM resume when done
 
 More gotchas under [Troubleshooting](#troubleshooting).
 
+## Ever wondered what UPnP devices are on your network?
+
+The dashboard sample answers it live: every device on your LAN, unfolded down
+to its services and actions. Watch a Sonos change state in real time, drag its
+volume from the browser, follow the SSDP chatter per device - or invoke any
+action its SCPD declares, with a form generated from the spec itself:
+
+```bash
+dotnet run --project samples/Sample.Dashboard      # on the host, then open http://localhost:5287
+```
+
+![The dashboard: a Sonos Five unfolded - live eventing, transport controls and 42 invocable actions](https://raw.githubusercontent.com/1iveowl/UPnP.rx/main/.attachments/README/image-20260725185149400.png)
+
+*Blazor WebAssembly + FluentUI + ReactiveUI, light and dark - and everything in
+it is built on the library's public API.*
+
 ## Quick start - port mapping
 
 ```csharp

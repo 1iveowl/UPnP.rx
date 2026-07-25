@@ -115,8 +115,12 @@ plus a curated thin veneer for exactly two services.**
   point - "re-decide at the roster work, which reshapes the view models" - is now (Q6).
   Recommendation: stay on ReactiveUI; the 4.0 review verified the setup current and
   correct, and the source-generator adoption removed most boilerplate arguments.
-- **SSDP message log** (dashboard idea) - still blocked on the author's intent (Q5);
-  needs a raw-announcement tap the library deliberately does not expose today.
+- **SSDP message log** (Q5) - resolved 2026-07-25 by splitting the intent: the **device
+  activity timeline** shipped (library `Announcements()` - parsed envelopes,
+  undeduplicated, kind-tagged, clock-stamped, passive and live-only; dashboard shows a
+  capped per-card feed). The **raw wire log** stays deferred and, per the author, belongs
+  upstream anyway (raw headers live in SimpleHttpListener.Rx's layer) - an upstream
+  feature candidate for whenever it is wanted.
 - README screenshot/GIF from a real network (author's step, any time).
 
 ## 5. Open questions for the author - ANSWERED (2026-07-25)

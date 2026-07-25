@@ -71,6 +71,7 @@ public sealed class UpnpDiscoveryService(
 {
     private readonly Subject<Unit> _rescans = new();
     private IDisposable? _rescanLoop;
+    private IDisposable? _activity;
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
@@ -88,6 +89,20 @@ public sealed class UpnpDiscoveryService(
         // restarts from a clean slate with a fresh M-SEARCH, which is exactly
         // rescan semantics. Synchronize serializes requests from concurrent hub
         // connections.
+        // The activity timeline runs beside the roster and survives rescans on
+        // purpose - a rescan's M-SEARCH burst is exactly the traffic to show.
+        _activity = network.Client.Announcements()
+            .SelectMany(announcement => Observable
+                .FromAsync(ct => hub.Clients.All.SendAsync(HubEvents.SsdpActivity, ToActivityDto(announcement), ct))
+                .Catch((Exception e) =>
+                {
+                    logger.LogDebug(e, "Broadcasting an SSDP activity row failed.");
+                    return Observable.Empty<Unit>();
+                }))
+            .Subscribe(
+                _ => { },
+                e => logger.LogError(e, "The SSDP activity stream terminated."));
+
         _rescanLoop = _rescans
             .Synchronize()
             .StartWith(Unit.Default)
@@ -174,9 +189,19 @@ public sealed class UpnpDiscoveryService(
         }
     }
 
+    private static SsdpActivityDto ToActivityDto(Announcement announcement) => new(
+        announcement.Kind.ToString(),
+        announcement.Device.Usn?.DeviceUUID is { Length: > 0 } uuid
+            ? DtoMapper.NormalizeKey($"uuid:{uuid}")
+            : DtoMapper.NormalizeKey(announcement.Device.Location?.ToString() ?? "?"),
+        announcement.Device.BootId,
+        (int)announcement.MaxAge.TotalSeconds,
+        announcement.Seen);
+
     public Task StopAsync(CancellationToken cancellationToken)
     {
         _rescanLoop?.Dispose();
+        _activity?.Dispose();
         // The rescan subject is not disposed abruptly: a straggling hub call
         // may still OnNext, which is a harmless no-op on an undisposed subject.
         // The client belongs to NetworkClientProvider; DI disposes it.

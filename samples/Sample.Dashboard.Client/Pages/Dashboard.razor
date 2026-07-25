@@ -128,6 +128,24 @@ net start SSDPSRV</pre>
                             <dd><a href="@device.Location" target="_blank">@device.Location</a></dd>
                         </dl>
                         <DeviceNode Node="device.Root" DeviceKey="@device.Key" />
+
+                        @if (Stream.ActivityFor(device.Key) is { Count: > 0 } activity)
+                        {
+                            <div class="svc-section">SSDP activity</div>
+                            <div class="activity-feed">
+                                @foreach (var row in activity)
+                                {
+                                    <div class="svc-row">
+                                        <span class="muted">@row.Seen.ToLocalTime().ToString("HH:mm:ss")</span>
+                                        <span class="svc-name">@ActivityLabel(row.Kind)</span>
+                                        @if (row.Kind != "ByeBye")
+                                        {
+                                            <span class="muted">BOOTID @row.BootId@(row.MaxAgeSeconds > 0 ? $", max-age {row.MaxAgeSeconds}" : "")</span>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
                     </div>
                 }
             </div>
@@ -145,6 +163,14 @@ net start SSDPSRV</pre>
     private readonly HashSet<string> _open = [];
     private bool _rescanning;
     private IDisposable? _rescanSubscription;
+    private IDisposable? _activitySubscription;
+
+    private static string ActivityLabel(string kind) => kind switch
+    {
+        "SearchResponse" => "search response",
+        "ByeBye" => "byebye",
+        _ => "alive"
+    };
 
     private void Toggle(string key)
     {
@@ -216,6 +242,15 @@ net start SSDPSRV</pre>
             _ = InvokeAsync(StateHasChanged);
         });
 
+        // Re-render when activity arrives for a card the user has open.
+        _activitySubscription = Stream.SsdpActivity.Subscribe(row =>
+        {
+            if (_open.Contains(row.DeviceKey))
+            {
+                _ = InvokeAsync(StateHasChanged);
+            }
+        });
+
         await Stream.StartAsync();
         await base.OnInitializedAsync();
     }
@@ -225,6 +260,7 @@ net start SSDPSRV</pre>
     void IDisposable.Dispose()
     {
         _rescanSubscription?.Dispose();
+        _activitySubscription?.Dispose();
         _checkmarkTimers.Dispose();
         ViewModel?.Dispose();
     }

@@ -42,6 +42,9 @@ public static class HubEvents
     /// <summary>Hub RPC: clear the roster and search the network afresh (resets discovery dedup state).</summary>
     public const string Rescan = "Rescan";
 
+    /// <summary>Broadcast: one SSDP envelope for the device activity timeline; payload <see cref="SsdpActivityDto"/>.</summary>
+    public const string SsdpActivity = "SsdpActivity";
+
     /// <summary>Broadcast: a rescan reset the roster - clients enter rescan mode (stale cards grayed, live watches ended) and reset their list when the first fresh device arrives.</summary>
     public const string RosterReset = "RosterReset";
 }

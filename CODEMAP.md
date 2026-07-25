@@ -20,6 +20,7 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 | R1 | 4.1.0 roster: `RosterChange` union, expiry on TimeProvider, replay, Q2 self-heal (on `dev/4.1.0`) | ✅ done |
 | R2-R5 | Dashboard rides the roster; typed `LastChange` (`Eventing.Av`); generic action invocation; AV quick controls | ✅ done |
 | R6 | `TryService`, trim/AOT declarations, README | ✅ done |
+| — | `Announcements()` device activity timeline (library + dashboard per-card feed) | ✅ done |
 | R7 | 4.1.0 release (author: hardware validation, branch/tag/publish) | ⏳ author |
 
 ## Tree (current)

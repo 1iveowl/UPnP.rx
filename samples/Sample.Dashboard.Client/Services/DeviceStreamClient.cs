@@ -26,6 +26,9 @@ public sealed class DeviceStreamClient : IAsyncDisposable
     private readonly BehaviorSubject<string> _state = new("connecting…");
     private readonly BehaviorSubject<bool> _rescanning = new(false);
     private readonly Subject<LeaseEventDto> _leaseEvents = new();
+    private readonly Subject<SsdpActivityDto> _ssdpActivity = new();
+    private readonly Dictionary<string, List<SsdpActivityDto>> _activity = [];
+    private const int _maxActivityRows = 20;
     private IDisposable? _rescanFallback;
 
     public DeviceStreamClient(NavigationManager navigation)
@@ -52,6 +55,24 @@ public sealed class DeviceStreamClient : IAsyncDisposable
         });
         _connection.On<string>(HubEvents.DeviceGone, key => _cache.RemoveKey(key));
         _connection.On<LeaseEventDto>(HubEvents.LeaseEvent, e => _leaseEvents.OnNext(e));
+        _connection.On<SsdpActivityDto>(HubEvents.SsdpActivity, dto =>
+        {
+            // Newest-first, capped per device; live-only (a fresh page starts
+            // empty until traffic arrives - retention is deliberately client-side).
+            if (!_activity.TryGetValue(dto.DeviceKey, out var rows))
+            {
+                _activity[dto.DeviceKey] = rows = [];
+            }
+
+            rows.Insert(0, dto);
+
+            if (rows.Count > _maxActivityRows)
+            {
+                rows.RemoveAt(rows.Count - 1);
+            }
+
+            _ssdpActivity.OnNext(dto);
+        });
         // A rescan (from any client) resets the roster. The stale cards stay
         // up - grayed via Rescanning - until the first fresh device arrives;
         // watch subscriptions end right away (DeviceNode observes Rescanning).
@@ -106,6 +127,13 @@ public sealed class DeviceStreamClient : IAsyncDisposable
 
     /// <summary>Renewal-lifecycle events from server-held leases, live from the hub.</summary>
     public IObservable<LeaseEventDto> LeaseEvents => _leaseEvents.AsObservable();
+
+    /// <summary>Each SSDP activity row as it arrives - subscribe to re-render open timelines.</summary>
+    public IObservable<SsdpActivityDto> SsdpActivity => _ssdpActivity.AsObservable();
+
+    /// <summary>The capped, newest-first activity timeline for one device.</summary>
+    public IReadOnlyList<SsdpActivityDto> ActivityFor(string deviceKey) =>
+        _activity.TryGetValue(deviceKey, out var rows) ? rows : [];
 
     /// <summary>The gateway's identity + WAN state, or null when none was found (or not connected).</summary>
     public Task<GatewayDto?> GetGatewayInfoAsync() =>
@@ -252,6 +280,7 @@ public sealed class DeviceStreamClient : IAsyncDisposable
     {
         await _connection.DisposeAsync();
         _rescanFallback?.Dispose();
+        _ssdpActivity.Dispose();
         _rescanning.Dispose();
         _state.Dispose();
         _leaseEvents.Dispose();

@@ -321,6 +321,12 @@ a {
     margin-bottom: 6px;
 }
 
+.activity-feed {
+    font-size: 0.8rem;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
 .quick-controls {
     display: inline-flex;
     align-items: center;

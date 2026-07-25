@@ -266,7 +266,17 @@ public sealed class DeviceHub(
         }
         catch (UpnpActionException e)
         {
-            return new InvokeResultDto([], $"The device refused: UPnP error {e.Error.Code} ({e.Error.Description ?? "no description"}).");
+            // When the device sends no errorDescription, at least say what the
+            // code's range means (UDA 2.0 error-code table).
+            var description = e.Error.Description ?? e.Error.Code switch
+            {
+                >= 600 and <= 699 => "no description; 600-699 is the UPnP common action error range",
+                >= 700 and <= 799 => "no description; 700-799 is defined by the service's own spec",
+                >= 800 and <= 899 => "no description; 800-899 is the vendor-specific range - the device refuses without saying why",
+                _ => "no description"
+            };
+
+            return new InvokeResultDto([], $"The device refused: UPnP error {e.Error.Code} ({description}).");
         }
         catch (UpnpException e)
         {

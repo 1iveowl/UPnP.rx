@@ -119,7 +119,12 @@ plus a curated thin veneer for exactly two services.**
   needs a raw-announcement tap the library deliberately does not expose today.
 - README screenshot/GIF from a real network (author's step, any time).
 
-## 5. Open questions for the author
+## 5. Open questions for the author - ANSWERED (2026-07-25)
+
+**Q1 union+replay · Q2 fold into roster · Q3 confirm-step · Q4 Av namespace + sugar ·
+Q5 message log dropped (later release) · Q6 ReactiveUI stays · Q7 upstream filings later.**
+Original questions preserved below.
+
 
 - **Q1 - roster shape:** closed union + replay (recommended, no new dependency, reuses
   the proven engine pattern) - or a DynamicData-style keyed cache as the public contract?

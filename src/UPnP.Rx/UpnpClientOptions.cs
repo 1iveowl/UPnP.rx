@@ -54,6 +54,13 @@ public sealed record UpnpClientOptions
     public bool AutoResubscribe { get; init; } = true;
 
     /// <summary>
+    /// The advertisement lifetime <see cref="UpnpClient.Roster"/> assumes when a
+    /// device announces without a usable <c>CACHE-CONTROL: max-age</c>.
+    /// Defaults to 30 minutes (the UDA 2.0 recommended advertisement duration).
+    /// </summary>
+    public TimeSpan RosterExpiryFallback { get; init; } = TimeSpan.FromMinutes(30);
+
+    /// <summary>
     /// The clock all timeouts run on; inject a fake in tests. Init-only by design
     /// (a settable clock is mutable ambient state — see plan §9).
     /// </summary>

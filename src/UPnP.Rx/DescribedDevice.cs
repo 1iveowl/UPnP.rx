@@ -17,9 +17,11 @@ public sealed class DescribedDevice
         UpnpClientOptions options,
         EventingContext eventing,
         IPAddress? localAddress,
-        CancellationToken lifetime)
+        CancellationToken lifetime,
+        string contentHash = "")
     {
         Description = description;
+        ContentHash = contentHash;
         Services =
         [
             .. description
@@ -31,6 +33,12 @@ public sealed class DescribedDevice
 
     /// <summary>The parsed description document: the root device and its tree.</summary>
     public DeviceDescription Description { get; }
+
+    /// <summary>
+    /// A hash of the raw description document, for cheap change detection
+    /// (the roster's self-healing compares it across re-reads).
+    /// </summary>
+    internal string ContentHash { get; }
 
     /// <summary>Every service in the device tree (root and embedded devices), in document order. Stable instances — built once.</summary>
     public IReadOnlyList<UpnpService> Services { get; }

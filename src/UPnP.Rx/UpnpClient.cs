@@ -6,6 +6,7 @@ using SSDP.UPnP.PCL;
 using SSDP.UPnP.PCL.Model;
 using UPnP.Rx.Eventing;
 using UPnP.Rx.Parsing;
+using UPnP.Rx.Roster;
 
 namespace UPnP.Rx;
 
@@ -34,6 +35,7 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
     private readonly CancellationTokenSource _lifetime = new();
     private readonly ConcurrentDictionary<string, DescriptionCacheEntry> _descriptions = new();
     private readonly EventingContext _eventing;
+    private RosterSource? _roster;
     private int _disposed;
 
     private bool IsDisposed => Volatile.Read(ref _disposed) != 0;
@@ -109,8 +111,8 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
     /// Degraded announcements are kept (<see cref="DiscoveredDevice.HasParsingError"/>);
     /// only messages without a usable <c>LOCATION</c> are dropped, with a log note.
     /// Deduplication state grows with the number of distinct device×boot
-    /// identities seen — on very long-lived subscriptions, resubscribe
-    /// periodically (a live roster with expiry is planned for v1.1).
+    /// identities seen — for long-lived presence tracking prefer
+    /// <see cref="Roster"/>, whose state is bounded and expiring.
     /// </remarks>
     public IObservable<DiscoveredDevice> DiscoverDevices(ST? searchTarget = null, TimeSpan? mx = null) =>
         Observable.Defer(() =>
@@ -296,6 +298,90 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
     internal UpnpClientOptions Options => _options;
 
     /// <summary>
+    /// The network's device roster as a stream of changes: arrivals, updates
+    /// (reboots and healed descriptions), silent expiry per the announcements'
+    /// <c>CACHE-CONTROL: max-age</c>, and byebye departures. Late subscribers
+    /// first receive the current roster flagged <see cref="DeviceAppeared.IsReplay"/>,
+    /// then live changes, with no gap. Unlike <see cref="DiscoverDevices"/>,
+    /// state is bounded: a device is one entry however often it announces, and
+    /// a byebye-then-alive cycle re-reports it even within one boot.
+    /// </summary>
+    /// <remarks>
+    /// Temperature: cold until the first subscriber (which starts the engine
+    /// and sends a fresh M-SEARCH), then hot and shared; the last disposal
+    /// stops the engine, and a later resubscription starts from a clean slate.
+    /// </remarks>
+    public IObservable<RosterChange> Roster()
+    {
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+
+        if (_roster is null)
+        {
+            // Lock-free create-once: a losing duplicate is inert (nothing
+            // starts until subscription) and is simply collected.
+            Interlocked.CompareExchange(ref _roster, new RosterSource(this, _options, _lifetime.Token), null);
+        }
+
+        return _roster;
+    }
+
+    /// <summary>The roster's raw feed: every alive announcement with its advertisement lifetime, undeduplicated.</summary>
+    internal IObservable<(DiscoveredDevice Device, TimeSpan MaxAge)> RosterAnnouncements() =>
+        _controlPoint
+            .MSearchResponseObservable()
+            .Select(response => (Device: ToDiscovered(
+                response.USN, response.Location, response.Server, response.BOOTID,
+                response.CONFIGID, response.HasParsingError, response.LocalIpEndPoint,
+                response.CacheControl), MaxAge: response.CacheControl))
+            .Merge(_controlPoint
+                .NotifyObservable()
+                .Where(notify => notify.NTS == NTS.Alive)
+                .Select(notify => (Device: ToDiscovered(
+                    notify.USN, notify.Location, notify.Server, notify.BOOTID,
+                    notify.CONFIGID, notify.HasParsingError, notify.LocalIpEndPoint,
+                    notify.CacheControl), MaxAge: notify.CacheControl)))
+            .Where(item => item.Device is not null)
+            .Select(item => (item.Device!, item.MaxAge));
+
+    /// <summary>The roster engine's opening sweep - the default search on every interface.</summary>
+    internal Task SendRosterSearchAsync(CancellationToken ct) =>
+        SendSearchesAsync(_options.DefaultSearchTarget, _options.DefaultMx, ct);
+
+    /// <summary>
+    /// What the description cache knows about <paramref name="location"/>:
+    /// whether the newest entry's TTL lapsed, and the content hash when its
+    /// fetch completed. (false, null) when never described - the roster only
+    /// self-heals devices a consumer actually described.
+    /// </summary>
+    internal (bool Expired, string? Hash) DescriptionCacheState(Uri location)
+    {
+        var prefix = $"{location}#";
+        DescriptionCacheEntry? newest = null;
+
+        foreach (var (key, entry) in _descriptions)
+        {
+            if (key.StartsWith(prefix, StringComparison.Ordinal)
+                && (newest is null || entry.Created > newest.Created))
+            {
+                newest = entry;
+            }
+        }
+
+        if (newest is null)
+        {
+            return (false, null);
+        }
+
+        var expired = newest.MaxAge > TimeSpan.Zero
+            && _options.TimeProvider.GetElapsedTime(newest.Created) > newest.MaxAge;
+        var hash = newest.Described.IsValueCreated && newest.Described.Value.IsCompletedSuccessfully
+            ? newest.Described.Value.Result.ContentHash
+            : null;
+
+        return (expired, hash);
+    }
+
+    /// <summary>
     /// Drops every cached description for <paramref name="location"/>, forcing
     /// the next <see cref="DiscoveredDevice.GetDescriptionAsync"/> to re-fetch -
     /// the escape hatch for a device known to have served a stale or sparse
@@ -415,7 +501,9 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
         }
 
         return DescriptionParser.ParseDeviceDescription(xml, location).Match(
-            description => new DescribedDevice(description, _httpClient, _options, _eventing, localAddress, _lifetime.Token),
+            description => new DescribedDevice(
+                description, _httpClient, _options, _eventing, localAddress, _lifetime.Token,
+                Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(xml)))),
             error => throw new UpnpException($"The description at {location} is unparsable: {error}"));
     }
 }

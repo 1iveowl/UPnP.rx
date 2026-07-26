@@ -422,3 +422,11 @@ a {
     font-size: 0.75rem;
     color: #7f1d1d;
 }
+
+/* Version badges name their own source, so a card that disagrees with itself
+   shows which document said what rather than one reconciled number. */
+.claim-src {
+    opacity: 0.65;
+    font-size: 0.85em;
+    margin-left: 0.25rem;
+}

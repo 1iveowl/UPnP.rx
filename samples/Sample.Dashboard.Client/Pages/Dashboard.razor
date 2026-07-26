@@ -87,6 +87,24 @@ net start SSDPSRV</pre>
                     </div>
                     <div class="device-badges">
                         <FluentBadge>@device.ServiceCount service(s)</FluentBadge>
+                        @* UDA 2.0 states the architecture version in several
+                           normative places and names no authority between them, so
+                           each claim is shown with where it came from rather than
+                           reconciled into one number. *@
+                        @foreach (var claim in device.VersionClaims)
+                        {
+                            <FluentBadge Appearance="Appearance.Neutral"
+                                         Title="@($"UPnP {claim.Version} - claimed by {SourceLabel(claim.Source)}{(claim.Detail is null ? "" : $" ({claim.Detail})")}")">
+                                UPnP @claim.Version <span class="claim-src">@SourceLabel(claim.Source)</span>
+                            </FluentBadge>
+                        }
+                        @if (Disagrees(device))
+                        {
+                            <FluentBadge Appearance="Appearance.Accent"
+                                         Title="This device states different UPnP versions in different places. UDA 2.0 requires both to be accurate, so one of them is wrong.">
+                                version mismatch
+                            </FluentBadge>
+                        }
                         @* DeviceCount includes the root device (the card itself);
                            the badge counts only what appears as sub-headers. *@
                         @if (device.DeviceCount > 1)
@@ -146,7 +164,7 @@ net start SSDPSRV</pre>
                                         <span class="svc-name">@ActivityLabel(row.Kind)</span>
                                         @if (row.Kind != "ByeBye")
                                         {
-                                            <span class="muted">BOOTID @row.BootId@(row.MaxAgeSeconds > 0 ? $", max-age {row.MaxAgeSeconds}" : "")</span>
+                                            <span class="muted">@BootLabel(row)@(row.MaxAgeSeconds is int age ? $", max-age {age}" : "")</span>
                                         }
                                     </div>
 
@@ -202,6 +220,25 @@ net start SSDPSRV</pre>
 </ErrorBoundary>
 
 @code {
+    // A device with no boot identity at all is a UPnP 1.0 stack that sends neither
+    // BOOTID nor NLS; saying "BOOTID 0" for it would report a value it never sent.
+    private static string BootLabel(SsdpActivityDto row) =>
+        row.BootId is uint bootId ? $"BOOTID {bootId}"
+        : !string.IsNullOrEmpty(row.Nls) ? $"NLS {row.Nls}"
+        : "no boot id";
+
+    private static string SourceLabel(string source) => source switch
+    {
+        "Server" => "SERVER",
+        "DeviceDescription" => "description",
+        "ServiceDescription" => "service",
+        "ControlResponse" => "control",
+        _ => source
+    };
+
+    private static bool Disagrees(DeviceDto device) =>
+        device.VersionClaims.Select(c => c.Version).Distinct().Count() > 1;
+
     private readonly HashSet<string> _open = [];
     private bool _rescanning;
     private IDisposable? _rescanSubscription;

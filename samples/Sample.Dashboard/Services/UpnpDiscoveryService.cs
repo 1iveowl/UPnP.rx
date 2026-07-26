@@ -27,10 +27,14 @@ public sealed class DeviceRoster
 /// <summary>Maps library objects to the wire DTOs; shared by the discovery service and the hub.</summary>
 internal static class DtoMapper
 {
-    internal static DeviceDto ToDto(DescribedDevice described)
+    internal static DeviceDto ToDto(DescribedDevice described, DiscoveredDevice? discovered = null)
     {
         var root = described.Description;
         var all = root.SelfAndDescendants().ToList();
+
+        // Both witnesses that exist without extra network work: the SERVER header
+        // seen at discovery, and the description's own specVersion.
+        var claims = (discovered?.VersionClaims ?? UpnpVersionClaims.None).With(described.VersionClaims);
 
         return new DeviceDto(
             Key: NormalizeKey(root.Udn ?? root.Location.ToString()),
@@ -40,7 +44,9 @@ internal static class DtoMapper
             Location: root.Location.ToString(),
             ServiceCount: all.SelectMany(d => d.Services).Count(),
             DeviceCount: all.Count,
-            Root: ToNode(root));
+            Root: ToNode(root),
+            VersionClaims: [.. claims.Claims.Select(c =>
+                new UpnpVersionClaimDto(c.Source.ToString(), c.Version.ToString(2), c.Detail))]);
     }
 
     internal static DeviceNodeDto ToNode(UPnP.Rx.Model.DeviceDescription device) => new(
@@ -161,7 +167,7 @@ public sealed class UpnpDiscoveryService(
                 // describe fails stays off the dashboard until its next roster
                 // cycle (expiry + reappearance) or a manual rescan.
                 var described = await change.Device.GetDescriptionAsync(ct);
-                var dto = DtoMapper.ToDto(described);
+                var dto = DtoMapper.ToDto(described, change.Device);
 
                 roster.Devices[dto.Key] = dto;
                 roster.Described[dto.Key] = described;

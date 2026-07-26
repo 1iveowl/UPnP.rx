@@ -1,0 +1,21 @@
+# DECISIONS.md — the ledger
+
+One line per settled decision, newest first, pointing at the full record. Documents stay
+where they are; this index exists so no session re-litigates or rediscovers. Add a line
+whenever a decision lands anywhere else.
+
+| Date | Decision | Record |
+|---|---|---|
+| 2026-07-26 | 4.1.1 is skipped; the structural batch ships as **4.2.0** (API analyzer ledger, DescriptionCache extraction, IUpnpClient, DECISIONS.md, CI snupkg + trim smoke); previously "4.2" deferrals move to **4.3** (local-IPv4 helper promotion, LoggerMessage, Announcement/Roster namespace harmonization at a major) | this file; [upnp-rx-v4.1-plan.md §7c](upnp-rx-v4.1-plan.md) |
+| 2026-07-26 | Dedup shape: engine skeleton → `EngineSource<T>`, timed HTTP → `TimedExchange`, test vocabulary → `TestKit`; per-item Rx pipeline shape is idiom, not duplication | [upnp-rx-v4.1-plan.md §7c](upnp-rx-v4.1-plan.md) |
+| 2026-07-25 | SSDP activity log ships as the parsed-envelope timeline (`Announcements()`, passive, live-only); the raw wire log is upstream territory, deferred | [upnp-rx-v4.1-plan.md §4](upnp-rx-v4.1-plan.md) |
+| 2026-07-25 | Activity retention: 20 rows/device + 1 h age bound, client-side constants; long retention = file logging, not this sample | [upnp-rx-v4.1-plan.md §7b](upnp-rx-v4.1-plan.md) |
+| 2026-07-25 | 4.1 scope Q1-Q7: roster = union + replay (no DynamicData in the library); self-heal folds into the roster; action invocation confirms before mutating; `UPnP.Rx.Eventing.Av` + `SelectAvChanges()`; message log deferred; ReactiveUI stays; upstream filings deferred | [upnp-rx-v4.1-plan.md §5](upnp-rx-v4.1-plan.md) |
+| 2026-07-25 | Locks: streams get Rx serialization operators, lifecycles get the smallest visible `Lock`, never both for one piece of state; `ControlPoint.Start` lock removed via upstream 8.0.0 | [upnp-rx-v4.0-code-review.md addendum](upnp-rx-v4.0-code-review.md) |
+| 2026-07-25 | Permanent SUBSCRIBE refusals (404/405/410/501) end the stream with `SubscriptionRefused` + `OnError`; 412/5xx/timeouts keep retrying | [upnp-rx-v4.0-eventing-plan.md §4 Q6](upnp-rx-v4.0-eventing-plan.md) |
+| 2026-07-25 | ReactiveUI lifecycle: ctor-composed pipelines + explicit disposal (no `WhenActivated`); settable VM properties source-generated, OAPHs/commands hand-written (WASM scheduler must be explicit) | [upnp-rx-project-plan.md §8.8](upnp-rx-project-plan.md) |
+| 2026-07-24 | `SimpleHttpListener.Rx` becomes a direct dependency (7.2.0+, packet-info fix) | [upnp-rx-project-plan.md §8.7](upnp-rx-project-plan.md) |
+| 2026-07-24 | Eventing Q1-Q5: observable-first `Events()`; auto-resubscribe surfaced as events; ephemeral callback port; LastChange helper deferred (shipped 4.1); late-subscriber replay included (hand-rolled ref-count over the gate) | [upnp-rx-v4.0-eventing-plan.md §4](upnp-rx-v4.0-eventing-plan.md) |
+| 2026-07-24 | Foundation set: package name; first release is 3.0.0 (lineage); IGD leases auto-renew, abrupt dispose is safe by finite lease; raw discovery streams in v1 (roster later); `ParseResult<T>` copied, zero coupling; search target is the consumer's choice | [upnp-rx-project-plan.md §8.1-6](upnp-rx-project-plan.md) |
+| standing | Time model (one `TimeProvider`, build-enforced), disposal model (graceful async / abrupt sync), 10 Rx rules, leniency policy, dependency lock | [upnp-rx-project-plan.md §5](upnp-rx-project-plan.md) |
+| standing | Upstream gaps become issue candidates in plan §9, never fixed from this repo; candidates 3/4/5 resolved by SHL 7.2/7.3 + SSDP 8.0, 1/2 open | [upnp-rx-project-plan.md §9](upnp-rx-project-plan.md) |

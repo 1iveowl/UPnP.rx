@@ -22,7 +22,8 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 | R6 | `TryService`, trim/AOT declarations, README | ✅ done |
 | — | `Announcements()` device activity timeline (library + dashboard per-card feed, expandable rows, counter) | ✅ done |
 | — | `SearchAsync()` solicitation (+ dashboard Probe/'Solicit responses now'); memory audit + SoakTests (three accumulations fixed) | ✅ done |
-| R7 | 4.1.0 release (author: hardware validation, branch/tag/publish) | ⏳ author |
+| R7 | 4.1.0 release (branch, tag, Trusted Publishing + GitHub release) | ✅ released |
+| 4.2 | Structural batch (on `dev/4.2.0`, 4.1.1 skipped): API ledger (PublicApiAnalyzers), `DescriptionCache` extraction, `IUpnpClient`, `EngineSource`/`TimedExchange`/`TestKit` dedups, DECISIONS.md, CI snupkg + trim smoke | 🚧 in progress |
 
 ## Tree (current)
 

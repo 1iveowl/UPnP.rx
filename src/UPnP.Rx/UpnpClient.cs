@@ -24,7 +24,7 @@ namespace UPnP.Rx;
 /// UNSUBSCRIBE before resources go); <see cref="Dispose"/> is the abrupt one -
 /// no network goodbyes, safe because subscriptions expire on the devices.
 /// </remarks>
-public sealed class UpnpClient : IAsyncDisposable, IDisposable
+public sealed class UpnpClient : IUpnpClient
 {
     private readonly IControlPoint _controlPoint;
     private readonly bool _ownsControlPoint;
@@ -33,7 +33,7 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
     private readonly IReadOnlyList<IPAddress> _addresses;
     private readonly UpnpClientOptions _options;
     private readonly CancellationTokenSource _lifetime = new();
-    private readonly ConcurrentDictionary<string, DescriptionCacheEntry> _descriptions = new();
+    private readonly DescriptionCache _descriptions;
     private readonly EventingContext _eventing;
     private RosterSource? _roster;
     private int _disposed;
@@ -68,6 +68,7 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
         // wall-clock timer must not be a hidden second clock capping them at 100 s.
         _httpClient = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
         _ownsHttpClient = true;
+        _descriptions = new DescriptionCache(_options.TimeProvider);
         _eventing = new EventingContext(_httpClient, _options, _lifetime.Token);
     }
 
@@ -94,6 +95,7 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
         _ownsHttpClient = httpClient is null;
         _options = options ?? new UpnpClientOptions();
         _addresses = [.. addresses];
+        _descriptions = new DescriptionCache(_options.TimeProvider);
         _eventing = new EventingContext(_httpClient, _options, _lifetime.Token);
     }
 
@@ -396,40 +398,8 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
         return SendSearchesAsync(searchTarget ?? _options.DefaultSearchTarget, mx ?? _options.DefaultMx, ct);
     }
 
-    /// <summary>
-    /// What the description cache knows about <paramref name="location"/>:
-    /// whether the newest entry's TTL lapsed, and the content hash when its
-    /// fetch completed. (false, null) when never described - the roster only
-    /// self-heals devices a consumer actually described.
-    /// </summary>
-    internal (bool Expired, string? Hash) DescriptionCacheState(Uri location)
-    {
-        var prefix = $"{location}#";
-        DescriptionCacheEntry? newest = null;
-
-        foreach (var (key, entry) in _descriptions)
-        {
-            if (key.StartsWith(prefix, StringComparison.Ordinal)
-                && (newest is null || entry.Created > newest.Created))
-            {
-                newest = entry;
-            }
-        }
-
-        if (newest is null)
-        {
-            return (false, null);
-        }
-
-        var expired = newest.MaxAge > TimeSpan.Zero
-            && _options.TimeProvider.GetElapsedTime(newest.Created) > newest.MaxAge;
-        // Guarded .Result: the task is known completed - no blocking (rule 3).
-        var hash = newest.Described.IsValueCreated && newest.Described.Value.IsCompletedSuccessfully
-            ? newest.Described.Value.Result.ContentHash
-            : null;
-
-        return (expired, hash);
-    }
+    /// <summary>What the description cache knows about the location; see <see cref="DescriptionCache.State"/>.</summary>
+    internal (bool Expired, string? Hash) DescriptionCacheState(Uri location) => _descriptions.State(location);
 
     /// <summary>
     /// Drops every cached description for <paramref name="location"/>, forcing
@@ -441,17 +411,8 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
     public void InvalidateDescriptions(Uri location)
     {
         ArgumentNullException.ThrowIfNull(location);
-
-        var prefix = $"{location}#";
-
-        foreach (var key in _descriptions.Keys.Where(k => k.StartsWith(prefix, StringComparison.Ordinal)))
-        {
-            _descriptions.TryRemove(key, out _);
-        }
+        _descriptions.Invalidate(location);
     }
-
-    private sealed record DescriptionCacheEntry(
-        Lazy<Task<DescribedDevice>> Described, long Created, TimeSpan MaxAge);
 
     private DiscoveredDevice? ToDiscovered(
         USN? usn, Uri? location, Server? server, uint bootId, int? configId, bool hasParsingError,
@@ -483,75 +444,13 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
 
-        // Cached by LOCATION + CONFIGID + BOOTID. CONFIGID is UDA 2.0's "the
-        // description changed" signal - but the UPnP 1.0 installed base (most
-        // real devices) never sends it, which would make the first read
-        // immortal: one sparse description served mid-boot (seen on Sonos)
-        // would stick for the client's lifetime. BOOTID makes a reboot re-read
-        // the device; the announcement's CACHE-CONTROL max-age additionally
-        // expires entries WITHIN a boot, so a bad read heals by the next
-        // advertisement cycle. Entries without a max-age never expire.
-        var key = $"{location}#{configId}#{bootId}";
-
-        while (true)
-        {
-            var entry = _descriptions.GetOrAdd(
-                key,
-                _ =>
-                {
-                    // A fresh generation supersedes older boots/configs of the
-                    // same device - without this, a flappy device accumulates
-                    // one described tree per reboot for the client's lifetime.
-                    EvictOtherGenerations(location, key);
-
-                    return new DescriptionCacheEntry(
-                        new Lazy<Task<DescribedDevice>>(() => FetchAndEvictOnFailureAsync(key, location, localAddress)),
-                        _options.TimeProvider.GetTimestamp(),
-                        maxAge);
-                });
-
-            if (entry.MaxAge > TimeSpan.Zero
-                && _options.TimeProvider.GetElapsedTime(entry.Created) > entry.MaxAge)
-            {
-                // Expired: remove exactly this entry (benign race with others) and retry.
-                _descriptions.TryRemove(new KeyValuePair<string, DescriptionCacheEntry>(key, entry));
-                continue;
-            }
-
-            return entry.Described.Value.WaitAsync(ct);
-        }
-    }
-
-    private void EvictOtherGenerations(Uri location, string keepKey)
-    {
-        var prefix = $"{location}#";
-
-        foreach (var existing in _descriptions.Keys)
-        {
-            if (existing.StartsWith(prefix, StringComparison.Ordinal)
-                && !string.Equals(existing, keepKey, StringComparison.Ordinal))
-            {
-                _descriptions.TryRemove(existing, out _);
-            }
-        }
+        return _descriptions.GetOrFetchAsync(
+            location, configId, bootId, maxAge,
+            () => FetchDescriptionAsync(location, localAddress), ct);
     }
 
     /// <summary>The cache's entry count - test seam for boundedness assertions.</summary>
     internal int DescriptionCacheCount => _descriptions.Count;
-
-    /// <summary>Only successful descriptions stay cached — a transient fetch failure must not poison the device forever.</summary>
-    private async Task<DescribedDevice> FetchAndEvictOnFailureAsync(string key, Uri location, IPAddress? localAddress)
-    {
-        try
-        {
-            return await FetchDescriptionAsync(location, localAddress).ConfigureAwait(false);
-        }
-        catch
-        {
-            _descriptions.TryRemove(key, out _);
-            throw;
-        }
-    }
 
     private async Task<DescribedDevice> FetchDescriptionAsync(Uri location, IPAddress? localAddress)
     {

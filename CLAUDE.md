@@ -4,6 +4,7 @@ Rx-based UPnP control point for .NET 10: discover → describe → control (3.0)
 
 ## Read these first
 
+- [plan/DECISIONS.md](plan/DECISIONS.md) — the decision ledger: one line per settled decision with a pointer to its record. Check here before proposing; add a line when deciding.
 - [plan/upnp-rx-project-plan.md](plan/upnp-rx-project-plan.md) — the authoritative plan: vision, scope, architecture, **settled policies** (time model, disposal model, Rx/functional rules), phased build plan (§7), resolved decisions (§8 — do not relitigate), upstream verification notes (§9).
 - [CODEMAP.md](CODEMAP.md) — repo structure, current phase status, planned layout. **Update it in every phase commit.**
 

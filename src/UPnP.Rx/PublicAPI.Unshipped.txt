@@ -1,0 +1,9 @@
+#nullable enable
+UPnP.Rx.IUpnpClient
+UPnP.Rx.IUpnpClient.Announcements() -> System.IObservable<UPnP.Rx.Announcement!>!
+UPnP.Rx.IUpnpClient.DeviceLost() -> System.IObservable<UPnP.Rx.DiscoveredDevice!>!
+UPnP.Rx.IUpnpClient.DiscoverDescribedDevices(SSDP.UPnP.PCL.Model.ST? searchTarget = null, System.TimeSpan? mx = null) -> System.IObservable<UPnP.Rx.DescribedDevice!>!
+UPnP.Rx.IUpnpClient.DiscoverDevices(SSDP.UPnP.PCL.Model.ST? searchTarget = null, System.TimeSpan? mx = null) -> System.IObservable<UPnP.Rx.DiscoveredDevice!>!
+UPnP.Rx.IUpnpClient.InvalidateDescriptions(System.Uri! location) -> void
+UPnP.Rx.IUpnpClient.Roster() -> System.IObservable<UPnP.Rx.Roster.RosterChange!>!
+UPnP.Rx.IUpnpClient.SearchAsync(SSDP.UPnP.PCL.Model.ST? searchTarget = null, System.TimeSpan? mx = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!

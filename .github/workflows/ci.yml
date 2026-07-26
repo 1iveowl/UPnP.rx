@@ -28,6 +28,12 @@ jobs:
       - name: Pack
         run: dotnet pack src/UPnP.Rx/UPnP.Rx.csproj --no-build -c Release -o artifacts
 
+      # Smoke: the library declares IsTrimmable/IsAotCompatible - prove a
+      # trimmed publish of a consumer still succeeds, in CI rather than only
+      # at declaration time.
+      - name: Trimmed publish smoke
+        run: dotnet publish samples/Sample.Browser -c Release -r linux-x64 --self-contained -p:PublishTrimmed=true -o artifacts-trim-smoke
+
       - uses: actions/upload-artifact@v4
         with:
           name: packages
@@ -72,7 +78,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: >
           gh release create "${GITHUB_REF_NAME}"
-          artifacts/*.nupkg
+          artifacts/*.nupkg artifacts/*.snupkg
           --repo "${GITHUB_REPOSITORY}"
           --title "${GITHUB_REF_NAME}"
           --verify-tag

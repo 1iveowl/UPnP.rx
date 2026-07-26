@@ -43,7 +43,7 @@ public class UpnpClientTests
 
         var device = Assert.Single(seen);
         Assert.Equal(new Uri(Location), device.Location);
-        Assert.Equal(1u, device.BootId);
+        Assert.Equal(1u, device.BootSignature.BootId);
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public class UpnpClientTests
         });
 
         var device = Assert.Single(seen);
-        Assert.Equal(7u, device.BootId);
+        Assert.Equal(7u, device.BootSignature.BootId);
     }
 
     [Fact]

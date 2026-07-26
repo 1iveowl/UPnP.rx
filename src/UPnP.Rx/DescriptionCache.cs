@@ -4,11 +4,11 @@ namespace UPnP.Rx;
 
 /// <summary>
 /// The description cache, extracted from <see cref="UpnpClient"/> (structural
-/// review, 4.2). Cached by LOCATION + CONFIGID + BOOTID: CONFIGID is UDA 2.0's
+/// review, 4.2). Cached by LOCATION + CONFIGID + boot signature: CONFIGID is UDA 2.0's
 /// "the description changed" signal - but the UPnP 1.0 installed base (most
 /// real devices) never sends it, which would make the first read immortal: one
 /// sparse description served mid-boot (seen on Sonos) would stick for the
-/// client's lifetime. BOOTID makes a reboot re-read the device; the
+/// client's lifetime. The boot signature makes a reboot re-read the device; the
 /// announcement's CACHE-CONTROL max-age additionally expires entries WITHIN a
 /// boot, so a bad read heals by the next advertisement cycle. Entries without
 /// a max-age never expire. A fresh generation evicts superseded ones (a flappy
@@ -25,10 +25,10 @@ internal sealed class DescriptionCache(TimeProvider timeProvider)
     internal int Count => _entries.Count;
 
     internal Task<DescribedDevice> GetOrFetchAsync(
-        Uri location, int? configId, uint bootId, TimeSpan maxAge,
+        Uri location, int? configId, BootSignature bootSignature, TimeSpan maxAge,
         Func<Task<DescribedDevice>> fetch, CancellationToken ct)
     {
-        var key = $"{location}#{configId}#{bootId}";
+        var key = $"{location}#{configId}#{bootSignature}";
 
         while (true)
         {

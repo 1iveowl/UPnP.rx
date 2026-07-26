@@ -117,7 +117,7 @@ internal sealed class RosterSource : EngineSource<RosterChange>
         {
             if (_entries.TryGetValue(key, out var entry))
             {
-                var rebooted = device.BootId != entry.Device.BootId;
+                var rebooted = device.BootSignature.IndicatesRebootSince(entry.Device.BootSignature);
                 entry.Device = device;
                 entry.SeenAt = _options.TimeProvider.GetTimestamp();
                 entry.MaxAge = effectiveMaxAge;

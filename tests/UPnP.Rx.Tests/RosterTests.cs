@@ -24,13 +24,16 @@ public class RosterTests
     private UpnpClient CreateClient() =>
         new(_controlPoint, _http.CreateClient(), new UpnpClientOptions { TimeProvider = _time }, IPAddress.Parse("192.168.1.42"));
 
-    private void Announce(string usn = "uuid:roster-1::upnp:rootdevice", uint bootId = 1, int maxAgeSeconds = 100) =>
+    private void Announce(
+        string usn = "uuid:roster-1::upnp:rootdevice", uint? bootId = 1, int maxAgeSeconds = 100,
+        string? nls = null) =>
         _controlPoint.Notifies.OnNext(new Notify
         {
             NTS = NTS.Alive,
             Location = new Uri(Location),
             USN = USN.Parse(usn).Value,
             BOOTID = bootId,
+            NLS = nls,
             CacheControl = TimeSpan.FromSeconds(maxAgeSeconds)
         });
 
@@ -56,7 +59,7 @@ public class RosterTests
 
         var appeared = Assert.IsType<DeviceAppeared>(Assert.Single(_changes));
         Assert.False(appeared.IsReplay);
-        Assert.Equal(1u, appeared.Device.BootId);
+        Assert.Equal(1u, appeared.Device.BootSignature.BootId);
     }
 
     [Fact]
@@ -110,7 +113,45 @@ public class RosterTests
         await WaitForAsync(() => _changes.Count == 2);
 
         var updated = Assert.IsType<DeviceUpdated>(_changes[1]);
-        Assert.Equal(2u, updated.Device.BootId);
+        Assert.Equal(2u, updated.Device.BootSignature.BootId);
+    }
+
+    [Fact]
+    public async Task Reboot_Upnp10DeviceChangingNls_ReportsUpdated()
+    {
+        // The release's reason for existing: a device that sends no BOOTID at all
+        // signals its reboot through NLS, which 4.2.0 could not see.
+        using var client = CreateClient();
+        using var subscription = client.Roster().Subscribe(_changes.Add);
+        await WaitForAsync(() => _controlPoint.SentSearches.Count > 0);
+
+        Announce(bootId: null, nls: "1785066224");
+        await WaitForAsync(() => _changes.Count == 1);
+        Announce(bootId: null, nls: "1785099999");
+        await WaitForAsync(() => _changes.Count == 2);
+
+        var updated = Assert.IsType<DeviceUpdated>(_changes[1]);
+        Assert.Null(updated.Device.BootSignature.BootId);
+        Assert.Equal("1785099999", updated.Device.BootSignature.Nls);
+    }
+
+    [Fact]
+    public async Task NoBootIdentity_RepeatedAnnouncements_AreNotMistakenForReboots()
+    {
+        // Absence must not read as change: a device announcing neither BOOTID nor
+        // NLS would otherwise appear to reboot on every single announcement.
+        using var client = CreateClient();
+        using var subscription = client.Roster().Subscribe(_changes.Add);
+        await WaitForAsync(() => _controlPoint.SentSearches.Count > 0);
+
+        Announce(bootId: null);
+        await WaitForAsync(() => _changes.Count == 1);
+        Announce(bootId: null);
+        Announce(bootId: null);
+        await SettleAsync();
+
+        Assert.Single(_changes);
+        Assert.IsType<DeviceAppeared>(_changes[0]);
     }
 
     [Fact]

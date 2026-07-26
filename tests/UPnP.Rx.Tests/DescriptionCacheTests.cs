@@ -36,7 +36,7 @@ public sealed class DescriptionCacheTests : IDisposable
 
     private Task<DescribedDevice> GetAsync(uint bootId = 1, int maxAgeSeconds = 100, string hash = "H1") =>
         _cache.GetOrFetchAsync(
-            _location, configId: null, bootId, TimeSpan.FromSeconds(maxAgeSeconds),
+            _location, configId: null, new BootSignature(bootId, null), TimeSpan.FromSeconds(maxAgeSeconds),
             () => Fetch(hash), TestContext.Current.CancellationToken);
 
     [Fact]
@@ -83,10 +83,10 @@ public sealed class DescriptionCacheTests : IDisposable
         }
 
         await Assert.ThrowsAsync<UpnpException>(() => _cache.GetOrFetchAsync(
-            _location, null, 1, TimeSpan.FromSeconds(100), FailingFetch, TestContext.Current.CancellationToken));
+            _location, null, new BootSignature(1, null), TimeSpan.FromSeconds(100), FailingFetch, TestContext.Current.CancellationToken));
 
         var described = await _cache.GetOrFetchAsync(
-            _location, null, 1, TimeSpan.FromSeconds(100), FailingFetch, TestContext.Current.CancellationToken);
+            _location, null, new BootSignature(1, null), TimeSpan.FromSeconds(100), FailingFetch, TestContext.Current.CancellationToken);
 
         Assert.Equal(2, attempts);
         Assert.Equal("uuid:cache-test", described.Description.Udn);

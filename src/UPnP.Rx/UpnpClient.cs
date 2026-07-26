@@ -124,19 +124,19 @@ public sealed class UpnpClient : IUpnpClient
             var discovered = _controlPoint
                 .MSearchResponseObservable()
                 .Select(response => ToDiscovered(
-                    response.USN, response.Location, response.Server, response.BOOTID,
+                    response.USN, response.Location, response.Server, new BootSignature(response.BOOTID, response.NLS),
                     response.CONFIGID, response.HasParsingError, response.LocalIpEndPoint,
                     response.CacheControl))
                 .Merge(_controlPoint
                     .NotifyObservable()
                     .Where(notify => notify.NTS == NTS.Alive)
                     .Select(notify => ToDiscovered(
-                        notify.USN, notify.Location, notify.Server, notify.BOOTID,
+                        notify.USN, notify.Location, notify.Server, new BootSignature(notify.BOOTID, notify.NLS),
                         notify.CONFIGID, notify.HasParsingError, notify.LocalIpEndPoint,
                         notify.CacheControl)))
                 .Where(device => device is not null)
                 .Select(device => device!)
-                .Distinct(device => $"{device.Usn?.ToUsnString() ?? device.Location!.ToString()}#{device.BootId}");
+                .Distinct(device => $"{device.Usn?.ToUsnString() ?? device.Location!.ToString()}#{device.BootSignature}");
 
             return Observable.Create<DiscoveredDevice>(async (observer, ct) =>
             {
@@ -205,7 +205,7 @@ public sealed class UpnpClient : IUpnpClient
                 .NotifyObservable()
                 .Where(notify => notify.NTS == NTS.ByeBye)
                 .Select(notify => new DiscoveredDevice(
-                    notify.USN, notify.Location, notify.Server, notify.BOOTID ?? 0, notify.CONFIGID,
+                    notify.USN, notify.Location, notify.Server, new BootSignature(notify.BOOTID, notify.NLS), notify.CONFIGID,
                     notify.HasParsingError, notify.LocalIpEndPoint,
                     _ => Task.FromException<DescribedDevice>(
                         new UpnpException("A device-lost notice carries no description location."))));
@@ -364,14 +364,14 @@ public sealed class UpnpClient : IUpnpClient
         _controlPoint
             .MSearchResponseObservable()
             .Select(response => (Kind: AnnouncementKind.SearchResponse, Device: ToDiscovered(
-                response.USN, response.Location, response.Server, response.BOOTID,
+                response.USN, response.Location, response.Server, new BootSignature(response.BOOTID, response.NLS),
                 response.CONFIGID, response.HasParsingError, response.LocalIpEndPoint,
                 response.CacheControl), MaxAge: response.CacheControl))
             .Merge(_controlPoint
                 .NotifyObservable()
                 .Where(notify => notify.NTS == NTS.Alive)
                 .Select(notify => (Kind: AnnouncementKind.Alive, Device: ToDiscovered(
-                    notify.USN, notify.Location, notify.Server, notify.BOOTID,
+                    notify.USN, notify.Location, notify.Server, new BootSignature(notify.BOOTID, notify.NLS),
                     notify.CONFIGID, notify.HasParsingError, notify.LocalIpEndPoint,
                     notify.CacheControl), MaxAge: notify.CacheControl)))
             .Merge(DeviceLost()
@@ -415,8 +415,8 @@ public sealed class UpnpClient : IUpnpClient
     }
 
     private DiscoveredDevice? ToDiscovered(
-        USN? usn, Uri? location, Server? server, uint? bootId, int? configId, bool hasParsingError,
-        IPEndPoint? localEndPoint, TimeSpan maxAge)
+        USN? usn, Uri? location, Server? server, BootSignature bootSignature, int? configId,
+        bool hasParsingError, IPEndPoint? localEndPoint, TimeSpan maxAge)
     {
         if (location is null)
         {
@@ -434,22 +434,19 @@ public sealed class UpnpClient : IUpnpClient
             ? localEndPoint
             : null;
 
-        // P1 keeps the pre-9.0.0 shape: absent BOOTID still collapses to 0 here.
-        // BootSignature (P2) is what makes absence representable.
-        var boot = bootId ?? 0;
-
         return new DiscoveredDevice(
-            usn, location, server, boot, configId, hasParsingError, local,
-            ct => GetOrFetchDescriptionAsync(location, configId, boot, maxAge, local?.Address, ct));
+            usn, location, server, bootSignature, configId, hasParsingError, local,
+            ct => GetOrFetchDescriptionAsync(location, configId, bootSignature, maxAge, local?.Address, ct));
     }
 
     private Task<DescribedDevice> GetOrFetchDescriptionAsync(
-        Uri location, int? configId, uint bootId, TimeSpan maxAge, IPAddress? localAddress, CancellationToken ct)
+        Uri location, int? configId, BootSignature bootSignature, TimeSpan maxAge, IPAddress? localAddress,
+        CancellationToken ct)
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
 
         return _descriptions.GetOrFetchAsync(
-            location, configId, bootId, maxAge,
+            location, configId, bootSignature, maxAge,
             () => FetchDescriptionAsync(location, localAddress), ct);
     }
 

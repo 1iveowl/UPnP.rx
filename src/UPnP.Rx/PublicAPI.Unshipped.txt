@@ -1,4 +1,17 @@
 #nullable enable
+*REMOVED*UPnP.Rx.DiscoveredDevice.BootId.get -> uint
+UPnP.Rx.BootSignature
+UPnP.Rx.BootSignature.BootId.get -> uint?
+UPnP.Rx.BootSignature.BootId.init -> void
+UPnP.Rx.BootSignature.BootSignature() -> void
+UPnP.Rx.BootSignature.BootSignature(uint? BootId, string? Nls) -> void
+UPnP.Rx.BootSignature.Deconstruct(out uint? BootId, out string? Nls) -> void
+UPnP.Rx.BootSignature.Equals(UPnP.Rx.BootSignature other) -> bool
+UPnP.Rx.BootSignature.IndicatesRebootSince(UPnP.Rx.BootSignature previous) -> bool
+UPnP.Rx.BootSignature.IsKnown.get -> bool
+UPnP.Rx.BootSignature.Nls.get -> string?
+UPnP.Rx.BootSignature.Nls.init -> void
+UPnP.Rx.DiscoveredDevice.BootSignature.get -> UPnP.Rx.BootSignature
 UPnP.Rx.IUpnpClient
 UPnP.Rx.IUpnpClient.Announcements() -> System.IObservable<UPnP.Rx.Announcement!>!
 UPnP.Rx.IUpnpClient.DeviceLost() -> System.IObservable<UPnP.Rx.DiscoveredDevice!>!
@@ -7,3 +20,9 @@ UPnP.Rx.IUpnpClient.DiscoverDevices(SSDP.UPnP.PCL.Model.ST? searchTarget = null,
 UPnP.Rx.IUpnpClient.InvalidateDescriptions(System.Uri! location) -> void
 UPnP.Rx.IUpnpClient.Roster() -> System.IObservable<UPnP.Rx.Roster.RosterChange!>!
 UPnP.Rx.IUpnpClient.SearchAsync(SSDP.UPnP.PCL.Model.ST? searchTarget = null, System.TimeSpan? mx = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+override UPnP.Rx.BootSignature.GetHashCode() -> int
+override UPnP.Rx.BootSignature.ToString() -> string!
+static UPnP.Rx.BootSignature.None.get -> UPnP.Rx.BootSignature
+static UPnP.Rx.BootSignature.operator !=(UPnP.Rx.BootSignature left, UPnP.Rx.BootSignature right) -> bool
+static UPnP.Rx.BootSignature.operator ==(UPnP.Rx.BootSignature left, UPnP.Rx.BootSignature right) -> bool
+~override UPnP.Rx.BootSignature.Equals(object obj) -> bool

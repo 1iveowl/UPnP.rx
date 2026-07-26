@@ -15,7 +15,7 @@ public sealed class DiscoveredDevice
         USN? usn,
         Uri? location,
         Server? server,
-        uint bootId,
+        BootSignature bootSignature,
         int? configId,
         bool hasParsingError,
         System.Net.IPEndPoint? localEndPoint,
@@ -24,7 +24,7 @@ public sealed class DiscoveredDevice
         Usn = usn;
         Location = location;
         Server = server;
-        BootId = bootId;
+        BootSignature = bootSignature;
         ConfigId = configId;
         HasParsingError = hasParsingError;
         LocalEndPoint = localEndPoint;
@@ -53,8 +53,14 @@ public sealed class DiscoveredDevice
     /// <summary>The device's identity from the <c>SERVER</c> header, when present.</summary>
     public Server? Server { get; }
 
-    /// <summary>The device's boot instance (<c>BOOTID.UPNP.ORG</c>); changes when the device reboots.</summary>
-    public uint BootId { get; }
+    /// <summary>
+    /// The device's boot identity - <c>BOOTID.UPNP.ORG</c> for UDA 1.1+ devices, the
+    /// UPnP 1.0 <c>NLS</c> signature otherwise, and
+    /// <see cref="UPnP.Rx.BootSignature.None"/> when the device announced neither.
+    /// Compare signatures (or call
+    /// <see cref="UPnP.Rx.BootSignature.IndicatesRebootSince"/>) to detect restarts.
+    /// </summary>
+    public BootSignature BootSignature { get; }
 
     /// <summary>The device's configuration number (<c>CONFIGID.UPNP.ORG</c>); changes when its description changes.</summary>
     public int? ConfigId { get; }
@@ -67,10 +73,10 @@ public sealed class DiscoveredDevice
 
     /// <summary>
     /// Fetches and parses the device's description document. Cached by
-    /// <see cref="Location"/> + <see cref="ConfigId"/> + <see cref="BootId"/>
+    /// <see cref="Location"/> + <see cref="ConfigId"/> + <see cref="BootSignature"/>
     /// across all discoveries from the same <see cref="UpnpClient"/>, so repeated
     /// announcements cost one fetch - while a rebooted device is re-read (the
-    /// UPnP 1.0 installed base never sends CONFIGID, so the boot instance is the
+    /// UPnP 1.0 installed base never sends CONFIGID, so the boot identity is the
     /// only signal that a stale or sparse first read should be replaced).
     /// </summary>
     /// <exception cref="UpnpException">No location was announced, the fetch fails, or the document identifies no device.</exception>

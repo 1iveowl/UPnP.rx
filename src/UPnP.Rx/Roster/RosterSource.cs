@@ -1,5 +1,4 @@
 using System.Reactive;
-using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using Microsoft.Extensions.Logging;
 
@@ -12,7 +11,7 @@ namespace UPnP.Rx.Roster;
 /// shape: a reentrant gate serializes every emission and guards the per-key
 /// state that late subscribers receive as replay.
 /// </summary>
-internal sealed class RosterSource : IObservable<RosterChange>
+internal sealed class RosterSource : EngineSource<RosterChange>
 {
     /// <summary>How often expiry deadlines are checked; coarse is fine - advertisement lifetimes are minutes.</summary>
     private static readonly TimeSpan _sweepPeriod = TimeSpan.FromSeconds(1);
@@ -20,22 +19,16 @@ internal sealed class RosterSource : IObservable<RosterChange>
     private readonly UpnpClient _client;
     private readonly UpnpClientOptions _options;
     private readonly ILogger _logger;
-    private readonly CancellationToken _clientLifetime;
 
-    // Load-bearing: System.Threading.Lock is reentrant (see the eventing gate's
-    // note) - inline continuations can re-enter on the holding thread.
-    private readonly Lock _gate = new();
-    private readonly List<IObserver<RosterChange>> _observers = [];
     private readonly Dictionary<string, Entry> _entries = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _healing = new(StringComparer.OrdinalIgnoreCase);
-    private CancellationTokenSource? _engineCts;
 
     internal RosterSource(UpnpClient client, UpnpClientOptions options, CancellationToken clientLifetime)
+        : base(clientLifetime)
     {
         _client = client;
         _options = options;
         _logger = options.Logger;
-        _clientLifetime = clientLifetime;
     }
 
     private sealed class Entry
@@ -45,60 +38,19 @@ internal sealed class RosterSource : IObservable<RosterChange>
         public required TimeSpan MaxAge { get; set; }
     }
 
-    public IDisposable Subscribe(IObserver<RosterChange> observer)
+    /// <summary>A previous run's roster is stale; a restart begins from a clean slate.</summary>
+    protected override void ClearStateLocked() => _entries.Clear();
+
+    /// <summary>Late subscribers receive the current roster, flagged as replay.</summary>
+    protected override void ReplayLocked(IObserver<RosterChange> observer)
     {
-        ArgumentNullException.ThrowIfNull(observer);
-
-        lock (_gate)
+        foreach (var entry in _entries.Values)
         {
-            if (_clientLifetime.IsCancellationRequested)
-            {
-                // The owning client is gone - complete instead of going silent.
-                observer.OnCompleted();
-                return Disposable.Empty;
-            }
-
-            var isFirst = _observers.Count == 0;
-
-            if (isFirst)
-            {
-                _entries.Clear();            // a previous run's roster is stale
-            }
-            else
-            {
-                foreach (var entry in _entries.Values)
-                {
-                    observer.OnNext(new DeviceAppeared(entry.Device, IsReplay: true));
-                }
-            }
-
-            _observers.Add(observer);
-
-            if (isFirst)
-            {
-                _engineCts?.Dispose();
-                _engineCts = CancellationTokenSource.CreateLinkedTokenSource(_clientLifetime);
-                _ = RunEngineAsync(_engineCts.Token);
-            }
+            observer.OnNext(new DeviceAppeared(entry.Device, IsReplay: true));
         }
-
-        return Disposable.Create(() =>
-        {
-            lock (_gate)
-            {
-                _observers.Remove(observer);
-
-                if (_observers.Count == 0 && _engineCts is not null)
-                {
-                    _engineCts.Cancel();
-                    _engineCts.Dispose();
-                    _engineCts = null;
-                }
-            }
-        });
     }
 
-    private async Task RunEngineAsync(CancellationToken ct)
+    protected override async Task RunEngineAsync(CancellationToken ct)
     {
         try
         {
@@ -161,7 +113,7 @@ internal sealed class RosterSource : IObservable<RosterChange>
         var effectiveMaxAge = maxAge > TimeSpan.Zero ? maxAge : _options.RosterExpiryFallback;
         var knownAndUnchanged = false;
 
-        lock (_gate)
+        lock (Gate)
         {
             if (_entries.TryGetValue(key, out var entry))
             {
@@ -207,7 +159,7 @@ internal sealed class RosterSource : IObservable<RosterChange>
             return;
         }
 
-        lock (_gate)
+        lock (Gate)
         {
             // Announcements are handled concurrently; one heal per key at a
             // time, or a racing pair could double-emit DeviceUpdated (the same
@@ -238,7 +190,7 @@ internal sealed class RosterSource : IObservable<RosterChange>
         }
         finally
         {
-            lock (_gate)
+            lock (Gate)
             {
                 _healing.Remove(key);
             }
@@ -253,7 +205,7 @@ internal sealed class RosterSource : IObservable<RosterChange>
             return;
         }
 
-        lock (_gate)
+        lock (Gate)
         {
             if (_entries.Remove(uuid, out var entry))
             {
@@ -264,7 +216,7 @@ internal sealed class RosterSource : IObservable<RosterChange>
 
     private void Sweep()
     {
-        lock (_gate)
+        lock (Gate)
         {
             List<string>? lapsed = null;
 
@@ -288,37 +240,4 @@ internal sealed class RosterSource : IObservable<RosterChange>
             }
         }
     }
-
-    private void Emit(RosterChange value)
-    {
-        lock (_gate)
-        {
-            EmitLocked(value);
-        }
-    }
-
-    /// <summary>Delivers to every observer; the caller holds <see cref="_gate"/>.</summary>
-    private void EmitLocked(RosterChange value)
-    {
-        foreach (var observer in SnapshotObserversLocked())
-        {
-            observer.OnNext(value);
-        }
-    }
-
-    private void Error(Exception error)
-    {
-        lock (_gate)
-        {
-            foreach (var observer in SnapshotObserversLocked())
-            {
-                observer.OnError(error);
-            }
-
-            _observers.Clear();
-        }
-    }
-
-    /// <summary>Creates a stable observer snapshot; the caller holds <see cref="_gate"/>.</summary>
-    private IObserver<RosterChange>[] SnapshotObserversLocked() => [.. _observers];
 }

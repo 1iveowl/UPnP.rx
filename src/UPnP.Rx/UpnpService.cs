@@ -127,44 +127,29 @@ public sealed class UpnpService : IUpnpService
 
         var envelope = SoapComposer.ComposeActionRequest(Description.ServiceType, action, arguments);
 
-        using var timeout = new CancellationTokenSource(_options.ActionTimeout, _options.TimeProvider);
+        var (status, body) = await TimedExchange.RunAsync(
+            async token =>
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Post, Description.ControlUrl);
+                var content = new StringContent(envelope, Encoding.UTF8);
+                content.Headers.Remove("Content-Type");
+                content.Headers.TryAddWithoutValidation("Content-Type", _soapContentType);
+                request.Content = content;
+                request.Headers.TryAddWithoutValidation(
+                    "SOAPACTION", SoapComposer.ComposeSoapActionHeader(Description.ServiceType, action));
+                request.Headers.TryAddWithoutValidation("USER-AGENT", _userAgent);
 
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token, _lifetime);
+                using var response = await _httpClient
+                    .SendAsync(request, HttpCompletionOption.ResponseContentRead, token)
+                    .ConfigureAwait(false);
 
-        string body;
-        HttpStatusCode status;
-
-        try
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Post, Description.ControlUrl);
-            var content = new StringContent(envelope, Encoding.UTF8);
-            content.Headers.Remove("Content-Type");
-            content.Headers.TryAddWithoutValidation("Content-Type", _soapContentType);
-            request.Content = content;
-            request.Headers.TryAddWithoutValidation(
-                "SOAPACTION", SoapComposer.ComposeSoapActionHeader(Description.ServiceType, action));
-            request.Headers.TryAddWithoutValidation("USER-AGENT", _userAgent);
-
-            using var response = await _httpClient
-                .SendAsync(request, HttpCompletionOption.ResponseContentRead, linked.Token)
-                .ConfigureAwait(false);
-
-            status = response.StatusCode;
-            body = await response.Content.ReadAsStringAsync(linked.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested && !ct.IsCancellationRequested)
-        {
-            throw new ObjectDisposedException(
-                nameof(UpnpClient), "The owning UpnpClient was disposed; its services can no longer invoke actions.");
-        }
-        catch (OperationCanceledException) when (timeout.IsCancellationRequested && !ct.IsCancellationRequested)
-        {
-            throw new UpnpException($"The action {action} timed out after {_options.ActionTimeout}.");
-        }
-        catch (HttpRequestException e)
-        {
-            throw new UpnpException($"The action {action} failed: {e.Message}", e);
-        }
+                return (response.StatusCode, await response.Content.ReadAsStringAsync(token).ConfigureAwait(false));
+            },
+            _options.ActionTimeout, _options.TimeProvider, _lifetime, ct,
+            timeoutMessage: $"The action {action} timed out after {_options.ActionTimeout}.",
+            failurePrefix: $"The action {action} failed",
+            disposedMessage: "The owning UpnpClient was disposed; its services can no longer invoke actions.")
+            .ConfigureAwait(false);
 
         // Faults are served with status 500 per UDA 2.0, but be lenient and
         // recognize a fault body regardless of status.
@@ -192,28 +177,13 @@ public sealed class UpnpService : IUpnpService
             throw new UpnpException($"The service {Description.ServiceType} declares no SCPDURL.");
         }
 
-        using var timeout = new CancellationTokenSource(_options.DescriptionTimeout, _options.TimeProvider);
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token, _lifetime);
-
-        string xml;
-
-        try
-        {
-            xml = await _httpClient.GetStringAsync(Description.ScpdUrl, linked.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
-        {
-            throw new ObjectDisposedException(
-                nameof(UpnpClient), "The owning UpnpClient was disposed; the SCPD can no longer be fetched.");
-        }
-        catch (OperationCanceledException) when (timeout.IsCancellationRequested)
-        {
-            throw new UpnpException($"Fetching the SCPD from {Description.ScpdUrl} timed out.");
-        }
-        catch (HttpRequestException e)
-        {
-            throw new UpnpException($"Fetching the SCPD from {Description.ScpdUrl} failed: {e.Message}", e);
-        }
+        var xml = await TimedExchange.RunAsync(
+            token => _httpClient.GetStringAsync(Description.ScpdUrl, token),
+            _options.DescriptionTimeout, _options.TimeProvider, _lifetime, ct: CancellationToken.None,
+            timeoutMessage: $"Fetching the SCPD from {Description.ScpdUrl} timed out.",
+            failurePrefix: $"Fetching the SCPD from {Description.ScpdUrl} failed",
+            disposedMessage: "The owning UpnpClient was disposed; the SCPD can no longer be fetched.")
+            .ConfigureAwait(false);
 
         return ScpdParser.ParseScpd(xml).Match(
             scpd => scpd,

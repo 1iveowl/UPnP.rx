@@ -80,23 +80,12 @@ internal sealed class HttpGenaTransport(HttpClient httpClient, UpnpClientOptions
 
     private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, string operation, CancellationToken ct)
     {
-        using var timeout = new CancellationTokenSource(options.ActionTimeout, options.TimeProvider);
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
-
-        HttpResponseMessage response;
-
-        try
-        {
-            response = await httpClient.SendAsync(request, linked.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (timeout.IsCancellationRequested && !ct.IsCancellationRequested)
-        {
-            throw new UpnpException($"The {operation} request timed out after {options.ActionTimeout}.");
-        }
-        catch (HttpRequestException e)
-        {
-            throw new UpnpException($"The {operation} request failed: {e.Message}", e);
-        }
+        var response = await TimedExchange.RunAsync(
+            token => httpClient.SendAsync(request, token),
+            options.ActionTimeout, options.TimeProvider, lifetime: CancellationToken.None, ct,
+            timeoutMessage: $"The {operation} request timed out after {options.ActionTimeout}.",
+            failurePrefix: $"The {operation} request failed")
+            .ConfigureAwait(false);
 
         if (!response.IsSuccessStatusCode)
         {

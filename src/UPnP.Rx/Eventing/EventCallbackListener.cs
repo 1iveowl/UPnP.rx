@@ -91,6 +91,9 @@ internal sealed class EventCallbackListener : IDisposable
 
     private async Task HandleAsync(HttpRequestResponse request, ResponseSender respond, CancellationToken ct)
     {
+        Task AnswerAsync(int statusCode, string? reasonPhrase = null) =>
+            respond(request, new HttpResponse { StatusCode = statusCode, ReasonPhrase = reasonPhrase }, ct);
+
         if (!string.Equals(request.Method, "NOTIFY", StringComparison.OrdinalIgnoreCase))
         {
             // The callback endpoint speaks NOTIFY only - answer rather than
@@ -112,8 +115,7 @@ internal sealed class EventCallbackListener : IDisposable
 
         if (nt is null || nts is null)
         {
-            await respond(request, new HttpResponse { StatusCode = 400, ReasonPhrase = "Bad Request" }, ct)
-                .ConfigureAwait(false);
+            await AnswerAsync(400, "Bad Request").ConfigureAwait(false);
 
             return;
         }
@@ -126,8 +128,7 @@ internal sealed class EventCallbackListener : IDisposable
             || string.IsNullOrEmpty(sid)
             || !_routes.TryGetValue(token, out var handler))
         {
-            await respond(request, new HttpResponse { StatusCode = 412, ReasonPhrase = "Precondition Failed" }, ct)
-                .ConfigureAwait(false);
+            await AnswerAsync(412, "Precondition Failed").ConfigureAwait(false);
 
             return;
         }
@@ -143,13 +144,12 @@ internal sealed class EventCallbackListener : IDisposable
         {
             // The sender still deserves an answer; the failure is ours, not theirs.
             _logger.LogDebug(e, "A NOTIFY handler failed; answering 500.");
-            await respond(request, new HttpResponse { StatusCode = 500, ReasonPhrase = "Internal Server Error" }, ct)
-                .ConfigureAwait(false);
+            await AnswerAsync(500, "Internal Server Error").ConfigureAwait(false);
 
             return;
         }
 
-        await respond(request, new HttpResponse { StatusCode = 200 }, ct).ConfigureAwait(false);
+        await AnswerAsync(200).ConfigureAwait(false);
     }
 
     public void Dispose()

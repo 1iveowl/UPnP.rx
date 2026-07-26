@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using UPnP.Rx.Eventing;
 using Xunit;
+using static UPnP.Rx.Tests.TestHelpers.TestKit;
 
 namespace UPnP.Rx.Tests;
 
@@ -59,16 +60,6 @@ public class GenaSubscriptionSourceTests
         new UpnpClientOptions { TimeProvider = _time, AutoResubscribe = autoResubscribe },
         NullLogger.Instance,
         lifetime);
-
-    private static async Task WaitForAsync(Func<bool> condition)
-    {
-        for (var i = 0; i < 100_000 && !condition(); i++)
-        {
-            await Task.Yield();
-        }
-
-        Assert.True(condition(), "The condition was not reached.");
-    }
 
     private Task NotifyAsync(uint seq, string name, string value) =>
         _route!(new NotifyRequest("uuid:sid-1", seq,

@@ -210,6 +210,28 @@ eventSubUrl (network-sized); activity rings persisting across rescans (log conti
 the point). Retention config = the two documented constants in DeviceStreamClient -
 sample-grade by intent; long retention belongs in a file log, deliberately deferred.
 
+## 7c. Dedup review (2026-07-26, on dev/4.1.1; author-initiated, then extended)
+
+The author's review commit removed duplication piecewise (shared ampersand-recovery
+helpers, IsEnabled guards, observer-snapshot helper); a follow-up carried each pattern to
+every remaining instance, then a general dedup pass consolidated the structural twins:
+
+- **`EngineSource<TEvent>`** - the eventing and roster engines shared a ~100-line
+  lifecycle skeleton (first-subscriber start, last-disposal cancel, replay-under-gate,
+  emit/error/shutdown, the reentrant-Lock dependency note). One audited base class now
+  owns it; the engines keep only their actual engines and replay/clear hooks. A third
+  engine becomes cheap.
+- **`TimedExchange`** - the timeout-CTS + exception-translation triple (lifetime →
+  ObjectDisposedException, timeout → UpnpException, HttpRequestException → wrapped) lived
+  four times (InvokeAsync, SCPD fetch, description fetch, GENA transport); now once, with
+  per-site messages preserved byte-identically.
+- **`TestKit`** - WaitForAsync existed five times, Fixture four times, SettleAsync twice;
+  now once in TestHelpers (the loopback tests keep their real-time variant by design).
+- Listener responses go through one local AnswerAsync.
+- **Noted, not done:** the local-IPv4-interface enumeration exists in PortMapper (private)
+  and the dashboard's NetworkClientProvider - unifying needs a public helper, i.e. new
+  API, which does not belong in a patch. 4.2 candidate.
+
 ## 8. Risks
 
 - **Roster correctness is where subtle bugs live** (the reason it was deferred twice):

@@ -4,6 +4,7 @@ using SSDP.UPnP.PCL.Model;
 using UPnP.Rx.PortMapping;
 using UPnP.Rx.Tests.TestHelpers;
 using Xunit;
+using static UPnP.Rx.Tests.TestHelpers.TestKit;
 
 namespace UPnP.Rx.Tests;
 
@@ -12,9 +13,6 @@ public class PortMappingTests
     private const string Location = "http://192.168.1.1:49152/desc.xml";
     private const string ControlUrl = "http://192.168.1.1:49152/upnp/control/WANPPPConn1";
     private const string PppServiceType = "urn:schemas-upnp-org:service:WANPPPConnection:1";
-
-    private static string Fixture(string name) =>
-        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", name));
 
     private static string ResponseEnvelope(string action, string serviceType, string innerXml = "") => $"""
         <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
@@ -33,17 +31,6 @@ public class PortMappingTests
 
     private static string SoapAction(HttpRequestMessage request) =>
         request.Headers.GetValues("SOAPACTION").Single().Trim('"').Split('#')[1];
-
-    /// <summary>Awaits a condition driven by fake-clock continuations without any real-time sleeps.</summary>
-    private static async Task WaitForAsync(Func<bool> condition)
-    {
-        for (var i = 0; i < 100_000 && !condition(); i++)
-        {
-            await Task.Yield();
-        }
-
-        Assert.True(condition(), "The condition was not reached.");
-    }
 
     private static async Task<(InternetGateway Gateway, FakeControlPoint ControlPoint, FakeHttpHandler Http, UpnpClient Client)>
         DiscoverGatewayAsync(FakeTimeProvider? timeProvider = null)

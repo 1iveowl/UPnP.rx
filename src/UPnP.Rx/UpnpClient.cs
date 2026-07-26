@@ -555,28 +555,13 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
 
     private async Task<DescribedDevice> FetchDescriptionAsync(Uri location, IPAddress? localAddress)
     {
-        using var timeout = new CancellationTokenSource(_options.DescriptionTimeout, _options.TimeProvider);
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token, _lifetime.Token);
-
-        string xml;
-
-        try
-        {
-            xml = await _httpClient.GetStringAsync(location, linked.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
-        {
-            throw new ObjectDisposedException(
-                nameof(UpnpClient), "The client was disposed; the description can no longer be fetched.");
-        }
-        catch (OperationCanceledException) when (timeout.IsCancellationRequested)
-        {
-            throw new UpnpException($"Fetching the description from {location} timed out.");
-        }
-        catch (HttpRequestException e)
-        {
-            throw new UpnpException($"Fetching the description from {location} failed: {e.Message}", e);
-        }
+        var xml = await TimedExchange.RunAsync(
+            token => _httpClient.GetStringAsync(location, token),
+            _options.DescriptionTimeout, _options.TimeProvider, _lifetime.Token, ct: CancellationToken.None,
+            timeoutMessage: $"Fetching the description from {location} timed out.",
+            failurePrefix: $"Fetching the description from {location} failed",
+            disposedMessage: "The client was disposed; the description can no longer be fetched.")
+            .ConfigureAwait(false);
 
         return DescriptionParser.ParseDeviceDescription(xml, location).Match(
             description => new DescribedDevice(

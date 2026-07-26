@@ -1,14 +1,12 @@
 using UPnP.Rx.Model;
 using UPnP.Rx.Parsing;
 using Xunit;
+using static UPnP.Rx.Tests.TestHelpers.TestKit;
 
 namespace UPnP.Rx.Tests;
 
 public class ScpdParserTests
 {
-    private static string Fixture(string name) =>
-        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", name));
-
     private static Scpd ParseFixture(string name)
     {
         var result = ScpdParser.ParseScpd(Fixture(name));

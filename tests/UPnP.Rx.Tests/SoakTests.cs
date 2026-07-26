@@ -6,6 +6,7 @@ using UPnP.Rx.Eventing;
 using UPnP.Rx.Roster;
 using UPnP.Rx.Tests.TestHelpers;
 using Xunit;
+using static UPnP.Rx.Tests.TestHelpers.TestKit;
 
 namespace UPnP.Rx.Tests;
 
@@ -19,16 +20,6 @@ namespace UPnP.Rx.Tests;
 public class SoakTests
 {
     private const string Location = "http://192.168.1.30:1400/desc.xml";
-
-    private static async Task WaitForAsync(Func<bool> condition)
-    {
-        for (var i = 0; i < 200_000 && !condition(); i++)
-        {
-            await Task.Yield();
-        }
-
-        Assert.True(condition(), "The condition was not reached.");
-    }
 
     [Fact]
     public async Task Roster_StateIsBoundedByPresence_NotByTraffic()

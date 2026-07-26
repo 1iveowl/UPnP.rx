@@ -1,4 +1,3 @@
-using System.Reactive.Disposables;
 using Microsoft.Extensions.Logging;
 
 namespace UPnP.Rx.Eventing;
@@ -11,7 +10,7 @@ namespace UPnP.Rx.Eventing;
 /// serializes every emission and guards the last-known-value snapshot that late
 /// subscribers receive as replay (plan decisions Q1/Q2/Q5).
 /// </summary>
-internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
+internal sealed class GenaSubscriptionSource : EngineSource<UpnpEvent>
 {
     private readonly Uri _eventSubUrl;
     private readonly Func<string, Uri> _callbackForToken;
@@ -19,20 +18,10 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
     private readonly Func<string, Func<NotifyRequest, CancellationToken, Task>, IDisposable> _registerRoute;
     private readonly UpnpClientOptions _options;
     private readonly ILogger _logger;
-    private readonly CancellationToken _clientLifetime;
 
     private static readonly TimeSpan _retryDelay = TimeSpan.FromSeconds(10);
 
-    // Load-bearing: System.Threading.Lock is reentrant (verified on net10.0).
-    // The engine depends on it - awaits of already-completed tasks continue
-    // inline, so emissions can re-enter the gate on the thread that already
-    // holds it (e.g. while Subscribe starts the engine). A non-reentrant
-    // primitive here would deadlock.
-    private readonly Lock _gate = new();
-    private readonly List<IObserver<UpnpEvent>> _observers = [];
     private readonly Dictionary<string, PropertyChange> _lastKnown = new(StringComparer.OrdinalIgnoreCase);
-    private CancellationTokenSource? _engineCts;
-    private Task _engineTask = Task.CompletedTask;
 
     internal GenaSubscriptionSource(
         Uri eventSubUrl,
@@ -42,6 +31,7 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
         UpnpClientOptions options,
         ILogger logger,
         CancellationToken clientLifetime)
+        : base(clientLifetime)
     {
         _eventSubUrl = eventSubUrl;
         _callbackForToken = callbackForToken;
@@ -49,101 +39,21 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
         _registerRoute = registerRoute;
         _options = options;
         _logger = logger;
-        _clientLifetime = clientLifetime;
     }
 
-    public IDisposable Subscribe(IObserver<UpnpEvent> observer)
+    /// <summary>A fresh run: anything remembered predates the stop and is superseded by the new SEQ 0 state.</summary>
+    protected override void ClearStateLocked() => _lastKnown.Clear();
+
+    /// <summary>Q5: late subscribers get the last-known state first, flagged as replay.</summary>
+    protected override void ReplayLocked(IObserver<UpnpEvent> observer)
     {
-        ArgumentNullException.ThrowIfNull(observer);
-
-        lock (_gate)
+        foreach (var change in _lastKnown.Values)
         {
-            if (_clientLifetime.IsCancellationRequested)
-            {
-                // The owning client is gone: a fresh engine would be born
-                // canceled and this observer would wait forever (review RX-3).
-                // Complete immediately - the same graceful end ShutdownAsync
-                // gives observers that were present at disposal.
-                observer.OnCompleted();
-                return Disposable.Empty;
-            }
-
-            var isFirst = _observers.Count == 0;
-
-            if (isFirst)
-            {
-                // A fresh run: anything remembered is from before the engine
-                // stopped - stale by definition, and about to be superseded by
-                // the new subscription's SEQ 0 initial state.
-                _lastKnown.Clear();
-            }
-            else
-            {
-                // Q5: late subscribers get the last-known state first, flagged
-                // as replay - under the same gate that live emissions use, so
-                // there is no window for a missed or duplicated change.
-                foreach (var change in _lastKnown.Values)
-                {
-                    observer.OnNext(change with { IsReplay = true });
-                }
-            }
-
-            _observers.Add(observer);
-
-            if (isFirst)
-            {
-                _engineCts?.Dispose();       // an OnError'd run leaves its CTS behind
-                _engineCts = CancellationTokenSource.CreateLinkedTokenSource(_clientLifetime);
-                _engineTask = RunEngineAsync(_engineCts.Token);
-            }
-        }
-
-        return Disposable.Create(() =>
-        {
-            lock (_gate)
-            {
-                _observers.Remove(observer);
-
-                if (_observers.Count == 0 && _engineCts is not null)
-                {
-                    // The engine task observes this and runs its own teardown
-                    // (UNSUBSCRIBE) inside the task - disposal-model rule 3.
-                    _engineCts.Cancel();
-                    _engineCts.Dispose();
-                    _engineCts = null;
-                }
-            }
-        });
-    }
-
-    /// <summary>
-    /// Graceful stop for client disposal: cancels the engine and returns its
-    /// task, so callers can await the in-task teardown (UNSUBSCRIBE included -
-    /// it is bounded by <see cref="UpnpClientOptions.ActionTimeout"/>).
-    /// Remaining observers are completed; the stream ends without error.
-    /// </summary>
-    internal Task ShutdownAsync()
-    {
-        lock (_gate)
-        {
-            if (_engineCts is not null)
-            {
-                _engineCts.Cancel();
-                _engineCts.Dispose();
-                _engineCts = null;
-            }
-
-            foreach (var observer in SnapshotObserversLocked())
-            {
-                observer.OnCompleted();
-            }
-
-            _observers.Clear();
-            return _engineTask;
+            observer.OnNext(change with { IsReplay = true });
         }
     }
 
-    private async Task RunEngineAsync(CancellationToken ct)
+    protected override async Task RunEngineAsync(CancellationToken ct)
     {
         try
         {
@@ -323,7 +233,7 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
         // or interleave their batches. Compliant devices await our 200 before
         // the next NOTIFY, but the engine's invariants must not depend on
         // device politeness.
-        lock (_gate)
+        lock (Gate)
         {
             if (seq is { } actual)
             {
@@ -365,39 +275,6 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
             {
                 // The attempt already ended; nothing to trigger.
             }
-        }
-    }
-
-    private void Emit(UpnpEvent value)
-    {
-        lock (_gate)
-        {
-            EmitLocked(value);
-        }
-    }
-
-    /// <summary>Delivers to every observer; the caller holds <see cref="_gate"/>.</summary>
-    private void EmitLocked(UpnpEvent value)
-    {
-        foreach (var observer in SnapshotObserversLocked())
-        {
-            observer.OnNext(value);
-        }
-    }
-
-    /// <summary>Creates a stable observer snapshot; the caller holds <see cref="_gate"/>.</summary>
-    private IObserver<UpnpEvent>[] SnapshotObserversLocked() => [.. _observers];
-
-    private void Error(Exception error)
-    {
-        lock (_gate)
-        {
-            foreach (var observer in SnapshotObserversLocked())
-            {
-                observer.OnError(error);
-            }
-
-            _observers.Clear();
         }
     }
 }

@@ -1,14 +1,12 @@
 using UPnP.Rx.Model;
 using UPnP.Rx.Parsing;
 using Xunit;
+using static UPnP.Rx.Tests.TestHelpers.TestKit;
 
 namespace UPnP.Rx.Tests;
 
 public class DescriptionParserTests
 {
-    private static string Fixture(string name) =>
-        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", name));
-
     private static DeviceDescription ParseFixture(string name, string location)
     {
         var result = DescriptionParser.ParseDeviceDescription(Fixture(name), new Uri(location));

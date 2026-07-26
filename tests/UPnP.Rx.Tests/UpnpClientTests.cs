@@ -2,15 +2,13 @@ using System.Net;
 using SSDP.UPnP.PCL.Model;
 using UPnP.Rx.Tests.TestHelpers;
 using Xunit;
+using static UPnP.Rx.Tests.TestHelpers.TestKit;
 
 namespace UPnP.Rx.Tests;
 
 public class UpnpClientTests
 {
     private const string Location = "http://192.168.1.1:49152/desc.xml";
-
-    private static string Fixture(string name) =>
-        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", name));
 
     private static MSearchResponse Response(
         string usn = "uuid:device-1::upnp:rootdevice", uint bootId = 1, TimeSpan cacheControl = default) => new()

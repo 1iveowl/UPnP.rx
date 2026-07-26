@@ -4,6 +4,7 @@ using SSDP.UPnP.PCL.Model;
 using UPnP.Rx.Roster;
 using UPnP.Rx.Tests.TestHelpers;
 using Xunit;
+using static UPnP.Rx.Tests.TestHelpers.TestKit;
 
 namespace UPnP.Rx.Tests;
 
@@ -22,29 +23,6 @@ public class RosterTests
 
     private UpnpClient CreateClient() =>
         new(_controlPoint, _http.CreateClient(), new UpnpClientOptions { TimeProvider = _time }, IPAddress.Parse("192.168.1.42"));
-
-    private static async Task WaitForAsync(Func<bool> condition)
-    {
-        for (var i = 0; i < 100_000 && !condition(); i++)
-        {
-            await Task.Yield();
-        }
-
-        Assert.True(condition(), "The condition was not reached.");
-    }
-
-    /// <summary>
-    /// Drains pending async continuations without real or fake time - for
-    /// asserting that nothing further arrives. (A fake-clock Task.Delay would
-    /// never elapse here; that mistake hangs the whole run.)
-    /// </summary>
-    private static async Task SettleAsync()
-    {
-        for (var i = 0; i < 5_000; i++)
-        {
-            await Task.Yield();
-        }
-    }
 
     private void Announce(string usn = "uuid:roster-1::upnp:rootdevice", uint bootId = 1, int maxAgeSeconds = 100) =>
         _controlPoint.Notifies.OnNext(new Notify

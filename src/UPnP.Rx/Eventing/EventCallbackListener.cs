@@ -101,6 +101,7 @@ internal sealed class EventCallbackListener : IDisposable
                 ReasonPhrase = "Method Not Allowed",
                 Headers = { ["Allow"] = "NOTIFY" }
             }, ct).ConfigureAwait(false);
+
             return;
         }
 
@@ -127,6 +128,7 @@ internal sealed class EventCallbackListener : IDisposable
         {
             await respond(request, new HttpResponse { StatusCode = 412, ReasonPhrase = "Precondition Failed" }, ct)
                 .ConfigureAwait(false);
+
             return;
         }
 
@@ -143,6 +145,7 @@ internal sealed class EventCallbackListener : IDisposable
             _logger.LogDebug(e, "A NOTIFY handler failed; answering 500.");
             await respond(request, new HttpResponse { StatusCode = 500, ReasonPhrase = "Internal Server Error" }, ct)
                 .ConfigureAwait(false);
+
             return;
         }
 

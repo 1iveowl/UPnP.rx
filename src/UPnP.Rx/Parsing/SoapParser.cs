@@ -126,31 +126,15 @@ public static class SoapParser
 
     private static bool TryParseWithAmpersandRecovery(string xml, out XDocument document, out string error)
     {
-        if (TryParseXml(xml, out document, out var initialError)
-            || TryParseXml(XmlLeniency.EscapeBareAmpersands(xml), out document, out _))
+        if (XmlLeniency.TryParseWithAmpersandRecovery(xml, out document, out var initialError))
         {
             error = string.Empty;
             return true;
         }
 
+        document = new XDocument();
         error = $"The document is not well-formed XML: {initialError!.Message}";
         return false;
-    }
-
-    private static bool TryParseXml(string xml, out XDocument document, out XmlException? error)
-    {
-        try
-        {
-            document = XDocument.Parse(xml, LoadOptions.None);
-            error = null;
-            return true;
-        }
-        catch (XmlException exception)
-        {
-            document = new XDocument();
-            error = exception;
-            return false;
-        }
     }
 
     private static XElement? FindBody(XDocument document) =>

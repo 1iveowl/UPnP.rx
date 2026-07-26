@@ -24,23 +24,10 @@ public static class GenaParser
     {
         ArgumentNullException.ThrowIfNull(xml);
 
-        XDocument document;
-
-        try
+        if (!XmlLeniency.TryParseWithAmpersandRecovery(xml, out var document, out var initialError))
         {
-            document = XDocument.Parse(xml, LoadOptions.None);
-        }
-        catch (XmlException initial)
-        {
-            try
-            {
-                document = XDocument.Parse(XmlLeniency.EscapeBareAmpersands(xml), LoadOptions.None);
-            }
-            catch (XmlException)
-            {
-                return ParseResult<IReadOnlyList<EventedProperty>>.Failure(
-                    $"The NOTIFY body is not well-formed XML: {initial.Message}");
-            }
+            return ParseResult<IReadOnlyList<EventedProperty>>.Failure(
+                $"The NOTIFY body is not well-formed XML: {initialError!.Message}");
         }
 
         var root = document.Root;

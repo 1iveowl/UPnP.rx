@@ -35,7 +35,7 @@ public static class DescriptionParser
             throw new ArgumentException("The location must be an absolute URI.", nameof(location));
         }
 
-        if (!TryParseWithAmpersandRecovery(xml, out var document, out var initialError))
+        if (!XmlLeniency.TryParseWithAmpersandRecovery(xml, out var document, out var initialError))
         {
             return ParseResult<DeviceDescription>.Failure(
                 $"The document is not well-formed XML: {initialError!.Message}");
@@ -71,37 +71,6 @@ public static class DescriptionParser
     /// nesting is truncated, keeping the parser total.
     /// </summary>
     private const int _maxDeviceDepth = 16;
-
-    private static XDocument Parse(string xml) => XDocument.Parse(xml, LoadOptions.None);
-
-    private static bool TryParseWithAmpersandRecovery(
-        string xml,
-        out XDocument document,
-        out XmlException? initialError)
-    {
-        try
-        {
-            document = Parse(xml);
-            initialError = null;
-            return true;
-        }
-        catch (XmlException error)
-        {
-            initialError = error;
-        }
-
-        try
-        {
-            // Most common real-world malformation: unescaped '&' in text.
-            document = Parse(XmlLeniency.EscapeBareAmpersands(xml));
-            return true;
-        }
-        catch (XmlException)
-        {
-            document = null!;
-            return false;
-        }
-    }
 
     /// <summary>
     /// UDA 2.0 resolves against LOCATION; a UDA 1.0-era <c>URLBase</c> wins when a

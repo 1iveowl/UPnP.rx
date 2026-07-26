@@ -133,7 +133,7 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
                 _engineCts = null;
             }
 
-            foreach (var observer in _observers.ToArray())
+            foreach (var observer in SnapshotObserversLocked())
             {
                 observer.OnCompleted();
             }
@@ -285,7 +285,10 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
                     }
                     catch (Exception e)
                     {
-                        _logger.LogDebug(e, "UNSUBSCRIBE for {Sid} failed; the device will time the subscription out.", sid);
+                        if (_logger.IsEnabled(LogLevel.Debug))
+                        {
+                            _logger.LogDebug(e, "UNSUBSCRIBE for {Sid} failed; the device will time the subscription out.", sid);
+                        }
                     }
                 }
             }
@@ -304,7 +307,10 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
 
         if (!parsed.IsSuccess)
         {
-            _logger.LogDebug("Dropped an unparsable NOTIFY: {Error}", parsed.Error);
+            if (_logger.IsEnabled(LogLevel.Debug))
+            {
+                _logger.LogDebug("Dropped an unparsable NOTIFY: {Error}", parsed.Error);
+            }
             return;
         }
 
@@ -373,17 +379,20 @@ internal sealed class GenaSubscriptionSource : IObservable<UpnpEvent>
     /// <summary>Delivers to every observer; the caller holds <see cref="_gate"/>.</summary>
     private void EmitLocked(UpnpEvent value)
     {
-        foreach (var observer in _observers.ToArray())
+        foreach (var observer in SnapshotObserversLocked())
         {
             observer.OnNext(value);
         }
     }
 
+    /// <summary>Creates a stable observer snapshot; the caller holds <see cref="_gate"/>.</summary>
+    private IObserver<UpnpEvent>[] SnapshotObserversLocked() => [.. _observers];
+
     private void Error(Exception error)
     {
         lock (_gate)
         {
-            foreach (var observer in _observers.ToArray())
+            foreach (var observer in SnapshotObserversLocked())
             {
                 observer.OnError(error);
             }

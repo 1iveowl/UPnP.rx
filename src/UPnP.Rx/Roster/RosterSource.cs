@@ -231,7 +231,10 @@ internal sealed class RosterSource : IObservable<RosterChange>
         {
             // The failed fetch already evicted itself from the cache; the next
             // announcement retries. Presence is unaffected.
-            _logger.LogDebug(e, "Roster re-describe of {Location} failed.", device.Location);
+            if (_logger.IsEnabled(LogLevel.Debug))
+            {
+                _logger.LogDebug(e, "Roster re-describe of {Location} failed.", device.Location);
+            }
         }
         finally
         {

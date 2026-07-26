@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Xml;
 using System.Xml.Linq;
 
 namespace UPnP.Rx.Parsing;
@@ -69,6 +70,38 @@ internal static partial class XmlLeniency
         && resolved.Scheme is "http" or "https"
             ? resolved
             : null;
+
+    /// <summary>
+    /// Parses XML with the house recovery: on failure, retry once with bare
+    /// ampersands escaped (the most common real-world malformation). On false,
+    /// <paramref name="initialError"/> carries the ORIGINAL parse error - the
+    /// document as the device sent it is what the failure message should cite.
+    /// </summary>
+    internal static bool TryParseWithAmpersandRecovery(
+        string xml, out XDocument document, out XmlException? initialError)
+    {
+        try
+        {
+            document = XDocument.Parse(xml, LoadOptions.None);
+            initialError = null;
+            return true;
+        }
+        catch (XmlException error)
+        {
+            initialError = error;
+        }
+
+        try
+        {
+            document = XDocument.Parse(EscapeBareAmpersands(xml), LoadOptions.None);
+            return true;
+        }
+        catch (XmlException)
+        {
+            document = null!;
+            return false;
+        }
+    }
 
     /// <summary>
     /// Escapes bare <c>&amp;</c> characters that are not part of an entity

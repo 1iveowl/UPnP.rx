@@ -63,7 +63,7 @@ public sealed class UpnpService : IUpnpService
     /// (house Rx rule 1 applies here doubly).
     /// </summary>
     /// <exception cref="UpnpException">The service declares no <c>eventSubURL</c>.</exception>
-    public IObservable<UpnpEvent> Events() =>  Description.EventSubUrl is null
+    public IObservable<UpnpEvent> Events() => Description.EventSubUrl is null
             ? throw new UpnpException($"The service {Description.ServiceType} declares no eventSubURL - it is not evented.")
             : _eventing.GetOrCreateSource(Description.EventSubUrl, _localAddress);
 
@@ -128,6 +128,7 @@ public sealed class UpnpService : IUpnpService
         var envelope = SoapComposer.ComposeActionRequest(Description.ServiceType, action, arguments);
 
         using var timeout = new CancellationTokenSource(_options.ActionTimeout, _options.TimeProvider);
+
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token, _lifetime);
 
         string body;

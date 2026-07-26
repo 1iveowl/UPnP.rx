@@ -1,232 +1,24 @@
 #nullable enable
-abstract UPnP.Rx.Eventing.UpnpEvent.<Clone>$() -> UPnP.Rx.Eventing.UpnpEvent!
-abstract UPnP.Rx.Roster.RosterChange.<Clone>$() -> UPnP.Rx.Roster.RosterChange!
-override sealed UPnP.Rx.Eventing.GapDetected.Equals(UPnP.Rx.Eventing.UpnpEvent? other) -> bool
-override sealed UPnP.Rx.Eventing.PropertyChange.Equals(UPnP.Rx.Eventing.UpnpEvent? other) -> bool
-override sealed UPnP.Rx.Eventing.RenewalFailed.Equals(UPnP.Rx.Eventing.UpnpEvent? other) -> bool
-override sealed UPnP.Rx.Eventing.Resubscribed.Equals(UPnP.Rx.Eventing.UpnpEvent? other) -> bool
-override sealed UPnP.Rx.Eventing.Subscribed.Equals(UPnP.Rx.Eventing.UpnpEvent? other) -> bool
-override sealed UPnP.Rx.Eventing.SubscriptionRefused.Equals(UPnP.Rx.Eventing.UpnpEvent? other) -> bool
-override sealed UPnP.Rx.Roster.DeviceAppeared.Equals(UPnP.Rx.Roster.RosterChange? other) -> bool
-override sealed UPnP.Rx.Roster.DeviceExpired.Equals(UPnP.Rx.Roster.RosterChange? other) -> bool
-override sealed UPnP.Rx.Roster.DeviceLeft.Equals(UPnP.Rx.Roster.RosterChange? other) -> bool
-override sealed UPnP.Rx.Roster.DeviceUpdated.Equals(UPnP.Rx.Roster.RosterChange? other) -> bool
-override UPnP.Rx.Announcement.Equals(object? obj) -> bool
-override UPnP.Rx.Announcement.GetHashCode() -> int
-override UPnP.Rx.Announcement.ToString() -> string!
-override UPnP.Rx.Eventing.Av.AvPropertyChange.Equals(object? obj) -> bool
-override UPnP.Rx.Eventing.Av.AvPropertyChange.GetHashCode() -> int
-override UPnP.Rx.Eventing.Av.AvPropertyChange.ToString() -> string!
-override UPnP.Rx.Eventing.EventedProperty.Equals(object? obj) -> bool
-override UPnP.Rx.Eventing.EventedProperty.GetHashCode() -> int
-override UPnP.Rx.Eventing.EventedProperty.ToString() -> string!
-override UPnP.Rx.Eventing.GapDetected.<Clone>$() -> UPnP.Rx.Eventing.GapDetected!
-override UPnP.Rx.Eventing.GapDetected.Equals(object? obj) -> bool
-override UPnP.Rx.Eventing.GapDetected.GetHashCode() -> int
-override UPnP.Rx.Eventing.GapDetected.ToString() -> string!
-override UPnP.Rx.Eventing.PropertyChange.<Clone>$() -> UPnP.Rx.Eventing.PropertyChange!
-override UPnP.Rx.Eventing.PropertyChange.Equals(object? obj) -> bool
-override UPnP.Rx.Eventing.PropertyChange.GetHashCode() -> int
-override UPnP.Rx.Eventing.PropertyChange.ToString() -> string!
-override UPnP.Rx.Eventing.RenewalFailed.<Clone>$() -> UPnP.Rx.Eventing.RenewalFailed!
-override UPnP.Rx.Eventing.RenewalFailed.Equals(object? obj) -> bool
-override UPnP.Rx.Eventing.RenewalFailed.GetHashCode() -> int
-override UPnP.Rx.Eventing.RenewalFailed.ToString() -> string!
-override UPnP.Rx.Eventing.Resubscribed.<Clone>$() -> UPnP.Rx.Eventing.Resubscribed!
-override UPnP.Rx.Eventing.Resubscribed.Equals(object? obj) -> bool
-override UPnP.Rx.Eventing.Resubscribed.GetHashCode() -> int
-override UPnP.Rx.Eventing.Resubscribed.ToString() -> string!
-override UPnP.Rx.Eventing.Subscribed.<Clone>$() -> UPnP.Rx.Eventing.Subscribed!
-override UPnP.Rx.Eventing.Subscribed.Equals(object? obj) -> bool
-override UPnP.Rx.Eventing.Subscribed.GetHashCode() -> int
-override UPnP.Rx.Eventing.Subscribed.ToString() -> string!
-override UPnP.Rx.Eventing.SubscriptionRefused.<Clone>$() -> UPnP.Rx.Eventing.SubscriptionRefused!
-override UPnP.Rx.Eventing.SubscriptionRefused.Equals(object? obj) -> bool
-override UPnP.Rx.Eventing.SubscriptionRefused.GetHashCode() -> int
-override UPnP.Rx.Eventing.SubscriptionRefused.ToString() -> string!
-override UPnP.Rx.Eventing.UpnpEvent.Equals(object? obj) -> bool
-override UPnP.Rx.Eventing.UpnpEvent.GetHashCode() -> int
-override UPnP.Rx.Eventing.UpnpEvent.ToString() -> string!
-override UPnP.Rx.Model.ActionDescription.Equals(object? obj) -> bool
-override UPnP.Rx.Model.ActionDescription.GetHashCode() -> int
-override UPnP.Rx.Model.ActionDescription.ToString() -> string!
-override UPnP.Rx.Model.ActionResult.Equals(object? obj) -> bool
-override UPnP.Rx.Model.ActionResult.GetHashCode() -> int
-override UPnP.Rx.Model.ActionResult.ToString() -> string!
-override UPnP.Rx.Model.AllowedValueRange.Equals(object? obj) -> bool
-override UPnP.Rx.Model.AllowedValueRange.GetHashCode() -> int
-override UPnP.Rx.Model.AllowedValueRange.ToString() -> string!
-override UPnP.Rx.Model.ArgumentDescription.Equals(object? obj) -> bool
-override UPnP.Rx.Model.ArgumentDescription.GetHashCode() -> int
-override UPnP.Rx.Model.ArgumentDescription.ToString() -> string!
-override UPnP.Rx.Model.DeviceDescription.Equals(object? obj) -> bool
-override UPnP.Rx.Model.DeviceDescription.GetHashCode() -> int
-override UPnP.Rx.Model.DeviceDescription.ToString() -> string!
-override UPnP.Rx.Model.IconDescription.Equals(object? obj) -> bool
-override UPnP.Rx.Model.IconDescription.GetHashCode() -> int
-override UPnP.Rx.Model.IconDescription.ToString() -> string!
-override UPnP.Rx.Model.ParseResult<T>.Equals(object? obj) -> bool
-override UPnP.Rx.Model.ParseResult<T>.GetHashCode() -> int
-override UPnP.Rx.Model.ParseResult<T>.ToString() -> string!
-override UPnP.Rx.Model.Scpd.Equals(object? obj) -> bool
-override UPnP.Rx.Model.Scpd.GetHashCode() -> int
-override UPnP.Rx.Model.Scpd.ToString() -> string!
-override UPnP.Rx.Model.ServiceDescription.Equals(object? obj) -> bool
-override UPnP.Rx.Model.ServiceDescription.GetHashCode() -> int
-override UPnP.Rx.Model.ServiceDescription.ToString() -> string!
-override UPnP.Rx.Model.SpecVersion.Equals(object? obj) -> bool
-override UPnP.Rx.Model.SpecVersion.GetHashCode() -> int
-override UPnP.Rx.Model.SpecVersion.ToString() -> string!
-override UPnP.Rx.Model.StateVariable.Equals(object? obj) -> bool
-override UPnP.Rx.Model.StateVariable.GetHashCode() -> int
-override UPnP.Rx.Model.StateVariable.ToString() -> string!
-override UPnP.Rx.Model.UpnpError.Equals(object? obj) -> bool
-override UPnP.Rx.Model.UpnpError.GetHashCode() -> int
-override UPnP.Rx.Model.UpnpError.ToString() -> string!
-override UPnP.Rx.PortMapping.ConnectionStatusInfo.Equals(object? obj) -> bool
-override UPnP.Rx.PortMapping.ConnectionStatusInfo.GetHashCode() -> int
-override UPnP.Rx.PortMapping.ConnectionStatusInfo.ToString() -> string!
-override UPnP.Rx.PortMapping.PortMappingEntry.Equals(object? obj) -> bool
-override UPnP.Rx.PortMapping.PortMappingEntry.GetHashCode() -> int
-override UPnP.Rx.PortMapping.PortMappingEntry.ToString() -> string!
-override UPnP.Rx.PortMapping.PortMappingEvent.Equals(object? obj) -> bool
-override UPnP.Rx.PortMapping.PortMappingEvent.GetHashCode() -> int
-override UPnP.Rx.PortMapping.PortMappingEvent.ToString() -> string!
-override UPnP.Rx.Roster.DeviceAppeared.<Clone>$() -> UPnP.Rx.Roster.DeviceAppeared!
-override UPnP.Rx.Roster.DeviceAppeared.Equals(object? obj) -> bool
-override UPnP.Rx.Roster.DeviceAppeared.GetHashCode() -> int
-override UPnP.Rx.Roster.DeviceAppeared.ToString() -> string!
-override UPnP.Rx.Roster.DeviceExpired.<Clone>$() -> UPnP.Rx.Roster.DeviceExpired!
-override UPnP.Rx.Roster.DeviceExpired.Equals(object? obj) -> bool
-override UPnP.Rx.Roster.DeviceExpired.GetHashCode() -> int
-override UPnP.Rx.Roster.DeviceExpired.ToString() -> string!
-override UPnP.Rx.Roster.DeviceLeft.<Clone>$() -> UPnP.Rx.Roster.DeviceLeft!
-override UPnP.Rx.Roster.DeviceLeft.Equals(object? obj) -> bool
-override UPnP.Rx.Roster.DeviceLeft.GetHashCode() -> int
-override UPnP.Rx.Roster.DeviceLeft.ToString() -> string!
-override UPnP.Rx.Roster.DeviceUpdated.<Clone>$() -> UPnP.Rx.Roster.DeviceUpdated!
-override UPnP.Rx.Roster.DeviceUpdated.Equals(object? obj) -> bool
-override UPnP.Rx.Roster.DeviceUpdated.GetHashCode() -> int
-override UPnP.Rx.Roster.DeviceUpdated.ToString() -> string!
-override UPnP.Rx.Roster.RosterChange.Equals(object? obj) -> bool
-override UPnP.Rx.Roster.RosterChange.GetHashCode() -> int
-override UPnP.Rx.Roster.RosterChange.ToString() -> string!
-override UPnP.Rx.UpnpClientOptions.Equals(object? obj) -> bool
-override UPnP.Rx.UpnpClientOptions.GetHashCode() -> int
-override UPnP.Rx.UpnpClientOptions.ToString() -> string!
-static UPnP.Rx.Announcement.operator !=(UPnP.Rx.Announcement? left, UPnP.Rx.Announcement? right) -> bool
-static UPnP.Rx.Announcement.operator ==(UPnP.Rx.Announcement? left, UPnP.Rx.Announcement? right) -> bool
-static UPnP.Rx.Eventing.Av.AvEventExtensions.SelectAvChanges(this System.IObservable<UPnP.Rx.Eventing.UpnpEvent!>! events) -> System.IObservable<UPnP.Rx.Eventing.Av.AvPropertyChange!>!
-static UPnP.Rx.Eventing.Av.AvPropertyChange.operator !=(UPnP.Rx.Eventing.Av.AvPropertyChange? left, UPnP.Rx.Eventing.Av.AvPropertyChange? right) -> bool
-static UPnP.Rx.Eventing.Av.AvPropertyChange.operator ==(UPnP.Rx.Eventing.Av.AvPropertyChange? left, UPnP.Rx.Eventing.Av.AvPropertyChange? right) -> bool
-static UPnP.Rx.Eventing.Av.LastChangeParser.Parse(string! xml) -> UPnP.Rx.Model.ParseResult<System.Collections.Generic.IReadOnlyList<UPnP.Rx.Eventing.Av.AvPropertyChange!>!>!
-static UPnP.Rx.Eventing.EventedProperty.operator !=(UPnP.Rx.Eventing.EventedProperty? left, UPnP.Rx.Eventing.EventedProperty? right) -> bool
-static UPnP.Rx.Eventing.EventedProperty.operator ==(UPnP.Rx.Eventing.EventedProperty? left, UPnP.Rx.Eventing.EventedProperty? right) -> bool
-static UPnP.Rx.Eventing.GapDetected.operator !=(UPnP.Rx.Eventing.GapDetected? left, UPnP.Rx.Eventing.GapDetected? right) -> bool
-static UPnP.Rx.Eventing.GapDetected.operator ==(UPnP.Rx.Eventing.GapDetected? left, UPnP.Rx.Eventing.GapDetected? right) -> bool
-static UPnP.Rx.Eventing.GenaHeaders.ComposeCallback(System.Uri! callback) -> string!
-static UPnP.Rx.Eventing.GenaHeaders.ComposeTimeout(System.TimeSpan? timeout) -> string!
-static UPnP.Rx.Eventing.GenaHeaders.ParseSeq(string? value) -> uint?
-static UPnP.Rx.Eventing.GenaHeaders.ParseTimeout(string? value) -> System.TimeSpan?
-static UPnP.Rx.Eventing.GenaParser.ParsePropertySet(string! xml) -> UPnP.Rx.Model.ParseResult<System.Collections.Generic.IReadOnlyList<UPnP.Rx.Eventing.EventedProperty!>!>!
-static UPnP.Rx.Eventing.PropertyChange.operator !=(UPnP.Rx.Eventing.PropertyChange? left, UPnP.Rx.Eventing.PropertyChange? right) -> bool
-static UPnP.Rx.Eventing.PropertyChange.operator ==(UPnP.Rx.Eventing.PropertyChange? left, UPnP.Rx.Eventing.PropertyChange? right) -> bool
-static UPnP.Rx.Eventing.RenewalFailed.operator !=(UPnP.Rx.Eventing.RenewalFailed? left, UPnP.Rx.Eventing.RenewalFailed? right) -> bool
-static UPnP.Rx.Eventing.RenewalFailed.operator ==(UPnP.Rx.Eventing.RenewalFailed? left, UPnP.Rx.Eventing.RenewalFailed? right) -> bool
-static UPnP.Rx.Eventing.Resubscribed.operator !=(UPnP.Rx.Eventing.Resubscribed? left, UPnP.Rx.Eventing.Resubscribed? right) -> bool
-static UPnP.Rx.Eventing.Resubscribed.operator ==(UPnP.Rx.Eventing.Resubscribed? left, UPnP.Rx.Eventing.Resubscribed? right) -> bool
-static UPnP.Rx.Eventing.Subscribed.operator !=(UPnP.Rx.Eventing.Subscribed? left, UPnP.Rx.Eventing.Subscribed? right) -> bool
-static UPnP.Rx.Eventing.Subscribed.operator ==(UPnP.Rx.Eventing.Subscribed? left, UPnP.Rx.Eventing.Subscribed? right) -> bool
-static UPnP.Rx.Eventing.SubscriptionRefused.operator !=(UPnP.Rx.Eventing.SubscriptionRefused? left, UPnP.Rx.Eventing.SubscriptionRefused? right) -> bool
-static UPnP.Rx.Eventing.SubscriptionRefused.operator ==(UPnP.Rx.Eventing.SubscriptionRefused? left, UPnP.Rx.Eventing.SubscriptionRefused? right) -> bool
-static UPnP.Rx.Eventing.UpnpEvent.operator !=(UPnP.Rx.Eventing.UpnpEvent? left, UPnP.Rx.Eventing.UpnpEvent? right) -> bool
-static UPnP.Rx.Eventing.UpnpEvent.operator ==(UPnP.Rx.Eventing.UpnpEvent? left, UPnP.Rx.Eventing.UpnpEvent? right) -> bool
-static UPnP.Rx.Model.ActionDescription.operator !=(UPnP.Rx.Model.ActionDescription? left, UPnP.Rx.Model.ActionDescription? right) -> bool
-static UPnP.Rx.Model.ActionDescription.operator ==(UPnP.Rx.Model.ActionDescription? left, UPnP.Rx.Model.ActionDescription? right) -> bool
-static UPnP.Rx.Model.ActionResult.operator !=(UPnP.Rx.Model.ActionResult? left, UPnP.Rx.Model.ActionResult? right) -> bool
-static UPnP.Rx.Model.ActionResult.operator ==(UPnP.Rx.Model.ActionResult? left, UPnP.Rx.Model.ActionResult? right) -> bool
-static UPnP.Rx.Model.AllowedValueRange.operator !=(UPnP.Rx.Model.AllowedValueRange? left, UPnP.Rx.Model.AllowedValueRange? right) -> bool
-static UPnP.Rx.Model.AllowedValueRange.operator ==(UPnP.Rx.Model.AllowedValueRange? left, UPnP.Rx.Model.AllowedValueRange? right) -> bool
-static UPnP.Rx.Model.ArgumentDescription.operator !=(UPnP.Rx.Model.ArgumentDescription? left, UPnP.Rx.Model.ArgumentDescription? right) -> bool
-static UPnP.Rx.Model.ArgumentDescription.operator ==(UPnP.Rx.Model.ArgumentDescription? left, UPnP.Rx.Model.ArgumentDescription? right) -> bool
-static UPnP.Rx.Model.DeviceDescription.operator !=(UPnP.Rx.Model.DeviceDescription? left, UPnP.Rx.Model.DeviceDescription? right) -> bool
-static UPnP.Rx.Model.DeviceDescription.operator ==(UPnP.Rx.Model.DeviceDescription? left, UPnP.Rx.Model.DeviceDescription? right) -> bool
-static UPnP.Rx.Model.IconDescription.operator !=(UPnP.Rx.Model.IconDescription? left, UPnP.Rx.Model.IconDescription? right) -> bool
-static UPnP.Rx.Model.IconDescription.operator ==(UPnP.Rx.Model.IconDescription? left, UPnP.Rx.Model.IconDescription? right) -> bool
-static UPnP.Rx.Model.ParseResult<T>.Failure(string! error) -> UPnP.Rx.Model.ParseResult<T>!
-static UPnP.Rx.Model.ParseResult<T>.operator !=(UPnP.Rx.Model.ParseResult<T>? left, UPnP.Rx.Model.ParseResult<T>? right) -> bool
-static UPnP.Rx.Model.ParseResult<T>.operator ==(UPnP.Rx.Model.ParseResult<T>? left, UPnP.Rx.Model.ParseResult<T>? right) -> bool
-static UPnP.Rx.Model.ParseResult<T>.Success(T value) -> UPnP.Rx.Model.ParseResult<T>!
-static UPnP.Rx.Model.Scpd.operator !=(UPnP.Rx.Model.Scpd? left, UPnP.Rx.Model.Scpd? right) -> bool
-static UPnP.Rx.Model.Scpd.operator ==(UPnP.Rx.Model.Scpd? left, UPnP.Rx.Model.Scpd? right) -> bool
-static UPnP.Rx.Model.ScpdExtensions.ValidateAndOrderArguments(this UPnP.Rx.Model.Scpd! scpd, string! actionName, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? arguments = null) -> UPnP.Rx.Model.ParseResult<System.Collections.Generic.IReadOnlyDictionary<string!, string!>!>!
-static UPnP.Rx.Model.ServiceDescription.operator !=(UPnP.Rx.Model.ServiceDescription? left, UPnP.Rx.Model.ServiceDescription? right) -> bool
-static UPnP.Rx.Model.ServiceDescription.operator ==(UPnP.Rx.Model.ServiceDescription? left, UPnP.Rx.Model.ServiceDescription? right) -> bool
-static UPnP.Rx.Model.SpecVersion.operator !=(UPnP.Rx.Model.SpecVersion? left, UPnP.Rx.Model.SpecVersion? right) -> bool
-static UPnP.Rx.Model.SpecVersion.operator ==(UPnP.Rx.Model.SpecVersion? left, UPnP.Rx.Model.SpecVersion? right) -> bool
-static UPnP.Rx.Model.StateVariable.operator !=(UPnP.Rx.Model.StateVariable? left, UPnP.Rx.Model.StateVariable? right) -> bool
-static UPnP.Rx.Model.StateVariable.operator ==(UPnP.Rx.Model.StateVariable? left, UPnP.Rx.Model.StateVariable? right) -> bool
-static UPnP.Rx.Model.UpnpError.operator !=(UPnP.Rx.Model.UpnpError? left, UPnP.Rx.Model.UpnpError? right) -> bool
-static UPnP.Rx.Model.UpnpError.operator ==(UPnP.Rx.Model.UpnpError? left, UPnP.Rx.Model.UpnpError? right) -> bool
-static UPnP.Rx.Parsing.DescriptionParser.ParseDeviceDescription(string! xml, System.Uri! location) -> UPnP.Rx.Model.ParseResult<UPnP.Rx.Model.DeviceDescription!>!
-static UPnP.Rx.Parsing.ScpdParser.ParseScpd(string! xml) -> UPnP.Rx.Model.ParseResult<UPnP.Rx.Model.Scpd!>!
-static UPnP.Rx.Parsing.SoapComposer.ComposeActionRequest(string! serviceType, string! actionName, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? arguments = null) -> string!
-static UPnP.Rx.Parsing.SoapComposer.ComposeSoapActionHeader(string! serviceType, string! actionName) -> string!
-static UPnP.Rx.Parsing.SoapParser.ParseActionResponse(string! xml, string! actionName) -> UPnP.Rx.Model.ParseResult<UPnP.Rx.Model.ActionResult!>!
-static UPnP.Rx.Parsing.SoapParser.ParseFault(string! xml) -> UPnP.Rx.Model.ParseResult<UPnP.Rx.Model.UpnpError!>!
-static UPnP.Rx.PortMapping.ConnectionStatusInfo.operator !=(UPnP.Rx.PortMapping.ConnectionStatusInfo? left, UPnP.Rx.PortMapping.ConnectionStatusInfo? right) -> bool
-static UPnP.Rx.PortMapping.ConnectionStatusInfo.operator ==(UPnP.Rx.PortMapping.ConnectionStatusInfo? left, UPnP.Rx.PortMapping.ConnectionStatusInfo? right) -> bool
-static UPnP.Rx.PortMapping.PortMapper.AddPortMappingAsync(ushort externalPort, ushort internalPort, UPnP.Rx.PortMapping.Protocol protocol, string! description, System.TimeSpan lease, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<UPnP.Rx.PortMapping.PortMappingLease!>!
-static UPnP.Rx.PortMapping.PortMapper.DiscoverGatewayAsync(System.TimeSpan? timeout = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<UPnP.Rx.PortMapping.InternetGateway?>!
-static UPnP.Rx.PortMapping.PortMapper.DiscoverGatewayAsync(UPnP.Rx.UpnpClient! client, System.TimeSpan? timeout = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<UPnP.Rx.PortMapping.InternetGateway?>!
-static UPnP.Rx.PortMapping.PortMapper.DiscoverGateways(UPnP.Rx.UpnpClient! client) -> System.IObservable<UPnP.Rx.PortMapping.InternetGateway!>!
-static UPnP.Rx.PortMapping.PortMappingEntry.operator !=(UPnP.Rx.PortMapping.PortMappingEntry? left, UPnP.Rx.PortMapping.PortMappingEntry? right) -> bool
-static UPnP.Rx.PortMapping.PortMappingEntry.operator ==(UPnP.Rx.PortMapping.PortMappingEntry? left, UPnP.Rx.PortMapping.PortMappingEntry? right) -> bool
-static UPnP.Rx.PortMapping.PortMappingEvent.operator !=(UPnP.Rx.PortMapping.PortMappingEvent? left, UPnP.Rx.PortMapping.PortMappingEvent? right) -> bool
-static UPnP.Rx.PortMapping.PortMappingEvent.operator ==(UPnP.Rx.PortMapping.PortMappingEvent? left, UPnP.Rx.PortMapping.PortMappingEvent? right) -> bool
-static UPnP.Rx.PortMapping.ProtocolExtensions.ToWireString(this UPnP.Rx.PortMapping.Protocol protocol) -> string!
-static UPnP.Rx.Roster.DeviceAppeared.operator !=(UPnP.Rx.Roster.DeviceAppeared? left, UPnP.Rx.Roster.DeviceAppeared? right) -> bool
-static UPnP.Rx.Roster.DeviceAppeared.operator ==(UPnP.Rx.Roster.DeviceAppeared? left, UPnP.Rx.Roster.DeviceAppeared? right) -> bool
-static UPnP.Rx.Roster.DeviceExpired.operator !=(UPnP.Rx.Roster.DeviceExpired? left, UPnP.Rx.Roster.DeviceExpired? right) -> bool
-static UPnP.Rx.Roster.DeviceExpired.operator ==(UPnP.Rx.Roster.DeviceExpired? left, UPnP.Rx.Roster.DeviceExpired? right) -> bool
-static UPnP.Rx.Roster.DeviceLeft.operator !=(UPnP.Rx.Roster.DeviceLeft? left, UPnP.Rx.Roster.DeviceLeft? right) -> bool
-static UPnP.Rx.Roster.DeviceLeft.operator ==(UPnP.Rx.Roster.DeviceLeft? left, UPnP.Rx.Roster.DeviceLeft? right) -> bool
-static UPnP.Rx.Roster.DeviceUpdated.operator !=(UPnP.Rx.Roster.DeviceUpdated? left, UPnP.Rx.Roster.DeviceUpdated? right) -> bool
-static UPnP.Rx.Roster.DeviceUpdated.operator ==(UPnP.Rx.Roster.DeviceUpdated? left, UPnP.Rx.Roster.DeviceUpdated? right) -> bool
-static UPnP.Rx.Roster.RosterChange.operator !=(UPnP.Rx.Roster.RosterChange? left, UPnP.Rx.Roster.RosterChange? right) -> bool
-static UPnP.Rx.Roster.RosterChange.operator ==(UPnP.Rx.Roster.RosterChange? left, UPnP.Rx.Roster.RosterChange? right) -> bool
-static UPnP.Rx.SearchTargets.All.get -> SSDP.UPnP.PCL.Model.ST!
-static UPnP.Rx.SearchTargets.DeviceType(string! typeName, int version = 1) -> SSDP.UPnP.PCL.Model.ST!
-static UPnP.Rx.SearchTargets.RootDevice.get -> SSDP.UPnP.PCL.Model.ST!
-static UPnP.Rx.SearchTargets.ServiceType(string! typeName, int version = 1) -> SSDP.UPnP.PCL.Model.ST!
-static UPnP.Rx.SearchTargets.Uuid(string! deviceUuid) -> SSDP.UPnP.PCL.Model.ST!
-static UPnP.Rx.UpnpClientOptions.operator !=(UPnP.Rx.UpnpClientOptions? left, UPnP.Rx.UpnpClientOptions? right) -> bool
-static UPnP.Rx.UpnpClientOptions.operator ==(UPnP.Rx.UpnpClientOptions? left, UPnP.Rx.UpnpClientOptions? right) -> bool
-UPnP.Rx.Announcement
-UPnP.Rx.Announcement.<Clone>$() -> UPnP.Rx.Announcement!
-UPnP.Rx.Announcement.Announcement(UPnP.Rx.AnnouncementKind Kind, UPnP.Rx.DiscoveredDevice! Device, System.TimeSpan MaxAge, System.DateTimeOffset Seen) -> void
-UPnP.Rx.Announcement.Deconstruct(out UPnP.Rx.AnnouncementKind Kind, out UPnP.Rx.DiscoveredDevice! Device, out System.TimeSpan MaxAge, out System.DateTimeOffset Seen) -> void
-UPnP.Rx.Announcement.Device.get -> UPnP.Rx.DiscoveredDevice!
-UPnP.Rx.Announcement.Device.init -> void
-UPnP.Rx.Announcement.Equals(UPnP.Rx.Announcement? other) -> bool
-UPnP.Rx.Announcement.Kind.get -> UPnP.Rx.AnnouncementKind
-UPnP.Rx.Announcement.Kind.init -> void
-UPnP.Rx.Announcement.MaxAge.get -> System.TimeSpan
-UPnP.Rx.Announcement.MaxAge.init -> void
-UPnP.Rx.Announcement.Seen.get -> System.DateTimeOffset
-UPnP.Rx.Announcement.Seen.init -> void
-UPnP.Rx.AnnouncementKind
-UPnP.Rx.AnnouncementKind.Alive = 1 -> UPnP.Rx.AnnouncementKind
-UPnP.Rx.AnnouncementKind.ByeBye = 2 -> UPnP.Rx.AnnouncementKind
-UPnP.Rx.AnnouncementKind.SearchResponse = 0 -> UPnP.Rx.AnnouncementKind
+UPnP.Rx.BootSignature
+UPnP.Rx.BootSignature.BootId.get -> uint?
+UPnP.Rx.BootSignature.BootId.init -> void
+UPnP.Rx.BootSignature.BootSignature() -> void
+UPnP.Rx.BootSignature.BootSignature(uint? BootId, string? Nls) -> void
+UPnP.Rx.BootSignature.Deconstruct(out uint? BootId, out string? Nls) -> void
+UPnP.Rx.BootSignature.Equals(UPnP.Rx.BootSignature other) -> bool
+UPnP.Rx.BootSignature.IndicatesRebootSince(UPnP.Rx.BootSignature previous) -> bool
+UPnP.Rx.BootSignature.IsKnown.get -> bool
+UPnP.Rx.BootSignature.Nls.get -> string?
+UPnP.Rx.BootSignature.Nls.init -> void
 UPnP.Rx.DescribedDevice
 UPnP.Rx.DescribedDevice.Description.get -> UPnP.Rx.Model.DeviceDescription!
 UPnP.Rx.DescribedDevice.HasService(string! serviceTypeOrId) -> bool
 UPnP.Rx.DescribedDevice.Service(string! serviceTypeOrId) -> UPnP.Rx.UpnpService!
 UPnP.Rx.DescribedDevice.Services.get -> System.Collections.Generic.IReadOnlyList<UPnP.Rx.UpnpService!>!
 UPnP.Rx.DescribedDevice.TryService(string! serviceTypeOrId) -> UPnP.Rx.UpnpService?
+UPnP.Rx.DescribedDevice.VersionClaims.get -> UPnP.Rx.UpnpVersionClaims!
 UPnP.Rx.DiscoveredDevice
-UPnP.Rx.DiscoveredDevice.BootId.get -> uint
+UPnP.Rx.DiscoveredDevice.BootSignature.get -> UPnP.Rx.BootSignature
 UPnP.Rx.DiscoveredDevice.ConfigId.get -> int?
 UPnP.Rx.DiscoveredDevice.GetDescriptionAsync(System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<UPnP.Rx.DescribedDevice!>!
 UPnP.Rx.DiscoveredDevice.HasParsingError.get -> bool
@@ -234,6 +26,7 @@ UPnP.Rx.DiscoveredDevice.LocalEndPoint.get -> System.Net.IPEndPoint?
 UPnP.Rx.DiscoveredDevice.Location.get -> System.Uri?
 UPnP.Rx.DiscoveredDevice.Server.get -> SSDP.UPnP.PCL.Model.Server?
 UPnP.Rx.DiscoveredDevice.Usn.get -> SSDP.UPnP.PCL.Model.USN?
+UPnP.Rx.DiscoveredDevice.VersionClaims.get -> UPnP.Rx.UpnpVersionClaims!
 UPnP.Rx.Eventing.Av.AvEventExtensions
 UPnP.Rx.Eventing.Av.AvPropertyChange
 UPnP.Rx.Eventing.Av.AvPropertyChange.<Clone>$() -> UPnP.Rx.Eventing.Av.AvPropertyChange!
@@ -312,11 +105,20 @@ UPnP.Rx.Eventing.SubscriptionRefused.Reason.init -> void
 UPnP.Rx.Eventing.SubscriptionRefused.SubscriptionRefused(int HttpStatus, string! Reason) -> void
 UPnP.Rx.Eventing.UpnpEvent
 UPnP.Rx.Eventing.UpnpEvent.UpnpEvent(UPnP.Rx.Eventing.UpnpEvent! original) -> void
+UPnP.Rx.IUpnpClient
+UPnP.Rx.IUpnpClient.Announcements() -> System.IObservable<UPnP.Rx.Presence.Announcement!>!
+UPnP.Rx.IUpnpClient.DeviceLost() -> System.IObservable<UPnP.Rx.DiscoveredDevice!>!
+UPnP.Rx.IUpnpClient.DiscoverDescribedDevices(SSDP.UPnP.PCL.Model.ST? searchTarget = null, System.TimeSpan? mx = null) -> System.IObservable<UPnP.Rx.DescribedDevice!>!
+UPnP.Rx.IUpnpClient.DiscoverDevices(SSDP.UPnP.PCL.Model.ST? searchTarget = null, System.TimeSpan? mx = null) -> System.IObservable<UPnP.Rx.DiscoveredDevice!>!
+UPnP.Rx.IUpnpClient.InvalidateDescriptions(System.Uri! location) -> void
+UPnP.Rx.IUpnpClient.Roster() -> System.IObservable<UPnP.Rx.Presence.RosterChange!>!
+UPnP.Rx.IUpnpClient.SearchAsync(SSDP.UPnP.PCL.Model.ST? searchTarget = null, System.TimeSpan? mx = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 UPnP.Rx.IUpnpService
 UPnP.Rx.IUpnpService.Description.get -> UPnP.Rx.Model.ServiceDescription!
 UPnP.Rx.IUpnpService.Events() -> System.IObservable<UPnP.Rx.Eventing.UpnpEvent!>!
 UPnP.Rx.IUpnpService.GetScpdAsync(System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<UPnP.Rx.Model.Scpd!>!
 UPnP.Rx.IUpnpService.InvokeAsync(string! action, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? arguments = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<UPnP.Rx.Model.ActionResult!>!
+UPnP.Rx.LocalNetwork
 UPnP.Rx.Model.ActionDescription
 UPnP.Rx.Model.ActionDescription.<Clone>$() -> UPnP.Rx.Model.ActionDescription!
 UPnP.Rx.Model.ActionDescription.ActionDescription() -> void
@@ -331,6 +133,8 @@ UPnP.Rx.Model.ActionResult.ActionResult() -> void
 UPnP.Rx.Model.ActionResult.Equals(UPnP.Rx.Model.ActionResult? other) -> bool
 UPnP.Rx.Model.ActionResult.Out.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
 UPnP.Rx.Model.ActionResult.Out.init -> void
+UPnP.Rx.Model.ActionResult.VersionClaims.get -> UPnP.Rx.UpnpVersionClaims!
+UPnP.Rx.Model.ActionResult.VersionClaims.init -> void
 UPnP.Rx.Model.ActionResult.this[string! name].get -> string?
 UPnP.Rx.Model.AllowedValueRange
 UPnP.Rx.Model.AllowedValueRange.<Clone>$() -> UPnP.Rx.Model.AllowedValueRange!
@@ -507,6 +311,9 @@ UPnP.Rx.PortMapping.IInternetGateway.GetSpecificPortMappingEntryAsync(ushort ext
 UPnP.Rx.PortMapping.IInternetGateway.GetStatusInfoAsync(System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<UPnP.Rx.PortMapping.ConnectionStatusInfo!>!
 UPnP.Rx.PortMapping.IInternetGateway.LocalAddress.get -> System.Net.IPAddress?
 UPnP.Rx.PortMapping.IInternetGateway.WanConnectionService.get -> UPnP.Rx.IUpnpService!
+UPnP.Rx.PortMapping.IPortMappingLease
+UPnP.Rx.PortMapping.IPortMappingLease.Events.get -> System.IObservable<UPnP.Rx.PortMapping.PortMappingEvent!>!
+UPnP.Rx.PortMapping.IPortMappingLease.Mapping.get -> UPnP.Rx.PortMapping.PortMappingEntry!
 UPnP.Rx.PortMapping.InternetGateway
 UPnP.Rx.PortMapping.InternetGateway.AddAnyPortMappingAsync(ushort externalPort, ushort internalPort, UPnP.Rx.PortMapping.Protocol protocol, string! description, System.TimeSpan lease, System.Net.IPAddress? internalClient = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<UPnP.Rx.PortMapping.PortMappingLease!>!
 UPnP.Rx.PortMapping.InternetGateway.AddPortMappingAsync(ushort externalPort, ushort internalPort, UPnP.Rx.PortMapping.Protocol protocol, string! description, System.TimeSpan lease, System.Net.IPAddress? internalClient = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<UPnP.Rx.PortMapping.PortMappingLease!>!
@@ -520,9 +327,6 @@ UPnP.Rx.PortMapping.InternetGateway.GetSpecificPortMappingEntryAsync(ushort exte
 UPnP.Rx.PortMapping.InternetGateway.GetStatusInfoAsync(System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<UPnP.Rx.PortMapping.ConnectionStatusInfo!>!
 UPnP.Rx.PortMapping.InternetGateway.LocalAddress.get -> System.Net.IPAddress?
 UPnP.Rx.PortMapping.InternetGateway.WanConnectionService.get -> UPnP.Rx.UpnpService!
-UPnP.Rx.PortMapping.IPortMappingLease
-UPnP.Rx.PortMapping.IPortMappingLease.Events.get -> System.IObservable<UPnP.Rx.PortMapping.PortMappingEvent!>!
-UPnP.Rx.PortMapping.IPortMappingLease.Mapping.get -> UPnP.Rx.PortMapping.PortMappingEntry!
 UPnP.Rx.PortMapping.PortMapper
 UPnP.Rx.PortMapping.PortMappingEntry
 UPnP.Rx.PortMapping.PortMappingEntry.<Clone>$() -> UPnP.Rx.PortMapping.PortMappingEntry!
@@ -565,47 +369,64 @@ UPnP.Rx.PortMapping.Protocol
 UPnP.Rx.PortMapping.Protocol.Tcp = 0 -> UPnP.Rx.PortMapping.Protocol
 UPnP.Rx.PortMapping.Protocol.Udp = 1 -> UPnP.Rx.PortMapping.Protocol
 UPnP.Rx.PortMapping.ProtocolExtensions
-UPnP.Rx.Roster.DeviceAppeared
-UPnP.Rx.Roster.DeviceAppeared.Deconstruct(out UPnP.Rx.DiscoveredDevice! Device, out bool IsReplay) -> void
-UPnP.Rx.Roster.DeviceAppeared.DeviceAppeared(UPnP.Rx.DiscoveredDevice! Device, bool IsReplay) -> void
-UPnP.Rx.Roster.DeviceAppeared.Equals(UPnP.Rx.Roster.DeviceAppeared? other) -> bool
-UPnP.Rx.Roster.DeviceAppeared.IsReplay.get -> bool
-UPnP.Rx.Roster.DeviceAppeared.IsReplay.init -> void
-UPnP.Rx.Roster.DeviceExpired
-UPnP.Rx.Roster.DeviceExpired.Deconstruct(out UPnP.Rx.DiscoveredDevice! Device) -> void
-UPnP.Rx.Roster.DeviceExpired.DeviceExpired(UPnP.Rx.DiscoveredDevice! Device) -> void
-UPnP.Rx.Roster.DeviceExpired.Equals(UPnP.Rx.Roster.DeviceExpired? other) -> bool
-UPnP.Rx.Roster.DeviceLeft
-UPnP.Rx.Roster.DeviceLeft.Deconstruct(out UPnP.Rx.DiscoveredDevice! Device) -> void
-UPnP.Rx.Roster.DeviceLeft.DeviceLeft(UPnP.Rx.DiscoveredDevice! Device) -> void
-UPnP.Rx.Roster.DeviceLeft.Equals(UPnP.Rx.Roster.DeviceLeft? other) -> bool
-UPnP.Rx.Roster.DeviceUpdated
-UPnP.Rx.Roster.DeviceUpdated.Deconstruct(out UPnP.Rx.DiscoveredDevice! Device) -> void
-UPnP.Rx.Roster.DeviceUpdated.DeviceUpdated(UPnP.Rx.DiscoveredDevice! Device) -> void
-UPnP.Rx.Roster.DeviceUpdated.Equals(UPnP.Rx.Roster.DeviceUpdated? other) -> bool
-UPnP.Rx.Roster.RosterChange
-UPnP.Rx.Roster.RosterChange.Deconstruct(out UPnP.Rx.DiscoveredDevice! Device) -> void
-UPnP.Rx.Roster.RosterChange.Device.get -> UPnP.Rx.DiscoveredDevice!
-UPnP.Rx.Roster.RosterChange.Device.init -> void
-UPnP.Rx.Roster.RosterChange.RosterChange(UPnP.Rx.DiscoveredDevice! Device) -> void
-UPnP.Rx.Roster.RosterChange.RosterChange(UPnP.Rx.Roster.RosterChange! original) -> void
+UPnP.Rx.Presence.Announcement
+UPnP.Rx.Presence.Announcement.<Clone>$() -> UPnP.Rx.Presence.Announcement!
+UPnP.Rx.Presence.Announcement.Announcement(UPnP.Rx.Presence.AnnouncementKind Kind, UPnP.Rx.DiscoveredDevice! Device, System.TimeSpan? MaxAge, System.DateTimeOffset Seen) -> void
+UPnP.Rx.Presence.Announcement.Deconstruct(out UPnP.Rx.Presence.AnnouncementKind Kind, out UPnP.Rx.DiscoveredDevice! Device, out System.TimeSpan? MaxAge, out System.DateTimeOffset Seen) -> void
+UPnP.Rx.Presence.Announcement.Device.get -> UPnP.Rx.DiscoveredDevice!
+UPnP.Rx.Presence.Announcement.Device.init -> void
+UPnP.Rx.Presence.Announcement.Equals(UPnP.Rx.Presence.Announcement? other) -> bool
+UPnP.Rx.Presence.Announcement.Kind.get -> UPnP.Rx.Presence.AnnouncementKind
+UPnP.Rx.Presence.Announcement.Kind.init -> void
+UPnP.Rx.Presence.Announcement.MaxAge.get -> System.TimeSpan?
+UPnP.Rx.Presence.Announcement.MaxAge.init -> void
+UPnP.Rx.Presence.Announcement.Seen.get -> System.DateTimeOffset
+UPnP.Rx.Presence.Announcement.Seen.init -> void
+UPnP.Rx.Presence.AnnouncementKind
+UPnP.Rx.Presence.AnnouncementKind.Alive = 1 -> UPnP.Rx.Presence.AnnouncementKind
+UPnP.Rx.Presence.AnnouncementKind.ByeBye = 2 -> UPnP.Rx.Presence.AnnouncementKind
+UPnP.Rx.Presence.AnnouncementKind.SearchResponse = 0 -> UPnP.Rx.Presence.AnnouncementKind
+UPnP.Rx.Presence.DeviceAppeared
+UPnP.Rx.Presence.DeviceAppeared.Deconstruct(out UPnP.Rx.DiscoveredDevice! Device, out bool IsReplay) -> void
+UPnP.Rx.Presence.DeviceAppeared.DeviceAppeared(UPnP.Rx.DiscoveredDevice! Device, bool IsReplay) -> void
+UPnP.Rx.Presence.DeviceAppeared.Equals(UPnP.Rx.Presence.DeviceAppeared? other) -> bool
+UPnP.Rx.Presence.DeviceAppeared.IsReplay.get -> bool
+UPnP.Rx.Presence.DeviceAppeared.IsReplay.init -> void
+UPnP.Rx.Presence.DeviceExpired
+UPnP.Rx.Presence.DeviceExpired.Deconstruct(out UPnP.Rx.DiscoveredDevice! Device) -> void
+UPnP.Rx.Presence.DeviceExpired.DeviceExpired(UPnP.Rx.DiscoveredDevice! Device) -> void
+UPnP.Rx.Presence.DeviceExpired.Equals(UPnP.Rx.Presence.DeviceExpired? other) -> bool
+UPnP.Rx.Presence.DeviceLeft
+UPnP.Rx.Presence.DeviceLeft.Deconstruct(out UPnP.Rx.DiscoveredDevice! Device) -> void
+UPnP.Rx.Presence.DeviceLeft.DeviceLeft(UPnP.Rx.DiscoveredDevice! Device) -> void
+UPnP.Rx.Presence.DeviceLeft.Equals(UPnP.Rx.Presence.DeviceLeft? other) -> bool
+UPnP.Rx.Presence.DeviceUpdated
+UPnP.Rx.Presence.DeviceUpdated.Deconstruct(out UPnP.Rx.DiscoveredDevice! Device) -> void
+UPnP.Rx.Presence.DeviceUpdated.DeviceUpdated(UPnP.Rx.DiscoveredDevice! Device) -> void
+UPnP.Rx.Presence.DeviceUpdated.Equals(UPnP.Rx.Presence.DeviceUpdated? other) -> bool
+UPnP.Rx.Presence.RosterChange
+UPnP.Rx.Presence.RosterChange.Deconstruct(out UPnP.Rx.DiscoveredDevice! Device) -> void
+UPnP.Rx.Presence.RosterChange.Device.get -> UPnP.Rx.DiscoveredDevice!
+UPnP.Rx.Presence.RosterChange.Device.init -> void
+UPnP.Rx.Presence.RosterChange.RosterChange(UPnP.Rx.DiscoveredDevice! Device) -> void
+UPnP.Rx.Presence.RosterChange.RosterChange(UPnP.Rx.Presence.RosterChange! original) -> void
 UPnP.Rx.SearchTargets
 UPnP.Rx.UpnpActionException
 UPnP.Rx.UpnpActionException.Error.get -> UPnP.Rx.Model.UpnpError!
 UPnP.Rx.UpnpActionException.UpnpActionException(string! message, UPnP.Rx.Model.UpnpError! error) -> void
 UPnP.Rx.UpnpClient
-UPnP.Rx.UpnpClient.Announcements() -> System.IObservable<UPnP.Rx.Announcement!>!
+UPnP.Rx.UpnpClient.Announcements() -> System.IObservable<UPnP.Rx.Presence.Announcement!>!
 UPnP.Rx.UpnpClient.DeviceLost() -> System.IObservable<UPnP.Rx.DiscoveredDevice!>!
 UPnP.Rx.UpnpClient.DiscoverDescribedDevices(SSDP.UPnP.PCL.Model.ST? searchTarget = null, System.TimeSpan? mx = null) -> System.IObservable<UPnP.Rx.DescribedDevice!>!
 UPnP.Rx.UpnpClient.DiscoverDevices(SSDP.UPnP.PCL.Model.ST? searchTarget = null, System.TimeSpan? mx = null) -> System.IObservable<UPnP.Rx.DiscoveredDevice!>!
 UPnP.Rx.UpnpClient.Dispose() -> void
 UPnP.Rx.UpnpClient.DisposeAsync() -> System.Threading.Tasks.ValueTask
 UPnP.Rx.UpnpClient.InvalidateDescriptions(System.Uri! location) -> void
-UPnP.Rx.UpnpClient.Roster() -> System.IObservable<UPnP.Rx.Roster.RosterChange!>!
+UPnP.Rx.UpnpClient.Roster() -> System.IObservable<UPnP.Rx.Presence.RosterChange!>!
 UPnP.Rx.UpnpClient.SearchAsync(SSDP.UPnP.PCL.Model.ST? searchTarget = null, System.TimeSpan? mx = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
-UPnP.Rx.UpnpClient.UpnpClient(params System.Net.IPAddress![]! addresses) -> void
 UPnP.Rx.UpnpClient.UpnpClient(SSDP.UPnP.PCL.IControlPoint! controlPoint, System.Net.Http.HttpClient? httpClient = null, UPnP.Rx.UpnpClientOptions? options = null, params System.Net.IPAddress![]! addresses) -> void
 UPnP.Rx.UpnpClient.UpnpClient(UPnP.Rx.UpnpClientOptions! options, params System.Net.IPAddress![]! addresses) -> void
+UPnP.Rx.UpnpClient.UpnpClient(params System.Net.IPAddress![]! addresses) -> void
 UPnP.Rx.UpnpClientOptions
 UPnP.Rx.UpnpClientOptions.<Clone>$() -> UPnP.Rx.UpnpClientOptions!
 UPnP.Rx.UpnpClientOptions.ActionTimeout.get -> System.TimeSpan
@@ -641,9 +462,256 @@ UPnP.Rx.UpnpService.Description.get -> UPnP.Rx.Model.ServiceDescription!
 UPnP.Rx.UpnpService.Events() -> System.IObservable<UPnP.Rx.Eventing.UpnpEvent!>!
 UPnP.Rx.UpnpService.GetScpdAsync(System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<UPnP.Rx.Model.Scpd!>!
 UPnP.Rx.UpnpService.InvokeAsync(string! action, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? arguments = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<UPnP.Rx.Model.ActionResult!>!
+UPnP.Rx.UpnpService.VersionClaims.get -> UPnP.Rx.UpnpVersionClaims!
+UPnP.Rx.UpnpVersionClaim
+UPnP.Rx.UpnpVersionClaim.<Clone>$() -> UPnP.Rx.UpnpVersionClaim!
+UPnP.Rx.UpnpVersionClaim.Deconstruct(out UPnP.Rx.UpnpVersionSource Source, out System.Version! Version, out string? Detail) -> void
+UPnP.Rx.UpnpVersionClaim.Detail.get -> string?
+UPnP.Rx.UpnpVersionClaim.Detail.init -> void
+UPnP.Rx.UpnpVersionClaim.Equals(UPnP.Rx.UpnpVersionClaim? other) -> bool
+UPnP.Rx.UpnpVersionClaim.Source.get -> UPnP.Rx.UpnpVersionSource
+UPnP.Rx.UpnpVersionClaim.Source.init -> void
+UPnP.Rx.UpnpVersionClaim.UpnpVersionClaim(UPnP.Rx.UpnpVersionSource Source, System.Version! Version, string? Detail = null) -> void
+UPnP.Rx.UpnpVersionClaim.Version.get -> System.Version!
+UPnP.Rx.UpnpVersionClaim.Version.init -> void
+UPnP.Rx.UpnpVersionClaims
+UPnP.Rx.UpnpVersionClaims.<Clone>$() -> UPnP.Rx.UpnpVersionClaims!
+UPnP.Rx.UpnpVersionClaims.Claims.get -> System.Collections.Generic.IReadOnlyList<UPnP.Rx.UpnpVersionClaim!>!
+UPnP.Rx.UpnpVersionClaims.Effective.get -> System.Version?
+UPnP.Rx.UpnpVersionClaims.Equals(UPnP.Rx.UpnpVersionClaims? other) -> bool
+UPnP.Rx.UpnpVersionClaims.SourcesAgree.get -> bool
+UPnP.Rx.UpnpVersionClaims.UpnpVersionClaims(System.Collections.Generic.IReadOnlyList<UPnP.Rx.UpnpVersionClaim!>! claims) -> void
+UPnP.Rx.UpnpVersionClaims.With(UPnP.Rx.UpnpVersionClaims! other) -> UPnP.Rx.UpnpVersionClaims!
+UPnP.Rx.UpnpVersionClaims.With(params UPnP.Rx.UpnpVersionClaim![]! additional) -> UPnP.Rx.UpnpVersionClaims!
+UPnP.Rx.UpnpVersionSource
+UPnP.Rx.UpnpVersionSource.ControlResponse = 3 -> UPnP.Rx.UpnpVersionSource
+UPnP.Rx.UpnpVersionSource.DeviceDescription = 1 -> UPnP.Rx.UpnpVersionSource
+UPnP.Rx.UpnpVersionSource.Server = 0 -> UPnP.Rx.UpnpVersionSource
+UPnP.Rx.UpnpVersionSource.ServiceDescription = 2 -> UPnP.Rx.UpnpVersionSource
+abstract UPnP.Rx.Eventing.UpnpEvent.<Clone>$() -> UPnP.Rx.Eventing.UpnpEvent!
+abstract UPnP.Rx.Presence.RosterChange.<Clone>$() -> UPnP.Rx.Presence.RosterChange!
+override UPnP.Rx.BootSignature.GetHashCode() -> int
+override UPnP.Rx.BootSignature.ToString() -> string!
+override UPnP.Rx.Eventing.Av.AvPropertyChange.Equals(object? obj) -> bool
+override UPnP.Rx.Eventing.Av.AvPropertyChange.GetHashCode() -> int
+override UPnP.Rx.Eventing.Av.AvPropertyChange.ToString() -> string!
+override UPnP.Rx.Eventing.EventedProperty.Equals(object? obj) -> bool
+override UPnP.Rx.Eventing.EventedProperty.GetHashCode() -> int
+override UPnP.Rx.Eventing.EventedProperty.ToString() -> string!
+override UPnP.Rx.Eventing.GapDetected.<Clone>$() -> UPnP.Rx.Eventing.GapDetected!
+override UPnP.Rx.Eventing.GapDetected.Equals(object? obj) -> bool
+override UPnP.Rx.Eventing.GapDetected.GetHashCode() -> int
+override UPnP.Rx.Eventing.GapDetected.ToString() -> string!
+override UPnP.Rx.Eventing.PropertyChange.<Clone>$() -> UPnP.Rx.Eventing.PropertyChange!
+override UPnP.Rx.Eventing.PropertyChange.Equals(object? obj) -> bool
+override UPnP.Rx.Eventing.PropertyChange.GetHashCode() -> int
+override UPnP.Rx.Eventing.PropertyChange.ToString() -> string!
+override UPnP.Rx.Eventing.RenewalFailed.<Clone>$() -> UPnP.Rx.Eventing.RenewalFailed!
+override UPnP.Rx.Eventing.RenewalFailed.Equals(object? obj) -> bool
+override UPnP.Rx.Eventing.RenewalFailed.GetHashCode() -> int
+override UPnP.Rx.Eventing.RenewalFailed.ToString() -> string!
+override UPnP.Rx.Eventing.Resubscribed.<Clone>$() -> UPnP.Rx.Eventing.Resubscribed!
+override UPnP.Rx.Eventing.Resubscribed.Equals(object? obj) -> bool
+override UPnP.Rx.Eventing.Resubscribed.GetHashCode() -> int
+override UPnP.Rx.Eventing.Resubscribed.ToString() -> string!
+override UPnP.Rx.Eventing.Subscribed.<Clone>$() -> UPnP.Rx.Eventing.Subscribed!
+override UPnP.Rx.Eventing.Subscribed.Equals(object? obj) -> bool
+override UPnP.Rx.Eventing.Subscribed.GetHashCode() -> int
+override UPnP.Rx.Eventing.Subscribed.ToString() -> string!
+override UPnP.Rx.Eventing.SubscriptionRefused.<Clone>$() -> UPnP.Rx.Eventing.SubscriptionRefused!
+override UPnP.Rx.Eventing.SubscriptionRefused.Equals(object? obj) -> bool
+override UPnP.Rx.Eventing.SubscriptionRefused.GetHashCode() -> int
+override UPnP.Rx.Eventing.SubscriptionRefused.ToString() -> string!
+override UPnP.Rx.Eventing.UpnpEvent.Equals(object? obj) -> bool
+override UPnP.Rx.Eventing.UpnpEvent.GetHashCode() -> int
+override UPnP.Rx.Eventing.UpnpEvent.ToString() -> string!
+override UPnP.Rx.Model.ActionDescription.Equals(object? obj) -> bool
+override UPnP.Rx.Model.ActionDescription.GetHashCode() -> int
+override UPnP.Rx.Model.ActionDescription.ToString() -> string!
+override UPnP.Rx.Model.ActionResult.Equals(object? obj) -> bool
+override UPnP.Rx.Model.ActionResult.GetHashCode() -> int
+override UPnP.Rx.Model.ActionResult.ToString() -> string!
+override UPnP.Rx.Model.AllowedValueRange.Equals(object? obj) -> bool
+override UPnP.Rx.Model.AllowedValueRange.GetHashCode() -> int
+override UPnP.Rx.Model.AllowedValueRange.ToString() -> string!
+override UPnP.Rx.Model.ArgumentDescription.Equals(object? obj) -> bool
+override UPnP.Rx.Model.ArgumentDescription.GetHashCode() -> int
+override UPnP.Rx.Model.ArgumentDescription.ToString() -> string!
+override UPnP.Rx.Model.DeviceDescription.Equals(object? obj) -> bool
+override UPnP.Rx.Model.DeviceDescription.GetHashCode() -> int
+override UPnP.Rx.Model.DeviceDescription.ToString() -> string!
+override UPnP.Rx.Model.IconDescription.Equals(object? obj) -> bool
+override UPnP.Rx.Model.IconDescription.GetHashCode() -> int
+override UPnP.Rx.Model.IconDescription.ToString() -> string!
+override UPnP.Rx.Model.ParseResult<T>.Equals(object? obj) -> bool
+override UPnP.Rx.Model.ParseResult<T>.GetHashCode() -> int
+override UPnP.Rx.Model.ParseResult<T>.ToString() -> string!
+override UPnP.Rx.Model.Scpd.Equals(object? obj) -> bool
+override UPnP.Rx.Model.Scpd.GetHashCode() -> int
+override UPnP.Rx.Model.Scpd.ToString() -> string!
+override UPnP.Rx.Model.ServiceDescription.Equals(object? obj) -> bool
+override UPnP.Rx.Model.ServiceDescription.GetHashCode() -> int
+override UPnP.Rx.Model.ServiceDescription.ToString() -> string!
+override UPnP.Rx.Model.SpecVersion.Equals(object? obj) -> bool
+override UPnP.Rx.Model.SpecVersion.GetHashCode() -> int
+override UPnP.Rx.Model.SpecVersion.ToString() -> string!
+override UPnP.Rx.Model.StateVariable.Equals(object? obj) -> bool
+override UPnP.Rx.Model.StateVariable.GetHashCode() -> int
+override UPnP.Rx.Model.StateVariable.ToString() -> string!
+override UPnP.Rx.Model.UpnpError.Equals(object? obj) -> bool
+override UPnP.Rx.Model.UpnpError.GetHashCode() -> int
+override UPnP.Rx.Model.UpnpError.ToString() -> string!
+override UPnP.Rx.PortMapping.ConnectionStatusInfo.Equals(object? obj) -> bool
+override UPnP.Rx.PortMapping.ConnectionStatusInfo.GetHashCode() -> int
+override UPnP.Rx.PortMapping.ConnectionStatusInfo.ToString() -> string!
+override UPnP.Rx.PortMapping.PortMappingEntry.Equals(object? obj) -> bool
+override UPnP.Rx.PortMapping.PortMappingEntry.GetHashCode() -> int
+override UPnP.Rx.PortMapping.PortMappingEntry.ToString() -> string!
+override UPnP.Rx.PortMapping.PortMappingEvent.Equals(object? obj) -> bool
+override UPnP.Rx.PortMapping.PortMappingEvent.GetHashCode() -> int
+override UPnP.Rx.PortMapping.PortMappingEvent.ToString() -> string!
+override UPnP.Rx.Presence.Announcement.Equals(object? obj) -> bool
+override UPnP.Rx.Presence.Announcement.GetHashCode() -> int
+override UPnP.Rx.Presence.Announcement.ToString() -> string!
+override UPnP.Rx.Presence.DeviceAppeared.<Clone>$() -> UPnP.Rx.Presence.DeviceAppeared!
+override UPnP.Rx.Presence.DeviceAppeared.Equals(object? obj) -> bool
+override UPnP.Rx.Presence.DeviceAppeared.GetHashCode() -> int
+override UPnP.Rx.Presence.DeviceAppeared.ToString() -> string!
+override UPnP.Rx.Presence.DeviceExpired.<Clone>$() -> UPnP.Rx.Presence.DeviceExpired!
+override UPnP.Rx.Presence.DeviceExpired.Equals(object? obj) -> bool
+override UPnP.Rx.Presence.DeviceExpired.GetHashCode() -> int
+override UPnP.Rx.Presence.DeviceExpired.ToString() -> string!
+override UPnP.Rx.Presence.DeviceLeft.<Clone>$() -> UPnP.Rx.Presence.DeviceLeft!
+override UPnP.Rx.Presence.DeviceLeft.Equals(object? obj) -> bool
+override UPnP.Rx.Presence.DeviceLeft.GetHashCode() -> int
+override UPnP.Rx.Presence.DeviceLeft.ToString() -> string!
+override UPnP.Rx.Presence.DeviceUpdated.<Clone>$() -> UPnP.Rx.Presence.DeviceUpdated!
+override UPnP.Rx.Presence.DeviceUpdated.Equals(object? obj) -> bool
+override UPnP.Rx.Presence.DeviceUpdated.GetHashCode() -> int
+override UPnP.Rx.Presence.DeviceUpdated.ToString() -> string!
+override UPnP.Rx.Presence.RosterChange.Equals(object? obj) -> bool
+override UPnP.Rx.Presence.RosterChange.GetHashCode() -> int
+override UPnP.Rx.Presence.RosterChange.ToString() -> string!
+override UPnP.Rx.UpnpClientOptions.Equals(object? obj) -> bool
+override UPnP.Rx.UpnpClientOptions.GetHashCode() -> int
+override UPnP.Rx.UpnpClientOptions.ToString() -> string!
+override UPnP.Rx.UpnpVersionClaim.Equals(object? obj) -> bool
+override UPnP.Rx.UpnpVersionClaim.GetHashCode() -> int
+override UPnP.Rx.UpnpVersionClaim.ToString() -> string!
+override UPnP.Rx.UpnpVersionClaims.Equals(object? obj) -> bool
+override UPnP.Rx.UpnpVersionClaims.GetHashCode() -> int
+override UPnP.Rx.UpnpVersionClaims.ToString() -> string!
+override sealed UPnP.Rx.Eventing.GapDetected.Equals(UPnP.Rx.Eventing.UpnpEvent? other) -> bool
+override sealed UPnP.Rx.Eventing.PropertyChange.Equals(UPnP.Rx.Eventing.UpnpEvent? other) -> bool
+override sealed UPnP.Rx.Eventing.RenewalFailed.Equals(UPnP.Rx.Eventing.UpnpEvent? other) -> bool
+override sealed UPnP.Rx.Eventing.Resubscribed.Equals(UPnP.Rx.Eventing.UpnpEvent? other) -> bool
+override sealed UPnP.Rx.Eventing.Subscribed.Equals(UPnP.Rx.Eventing.UpnpEvent? other) -> bool
+override sealed UPnP.Rx.Eventing.SubscriptionRefused.Equals(UPnP.Rx.Eventing.UpnpEvent? other) -> bool
+override sealed UPnP.Rx.Presence.DeviceAppeared.Equals(UPnP.Rx.Presence.RosterChange? other) -> bool
+override sealed UPnP.Rx.Presence.DeviceExpired.Equals(UPnP.Rx.Presence.RosterChange? other) -> bool
+override sealed UPnP.Rx.Presence.DeviceLeft.Equals(UPnP.Rx.Presence.RosterChange? other) -> bool
+override sealed UPnP.Rx.Presence.DeviceUpdated.Equals(UPnP.Rx.Presence.RosterChange? other) -> bool
+static UPnP.Rx.BootSignature.None.get -> UPnP.Rx.BootSignature
+static UPnP.Rx.BootSignature.operator !=(UPnP.Rx.BootSignature left, UPnP.Rx.BootSignature right) -> bool
+static UPnP.Rx.BootSignature.operator ==(UPnP.Rx.BootSignature left, UPnP.Rx.BootSignature right) -> bool
+static UPnP.Rx.Eventing.Av.AvEventExtensions.SelectAvChanges(this System.IObservable<UPnP.Rx.Eventing.UpnpEvent!>! events) -> System.IObservable<UPnP.Rx.Eventing.Av.AvPropertyChange!>!
+static UPnP.Rx.Eventing.Av.AvPropertyChange.operator !=(UPnP.Rx.Eventing.Av.AvPropertyChange? left, UPnP.Rx.Eventing.Av.AvPropertyChange? right) -> bool
+static UPnP.Rx.Eventing.Av.AvPropertyChange.operator ==(UPnP.Rx.Eventing.Av.AvPropertyChange? left, UPnP.Rx.Eventing.Av.AvPropertyChange? right) -> bool
+static UPnP.Rx.Eventing.Av.LastChangeParser.Parse(string! xml) -> UPnP.Rx.Model.ParseResult<System.Collections.Generic.IReadOnlyList<UPnP.Rx.Eventing.Av.AvPropertyChange!>!>!
+static UPnP.Rx.Eventing.EventedProperty.operator !=(UPnP.Rx.Eventing.EventedProperty? left, UPnP.Rx.Eventing.EventedProperty? right) -> bool
+static UPnP.Rx.Eventing.EventedProperty.operator ==(UPnP.Rx.Eventing.EventedProperty? left, UPnP.Rx.Eventing.EventedProperty? right) -> bool
+static UPnP.Rx.Eventing.GapDetected.operator !=(UPnP.Rx.Eventing.GapDetected? left, UPnP.Rx.Eventing.GapDetected? right) -> bool
+static UPnP.Rx.Eventing.GapDetected.operator ==(UPnP.Rx.Eventing.GapDetected? left, UPnP.Rx.Eventing.GapDetected? right) -> bool
+static UPnP.Rx.Eventing.GenaHeaders.ComposeCallback(System.Uri! callback) -> string!
+static UPnP.Rx.Eventing.GenaHeaders.ComposeTimeout(System.TimeSpan? timeout) -> string!
+static UPnP.Rx.Eventing.GenaHeaders.ParseSeq(string? value) -> uint?
+static UPnP.Rx.Eventing.GenaHeaders.ParseTimeout(string? value) -> System.TimeSpan?
+static UPnP.Rx.Eventing.GenaParser.ParsePropertySet(string! xml) -> UPnP.Rx.Model.ParseResult<System.Collections.Generic.IReadOnlyList<UPnP.Rx.Eventing.EventedProperty!>!>!
+static UPnP.Rx.Eventing.PropertyChange.operator !=(UPnP.Rx.Eventing.PropertyChange? left, UPnP.Rx.Eventing.PropertyChange? right) -> bool
+static UPnP.Rx.Eventing.PropertyChange.operator ==(UPnP.Rx.Eventing.PropertyChange? left, UPnP.Rx.Eventing.PropertyChange? right) -> bool
+static UPnP.Rx.Eventing.RenewalFailed.operator !=(UPnP.Rx.Eventing.RenewalFailed? left, UPnP.Rx.Eventing.RenewalFailed? right) -> bool
+static UPnP.Rx.Eventing.RenewalFailed.operator ==(UPnP.Rx.Eventing.RenewalFailed? left, UPnP.Rx.Eventing.RenewalFailed? right) -> bool
+static UPnP.Rx.Eventing.Resubscribed.operator !=(UPnP.Rx.Eventing.Resubscribed? left, UPnP.Rx.Eventing.Resubscribed? right) -> bool
+static UPnP.Rx.Eventing.Resubscribed.operator ==(UPnP.Rx.Eventing.Resubscribed? left, UPnP.Rx.Eventing.Resubscribed? right) -> bool
+static UPnP.Rx.Eventing.Subscribed.operator !=(UPnP.Rx.Eventing.Subscribed? left, UPnP.Rx.Eventing.Subscribed? right) -> bool
+static UPnP.Rx.Eventing.Subscribed.operator ==(UPnP.Rx.Eventing.Subscribed? left, UPnP.Rx.Eventing.Subscribed? right) -> bool
+static UPnP.Rx.Eventing.SubscriptionRefused.operator !=(UPnP.Rx.Eventing.SubscriptionRefused? left, UPnP.Rx.Eventing.SubscriptionRefused? right) -> bool
+static UPnP.Rx.Eventing.SubscriptionRefused.operator ==(UPnP.Rx.Eventing.SubscriptionRefused? left, UPnP.Rx.Eventing.SubscriptionRefused? right) -> bool
+static UPnP.Rx.Eventing.UpnpEvent.operator !=(UPnP.Rx.Eventing.UpnpEvent? left, UPnP.Rx.Eventing.UpnpEvent? right) -> bool
+static UPnP.Rx.Eventing.UpnpEvent.operator ==(UPnP.Rx.Eventing.UpnpEvent? left, UPnP.Rx.Eventing.UpnpEvent? right) -> bool
+static UPnP.Rx.LocalNetwork.IPv4Addresses() -> System.Net.IPAddress![]!
+static UPnP.Rx.Model.ActionDescription.operator !=(UPnP.Rx.Model.ActionDescription? left, UPnP.Rx.Model.ActionDescription? right) -> bool
+static UPnP.Rx.Model.ActionDescription.operator ==(UPnP.Rx.Model.ActionDescription? left, UPnP.Rx.Model.ActionDescription? right) -> bool
+static UPnP.Rx.Model.ActionResult.operator !=(UPnP.Rx.Model.ActionResult? left, UPnP.Rx.Model.ActionResult? right) -> bool
+static UPnP.Rx.Model.ActionResult.operator ==(UPnP.Rx.Model.ActionResult? left, UPnP.Rx.Model.ActionResult? right) -> bool
+static UPnP.Rx.Model.AllowedValueRange.operator !=(UPnP.Rx.Model.AllowedValueRange? left, UPnP.Rx.Model.AllowedValueRange? right) -> bool
+static UPnP.Rx.Model.AllowedValueRange.operator ==(UPnP.Rx.Model.AllowedValueRange? left, UPnP.Rx.Model.AllowedValueRange? right) -> bool
+static UPnP.Rx.Model.ArgumentDescription.operator !=(UPnP.Rx.Model.ArgumentDescription? left, UPnP.Rx.Model.ArgumentDescription? right) -> bool
+static UPnP.Rx.Model.ArgumentDescription.operator ==(UPnP.Rx.Model.ArgumentDescription? left, UPnP.Rx.Model.ArgumentDescription? right) -> bool
+static UPnP.Rx.Model.DeviceDescription.operator !=(UPnP.Rx.Model.DeviceDescription? left, UPnP.Rx.Model.DeviceDescription? right) -> bool
+static UPnP.Rx.Model.DeviceDescription.operator ==(UPnP.Rx.Model.DeviceDescription? left, UPnP.Rx.Model.DeviceDescription? right) -> bool
+static UPnP.Rx.Model.IconDescription.operator !=(UPnP.Rx.Model.IconDescription? left, UPnP.Rx.Model.IconDescription? right) -> bool
+static UPnP.Rx.Model.IconDescription.operator ==(UPnP.Rx.Model.IconDescription? left, UPnP.Rx.Model.IconDescription? right) -> bool
+static UPnP.Rx.Model.ParseResult<T>.Failure(string! error) -> UPnP.Rx.Model.ParseResult<T>!
+static UPnP.Rx.Model.ParseResult<T>.Success(T value) -> UPnP.Rx.Model.ParseResult<T>!
+static UPnP.Rx.Model.ParseResult<T>.operator !=(UPnP.Rx.Model.ParseResult<T>? left, UPnP.Rx.Model.ParseResult<T>? right) -> bool
+static UPnP.Rx.Model.ParseResult<T>.operator ==(UPnP.Rx.Model.ParseResult<T>? left, UPnP.Rx.Model.ParseResult<T>? right) -> bool
+static UPnP.Rx.Model.Scpd.operator !=(UPnP.Rx.Model.Scpd? left, UPnP.Rx.Model.Scpd? right) -> bool
+static UPnP.Rx.Model.Scpd.operator ==(UPnP.Rx.Model.Scpd? left, UPnP.Rx.Model.Scpd? right) -> bool
+static UPnP.Rx.Model.ScpdExtensions.ValidateAndOrderArguments(this UPnP.Rx.Model.Scpd! scpd, string! actionName, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? arguments = null) -> UPnP.Rx.Model.ParseResult<System.Collections.Generic.IReadOnlyDictionary<string!, string!>!>!
+static UPnP.Rx.Model.ServiceDescription.operator !=(UPnP.Rx.Model.ServiceDescription? left, UPnP.Rx.Model.ServiceDescription? right) -> bool
+static UPnP.Rx.Model.ServiceDescription.operator ==(UPnP.Rx.Model.ServiceDescription? left, UPnP.Rx.Model.ServiceDescription? right) -> bool
+static UPnP.Rx.Model.SpecVersion.operator !=(UPnP.Rx.Model.SpecVersion? left, UPnP.Rx.Model.SpecVersion? right) -> bool
+static UPnP.Rx.Model.SpecVersion.operator ==(UPnP.Rx.Model.SpecVersion? left, UPnP.Rx.Model.SpecVersion? right) -> bool
+static UPnP.Rx.Model.StateVariable.operator !=(UPnP.Rx.Model.StateVariable? left, UPnP.Rx.Model.StateVariable? right) -> bool
+static UPnP.Rx.Model.StateVariable.operator ==(UPnP.Rx.Model.StateVariable? left, UPnP.Rx.Model.StateVariable? right) -> bool
+static UPnP.Rx.Model.UpnpError.operator !=(UPnP.Rx.Model.UpnpError? left, UPnP.Rx.Model.UpnpError? right) -> bool
+static UPnP.Rx.Model.UpnpError.operator ==(UPnP.Rx.Model.UpnpError? left, UPnP.Rx.Model.UpnpError? right) -> bool
+static UPnP.Rx.Parsing.DescriptionParser.ParseDeviceDescription(string! xml, System.Uri! location) -> UPnP.Rx.Model.ParseResult<UPnP.Rx.Model.DeviceDescription!>!
+static UPnP.Rx.Parsing.ScpdParser.ParseScpd(string! xml) -> UPnP.Rx.Model.ParseResult<UPnP.Rx.Model.Scpd!>!
+static UPnP.Rx.Parsing.SoapComposer.ComposeActionRequest(string! serviceType, string! actionName, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? arguments = null) -> string!
+static UPnP.Rx.Parsing.SoapComposer.ComposeSoapActionHeader(string! serviceType, string! actionName) -> string!
+static UPnP.Rx.Parsing.SoapParser.ParseActionResponse(string! xml, string! actionName) -> UPnP.Rx.Model.ParseResult<UPnP.Rx.Model.ActionResult!>!
+static UPnP.Rx.Parsing.SoapParser.ParseFault(string! xml) -> UPnP.Rx.Model.ParseResult<UPnP.Rx.Model.UpnpError!>!
+static UPnP.Rx.PortMapping.ConnectionStatusInfo.operator !=(UPnP.Rx.PortMapping.ConnectionStatusInfo? left, UPnP.Rx.PortMapping.ConnectionStatusInfo? right) -> bool
+static UPnP.Rx.PortMapping.ConnectionStatusInfo.operator ==(UPnP.Rx.PortMapping.ConnectionStatusInfo? left, UPnP.Rx.PortMapping.ConnectionStatusInfo? right) -> bool
+static UPnP.Rx.PortMapping.PortMapper.AddPortMappingAsync(ushort externalPort, ushort internalPort, UPnP.Rx.PortMapping.Protocol protocol, string! description, System.TimeSpan lease, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<UPnP.Rx.PortMapping.PortMappingLease!>!
+static UPnP.Rx.PortMapping.PortMapper.DiscoverGatewayAsync(System.TimeSpan? timeout = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<UPnP.Rx.PortMapping.InternetGateway?>!
+static UPnP.Rx.PortMapping.PortMapper.DiscoverGatewayAsync(UPnP.Rx.UpnpClient! client, System.TimeSpan? timeout = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<UPnP.Rx.PortMapping.InternetGateway?>!
+static UPnP.Rx.PortMapping.PortMapper.DiscoverGateways(UPnP.Rx.UpnpClient! client) -> System.IObservable<UPnP.Rx.PortMapping.InternetGateway!>!
+static UPnP.Rx.PortMapping.PortMappingEntry.operator !=(UPnP.Rx.PortMapping.PortMappingEntry? left, UPnP.Rx.PortMapping.PortMappingEntry? right) -> bool
+static UPnP.Rx.PortMapping.PortMappingEntry.operator ==(UPnP.Rx.PortMapping.PortMappingEntry? left, UPnP.Rx.PortMapping.PortMappingEntry? right) -> bool
+static UPnP.Rx.PortMapping.PortMappingEvent.operator !=(UPnP.Rx.PortMapping.PortMappingEvent? left, UPnP.Rx.PortMapping.PortMappingEvent? right) -> bool
+static UPnP.Rx.PortMapping.PortMappingEvent.operator ==(UPnP.Rx.PortMapping.PortMappingEvent? left, UPnP.Rx.PortMapping.PortMappingEvent? right) -> bool
+static UPnP.Rx.PortMapping.ProtocolExtensions.ToWireString(this UPnP.Rx.PortMapping.Protocol protocol) -> string!
+static UPnP.Rx.Presence.Announcement.operator !=(UPnP.Rx.Presence.Announcement? left, UPnP.Rx.Presence.Announcement? right) -> bool
+static UPnP.Rx.Presence.Announcement.operator ==(UPnP.Rx.Presence.Announcement? left, UPnP.Rx.Presence.Announcement? right) -> bool
+static UPnP.Rx.Presence.DeviceAppeared.operator !=(UPnP.Rx.Presence.DeviceAppeared? left, UPnP.Rx.Presence.DeviceAppeared? right) -> bool
+static UPnP.Rx.Presence.DeviceAppeared.operator ==(UPnP.Rx.Presence.DeviceAppeared? left, UPnP.Rx.Presence.DeviceAppeared? right) -> bool
+static UPnP.Rx.Presence.DeviceExpired.operator !=(UPnP.Rx.Presence.DeviceExpired? left, UPnP.Rx.Presence.DeviceExpired? right) -> bool
+static UPnP.Rx.Presence.DeviceExpired.operator ==(UPnP.Rx.Presence.DeviceExpired? left, UPnP.Rx.Presence.DeviceExpired? right) -> bool
+static UPnP.Rx.Presence.DeviceLeft.operator !=(UPnP.Rx.Presence.DeviceLeft? left, UPnP.Rx.Presence.DeviceLeft? right) -> bool
+static UPnP.Rx.Presence.DeviceLeft.operator ==(UPnP.Rx.Presence.DeviceLeft? left, UPnP.Rx.Presence.DeviceLeft? right) -> bool
+static UPnP.Rx.Presence.DeviceUpdated.operator !=(UPnP.Rx.Presence.DeviceUpdated? left, UPnP.Rx.Presence.DeviceUpdated? right) -> bool
+static UPnP.Rx.Presence.DeviceUpdated.operator ==(UPnP.Rx.Presence.DeviceUpdated? left, UPnP.Rx.Presence.DeviceUpdated? right) -> bool
+static UPnP.Rx.Presence.RosterChange.operator !=(UPnP.Rx.Presence.RosterChange? left, UPnP.Rx.Presence.RosterChange? right) -> bool
+static UPnP.Rx.Presence.RosterChange.operator ==(UPnP.Rx.Presence.RosterChange? left, UPnP.Rx.Presence.RosterChange? right) -> bool
+static UPnP.Rx.SearchTargets.All.get -> SSDP.UPnP.PCL.Model.ST!
+static UPnP.Rx.SearchTargets.DeviceType(string! typeName, int version = 1) -> SSDP.UPnP.PCL.Model.ST!
+static UPnP.Rx.SearchTargets.RootDevice.get -> SSDP.UPnP.PCL.Model.ST!
+static UPnP.Rx.SearchTargets.ServiceType(string! typeName, int version = 1) -> SSDP.UPnP.PCL.Model.ST!
+static UPnP.Rx.SearchTargets.Uuid(string! deviceUuid) -> SSDP.UPnP.PCL.Model.ST!
+static UPnP.Rx.UpnpClientOptions.operator !=(UPnP.Rx.UpnpClientOptions? left, UPnP.Rx.UpnpClientOptions? right) -> bool
+static UPnP.Rx.UpnpClientOptions.operator ==(UPnP.Rx.UpnpClientOptions? left, UPnP.Rx.UpnpClientOptions? right) -> bool
+static UPnP.Rx.UpnpVersionClaim.operator !=(UPnP.Rx.UpnpVersionClaim? left, UPnP.Rx.UpnpVersionClaim? right) -> bool
+static UPnP.Rx.UpnpVersionClaim.operator ==(UPnP.Rx.UpnpVersionClaim? left, UPnP.Rx.UpnpVersionClaim? right) -> bool
+static UPnP.Rx.UpnpVersionClaims.None.get -> UPnP.Rx.UpnpVersionClaims!
+static UPnP.Rx.UpnpVersionClaims.operator !=(UPnP.Rx.UpnpVersionClaims? left, UPnP.Rx.UpnpVersionClaims? right) -> bool
+static UPnP.Rx.UpnpVersionClaims.operator ==(UPnP.Rx.UpnpVersionClaims? left, UPnP.Rx.UpnpVersionClaims? right) -> bool
 virtual UPnP.Rx.Eventing.UpnpEvent.EqualityContract.get -> System.Type!
 virtual UPnP.Rx.Eventing.UpnpEvent.Equals(UPnP.Rx.Eventing.UpnpEvent? other) -> bool
 virtual UPnP.Rx.Eventing.UpnpEvent.PrintMembers(System.Text.StringBuilder! builder) -> bool
-virtual UPnP.Rx.Roster.RosterChange.EqualityContract.get -> System.Type!
-virtual UPnP.Rx.Roster.RosterChange.Equals(UPnP.Rx.Roster.RosterChange? other) -> bool
-virtual UPnP.Rx.Roster.RosterChange.PrintMembers(System.Text.StringBuilder! builder) -> bool
+virtual UPnP.Rx.Presence.RosterChange.EqualityContract.get -> System.Type!
+virtual UPnP.Rx.Presence.RosterChange.Equals(UPnP.Rx.Presence.RosterChange? other) -> bool
+virtual UPnP.Rx.Presence.RosterChange.PrintMembers(System.Text.StringBuilder! builder) -> bool
+~override UPnP.Rx.BootSignature.Equals(object obj) -> bool

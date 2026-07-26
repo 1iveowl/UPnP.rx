@@ -32,7 +32,7 @@ public sealed record SsdpActivityDto(
     uint? BootId,
     string? Nls,
     int? ConfigId,
-    int MaxAgeSeconds,
+    int? MaxAgeSeconds,
     bool HasParsingError,
     DateTimeOffset Seen);
 

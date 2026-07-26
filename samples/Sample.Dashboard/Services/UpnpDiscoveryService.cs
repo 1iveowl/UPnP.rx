@@ -198,7 +198,7 @@ public sealed class UpnpDiscoveryService(
         announcement.Device.BootSignature.BootId,
         announcement.Device.BootSignature.Nls,
         announcement.Device.ConfigId,
-        (int)announcement.MaxAge.TotalSeconds,
+        (int?)announcement.MaxAge?.TotalSeconds,
         announcement.Device.HasParsingError,
         announcement.Seen);
 

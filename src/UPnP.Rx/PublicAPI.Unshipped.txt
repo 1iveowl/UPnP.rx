@@ -1,5 +1,11 @@
 #nullable enable
+*REMOVED*UPnP.Rx.Announcement.Announcement(UPnP.Rx.AnnouncementKind Kind, UPnP.Rx.DiscoveredDevice! Device, System.TimeSpan MaxAge, System.DateTimeOffset Seen) -> void
+*REMOVED*UPnP.Rx.Announcement.Deconstruct(out UPnP.Rx.AnnouncementKind Kind, out UPnP.Rx.DiscoveredDevice! Device, out System.TimeSpan MaxAge, out System.DateTimeOffset Seen) -> void
+*REMOVED*UPnP.Rx.Announcement.MaxAge.get -> System.TimeSpan
 *REMOVED*UPnP.Rx.DiscoveredDevice.BootId.get -> uint
+UPnP.Rx.Announcement.Announcement(UPnP.Rx.AnnouncementKind Kind, UPnP.Rx.DiscoveredDevice! Device, System.TimeSpan? MaxAge, System.DateTimeOffset Seen) -> void
+UPnP.Rx.Announcement.Deconstruct(out UPnP.Rx.AnnouncementKind Kind, out UPnP.Rx.DiscoveredDevice! Device, out System.TimeSpan? MaxAge, out System.DateTimeOffset Seen) -> void
+UPnP.Rx.Announcement.MaxAge.get -> System.TimeSpan?
 UPnP.Rx.BootSignature
 UPnP.Rx.BootSignature.BootId.get -> uint?
 UPnP.Rx.BootSignature.BootId.init -> void

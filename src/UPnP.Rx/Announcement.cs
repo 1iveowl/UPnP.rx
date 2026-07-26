@@ -20,10 +20,14 @@ public enum AnnouncementKind
 /// </summary>
 /// <param name="Kind">Search response, alive, or byebye.</param>
 /// <param name="Device">The parsed discovery envelope (byebyes carry no location).</param>
-/// <param name="MaxAge">The advertised lifetime (<c>CACHE-CONTROL: max-age</c>); <see cref="TimeSpan.Zero"/> when absent, and always for byebyes.</param>
+/// <param name="MaxAge">
+/// The advertised lifetime (<c>CACHE-CONTROL: max-age</c>), or <see langword="null"/>
+/// when the device announced none - and always null for byebyes, which revoke an
+/// advertisement rather than carrying one.
+/// </param>
 /// <param name="Seen">When it arrived, stamped on the options' <see cref="TimeProvider"/>.</param>
 public sealed record Announcement(
     AnnouncementKind Kind,
     DiscoveredDevice Device,
-    TimeSpan MaxAge,
+    TimeSpan? MaxAge,
     DateTimeOffset Seen);

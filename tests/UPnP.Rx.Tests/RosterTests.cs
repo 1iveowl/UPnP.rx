@@ -155,6 +155,19 @@ public class RosterTests
     }
 
     [Fact]
+    public async Task Announcements_AbsentCacheControl_IsNullNotZero()
+    {
+        using var client = CreateClient();
+        var seen = new List<Announcement>();
+        using var subscription = client.Announcements().Subscribe(seen.Add);
+
+        Announce(maxAgeSeconds: 0);
+        await WaitForAsync(() => seen.Count == 1);
+
+        Assert.Null(seen[0].MaxAge);
+    }
+
+    [Fact]
     public async Task SilentVanish_ExpiresOnTheClock()
     {
         using var client = CreateClient();
@@ -268,7 +281,7 @@ public class RosterTests
         Assert.Equal(AnnouncementKind.SearchResponse, seen[2].Kind);
         Assert.Equal(AnnouncementKind.ByeBye, seen[3].Kind);
         Assert.Equal(TimeSpan.FromSeconds(100), seen[0].MaxAge);
-        Assert.Equal(TimeSpan.Zero, seen[3].MaxAge);
+        Assert.Null(seen[3].MaxAge);                   // a byebye revokes a lifetime, it carries none
         Assert.Equal(TimeSpan.FromSeconds(30), seen[1].Seen - seen[0].Seen);
         Assert.Empty(_controlPoint.SentSearches);       // passive: no M-SEARCH sent
     }

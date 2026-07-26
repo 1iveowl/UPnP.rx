@@ -102,7 +102,7 @@ internal sealed class RosterSource : EngineSource<RosterChange>
         }
     }
 
-    private async Task HandleAnnouncementAsync(DiscoveredDevice device, TimeSpan maxAge, CancellationToken ct)
+    private async Task HandleAnnouncementAsync(DiscoveredDevice device, TimeSpan? maxAge, CancellationToken ct)
     {
         if (device.Location is null)
         {
@@ -110,7 +110,7 @@ internal sealed class RosterSource : EngineSource<RosterChange>
         }
 
         var key = device.Usn?.DeviceUUID is { Length: > 0 } uuid ? uuid : device.Location.ToString();
-        var effectiveMaxAge = maxAge > TimeSpan.Zero ? maxAge : _options.RosterExpiryFallback;
+        var effectiveMaxAge = maxAge ?? _options.RosterExpiryFallback;
         var knownAndUnchanged = false;
 
         lock (Gate)

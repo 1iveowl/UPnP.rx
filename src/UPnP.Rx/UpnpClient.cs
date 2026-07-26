@@ -355,29 +355,35 @@ public sealed class UpnpClient : IUpnpClient
         });
 
     /// <summary>The roster's raw feed: every alive/response envelope with its advertisement lifetime, undeduplicated.</summary>
-    internal IObservable<(DiscoveredDevice Device, TimeSpan MaxAge)> RosterAnnouncements() =>
+    internal IObservable<(DiscoveredDevice Device, TimeSpan? MaxAge)> RosterAnnouncements() =>
         AnnouncementStream()
             .Where(item => item.Kind is not AnnouncementKind.ByeBye)
             .Select(item => (item.Device, item.MaxAge));
 
-    private IObservable<(AnnouncementKind Kind, DiscoveredDevice Device, TimeSpan MaxAge)> AnnouncementStream() =>
+    private IObservable<(AnnouncementKind Kind, DiscoveredDevice Device, TimeSpan? MaxAge)> AnnouncementStream() =>
         _controlPoint
             .MSearchResponseObservable()
             .Select(response => (Kind: AnnouncementKind.SearchResponse, Device: ToDiscovered(
                 response.USN, response.Location, response.Server, new BootSignature(response.BOOTID, response.NLS),
                 response.CONFIGID, response.HasParsingError, response.LocalIpEndPoint,
-                response.CacheControl), MaxAge: response.CacheControl))
+                response.CacheControl), MaxAge: ToMaxAge(response.CacheControl)))
             .Merge(_controlPoint
                 .NotifyObservable()
                 .Where(notify => notify.NTS == NTS.Alive)
                 .Select(notify => (Kind: AnnouncementKind.Alive, Device: ToDiscovered(
                     notify.USN, notify.Location, notify.Server, new BootSignature(notify.BOOTID, notify.NLS),
                     notify.CONFIGID, notify.HasParsingError, notify.LocalIpEndPoint,
-                    notify.CacheControl), MaxAge: notify.CacheControl)))
+                    notify.CacheControl), MaxAge: ToMaxAge(notify.CacheControl))))
             .Merge(DeviceLost()
-                .Select(device => (Kind: AnnouncementKind.ByeBye, Device: (DiscoveredDevice?)device, MaxAge: TimeSpan.Zero)))
+                .Select(device => (Kind: AnnouncementKind.ByeBye, Device: (DiscoveredDevice?)device, MaxAge: (TimeSpan?)null)))
             .Where(item => item.Device is not null)
             .Select(item => (item.Kind, item.Device!, item.MaxAge));
+
+    // Upstream reports an absent or unusable CACHE-CONTROL as TimeSpan.Zero. An
+    // advertisement that expires the instant it arrives is not a lifetime a device
+    // can mean, so zero is read here as "none announced" and surfaced as null.
+    private static TimeSpan? ToMaxAge(TimeSpan cacheControl) =>
+        cacheControl > TimeSpan.Zero ? cacheControl : null;
 
     /// <summary>
     /// Sends one M-SEARCH burst on every configured interface without

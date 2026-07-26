@@ -205,7 +205,7 @@ public sealed class UpnpClient : IUpnpClient
                 .NotifyObservable()
                 .Where(notify => notify.NTS == NTS.ByeBye)
                 .Select(notify => new DiscoveredDevice(
-                    notify.USN, notify.Location, notify.Server, notify.BOOTID, notify.CONFIGID,
+                    notify.USN, notify.Location, notify.Server, notify.BOOTID ?? 0, notify.CONFIGID,
                     notify.HasParsingError, notify.LocalIpEndPoint,
                     _ => Task.FromException<DescribedDevice>(
                         new UpnpException("A device-lost notice carries no description location."))));
@@ -415,7 +415,7 @@ public sealed class UpnpClient : IUpnpClient
     }
 
     private DiscoveredDevice? ToDiscovered(
-        USN? usn, Uri? location, Server? server, uint bootId, int? configId, bool hasParsingError,
+        USN? usn, Uri? location, Server? server, uint? bootId, int? configId, bool hasParsingError,
         IPEndPoint? localEndPoint, TimeSpan maxAge)
     {
         if (location is null)
@@ -434,9 +434,13 @@ public sealed class UpnpClient : IUpnpClient
             ? localEndPoint
             : null;
 
+        // P1 keeps the pre-9.0.0 shape: absent BOOTID still collapses to 0 here.
+        // BootSignature (P2) is what makes absence representable.
+        var boot = bootId ?? 0;
+
         return new DiscoveredDevice(
-            usn, location, server, bootId, configId, hasParsingError, local,
-            ct => GetOrFetchDescriptionAsync(location, configId, bootId, maxAge, local?.Address, ct));
+            usn, location, server, boot, configId, hasParsingError, local,
+            ct => GetOrFetchDescriptionAsync(location, configId, boot, maxAge, local?.Address, ct));
     }
 
     private Task<DescribedDevice> GetOrFetchDescriptionAsync(

@@ -16,6 +16,8 @@ internal sealed class FakeControlPoint : IControlPoint
 
     public Subject<Notify> Notifies { get; } = new();
 
+    public Subject<SsdpParseFailure> Failures { get; } = new();
+
     public List<(MSearchRequest Request, IPAddress Address)> SentSearches { get; } = [];
 
     public void HotStart(IObservable<HttpRequestResponse> httpListenerObservable)
@@ -27,6 +29,8 @@ internal sealed class FakeControlPoint : IControlPoint
 
     public IObservable<MSearchResponse> MSearchResponseObservable() => Responses;
 
+    public IObservable<SsdpParseFailure> ParseFailures() => Failures;
+
     public Task SendMSearchAsync(MSearchRequest mSearch, IPAddress ipAddress, CancellationToken ct = default)
     {
         SentSearches.Add((mSearch, ipAddress));
@@ -37,5 +41,13 @@ internal sealed class FakeControlPoint : IControlPoint
     {
         Responses.Dispose();
         Notifies.Dispose();
+        Failures.Dispose();
+    }
+
+    /// <summary>No protocol goodbye to say; the fake's graceful path is its abrupt one.</summary>
+    public ValueTask DisposeAsync()
+    {
+        Dispose();
+        return ValueTask.CompletedTask;
     }
 }

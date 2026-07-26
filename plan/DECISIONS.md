@@ -6,6 +6,7 @@ whenever a decision lands anywhere else.
 
 | Date | Decision | Record |
 |---|---|---|
+| 2026-07-26 | UPnP 1.0 devices send no `BOOTID`, so reboot detection is blind for them: **4.3** gains the boot-signature work (`BootId` → nullable/`BootSignature`, `NLS` fallback resolved via the `OPT` prefix, dashboard label guard). Three upstream candidates recorded alongside: 6 `ParseMaxAge` drops valid compound `CACHE-CONTROL`, 7 absent-vs-zero `BOOTID`, 8 `NLS` unparsed | [upnp-rx-v4.1-plan.md §7d](upnp-rx-v4.1-plan.md); [upnp-rx-project-plan.md §9](upnp-rx-project-plan.md) |
 | 2026-07-26 | 4.1.1 is skipped; the structural batch ships as **4.2.0** (API analyzer ledger, DescriptionCache extraction, IUpnpClient, DECISIONS.md, CI snupkg + trim smoke); previously "4.2" deferrals move to **4.3** (local-IPv4 helper promotion, LoggerMessage, Announcement/Roster namespace harmonization at a major) | this file; [upnp-rx-v4.1-plan.md §7c](upnp-rx-v4.1-plan.md) |
 | 2026-07-26 | Dedup shape: engine skeleton → `EngineSource<T>`, timed HTTP → `TimedExchange`, test vocabulary → `TestKit`; per-item Rx pipeline shape is idiom, not duplication | [upnp-rx-v4.1-plan.md §7c](upnp-rx-v4.1-plan.md) |
 | 2026-07-25 | SSDP activity log ships as the parsed-envelope timeline (`Announcements()`, passive, live-only); the raw wire log is upstream territory, deferred | [upnp-rx-v4.1-plan.md §4](upnp-rx-v4.1-plan.md) |

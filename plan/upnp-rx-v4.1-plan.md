@@ -232,6 +232,38 @@ every remaining instance, then a general dedup pass consolidated the structural 
   and the dashboard's NetworkClientProvider - unifying needs a public helper, i.e. new
   API, which does not belong in a patch. 4.2 candidate.
 
+## 7d. Field finding: UPnP 1.0 devices have no BOOTID (2026-07-26, 4.3 shelf)
+
+Tracking down a chatty renderer on the author's network - a Platinum/1.0.5.13 DLNA
+receiver advertising itself as "Windows Media Player" - surfaced a whole class of device
+the roster handles blindly: **UPnP 1.0 stacks send no `BOOTID.UPNP.ORG` at all.** They
+carry the pre-UDA-1.1 equivalent instead, `NLS`, under an RFC 2774 namespace prefix the
+device negotiates through an `OPT` header (`OPT: "…"; ns=01` → `01-NLS`).
+
+What that costs today:
+
+- `DiscoveredDevice.BootId` is a non-nullable `uint`, so "sent none" is indistinguishable
+  from "sent 0" - and 0 is a legal BOOTID. The value arrives as 0 from upstream's
+  `ParseUIntOr(…, 0)` (§9 candidate 7).
+- Reboot detection therefore cannot fire for these devices: `RosterSource` compares
+  `device.BootId != entry.Device.BootId`, which is `0 != 0` forever, and the description
+  cache keys on the same constant. A UPnP 1.0 device that reboots reads as unchanged, so
+  neither `DeviceUpdated` nor a description re-read happens. Its actual reboot signal -
+  a changed NLS - is on the wire and simply unread.
+- The dashboard renders `BOOTID @row.BootId` unconditionally, so every activity row for
+  such a device claims "BOOTID 0", a value the device never sent. (The max-age beside it
+  is already guarded by `MaxAgeSeconds > 0`; the boot id is not.)
+
+Shelved for 4.3, as one piece of work because the first item forces a public-API change:
+
+1. Make the absent case representable - `BootId` becomes `uint?`, or a small
+   `BootSignature` carrying either a BOOTID or an NLS. Breaking, so not a patch.
+2. Read `NLS` as the fallback boot signature, resolving the prefix from `OPT` rather than
+   assuming `01-`. Verified reachable from `Notify.Headers` / `MSearchResponse.Headers`
+   on the shipped 8.0.0 without any upstream change - though §9 candidate 8 argues it
+   belongs upstream, so check that first.
+3. Guard the dashboard label so a device that sent no boot signature is not given one.
+
 ## 8. Risks
 
 - **Roster correctness is where subtle bugs live** (the reason it was deferred twice):

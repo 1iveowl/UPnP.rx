@@ -11,7 +11,7 @@
 
 A modern, functional, Rx-based **UPnP control point** for .NET 10: discover devices, browse their services, call their actions - as observables and immutable records. Includes an **IGD port-mapping client** with auto-renewing leases.
 
-> *Discover a device, browse its services, call its actions, watch its state.*
+> *Discover a device, browse its services, call its actions, watch its state, change it's state.*
 
 *Please star this project if you find it useful. Thank you.*
 

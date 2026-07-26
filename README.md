@@ -344,3 +344,7 @@ UPnP.Rx is `net10.0`-only, like its siblings [SSDP.UPnP.PCL](https://github.com/
 ## License
 
 MIT - see [LICENSE](LICENSE).
+
+## A thank-you
+
+[Christian Geuer-Pollmann](https://github.com/chgeuer) didn't just read this library - he rebuilt the entire control point in Elixir on OTP, tests and samples included, and then wrote up what the two designs teach each other: [The same UPnP control point in .NET Rx and Elixir OTP](https://github.com/chgeuer/external_1iveowl_UPnP.rx/blob/main/upnp/docs/rx_versus_otp.md). It walks through how a graph of streams, gates and disposables becomes a topology of supervised processes - same protocol rules, different concurrency model - and is generous about both. If you have ever wondered what this codebase would look like on the BEAM, there is no better read. Thank you, Christian!

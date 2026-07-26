@@ -1,4 +1,4 @@
-namespace UPnP.Rx;
+namespace UPnP.Rx.Presence;
 
 /// <summary>What kind of SSDP envelope an <see cref="Announcement"/> reports.</summary>
 public enum AnnouncementKind

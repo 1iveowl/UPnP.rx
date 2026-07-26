@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.SignalR;
 using Sample.Dashboard.Client.Models;
 using Sample.Dashboard.Hubs;
 using UPnP.Rx;
+using UPnP.Rx.Presence;
 
 namespace Sample.Dashboard.Services;
 
@@ -149,11 +150,11 @@ public sealed class UpnpDiscoveryService(
                     return Observable.Empty<Unit>();
                 }));
 
-    private async Task HandleChangeAsync(UPnP.Rx.Roster.RosterChange change, CancellationToken ct)
+    private async Task HandleChangeAsync(UPnP.Rx.Presence.RosterChange change, CancellationToken ct)
     {
         switch (change)
         {
-            case UPnP.Rx.Roster.DeviceAppeared or UPnP.Rx.Roster.DeviceUpdated:
+            case UPnP.Rx.Presence.DeviceAppeared or UPnP.Rx.Presence.DeviceUpdated:
             {
                 // Describe (the library caches; self-healed and rebooted
                 // devices re-fetch automatically) and broadcast. A device whose
@@ -168,7 +169,7 @@ public sealed class UpnpDiscoveryService(
                 await hub.Clients.All.SendAsync(HubEvents.DeviceUp, dto, ct);
                 break;
             }
-            case UPnP.Rx.Roster.DeviceExpired or UPnP.Rx.Roster.DeviceLeft:
+            case UPnP.Rx.Presence.DeviceExpired or UPnP.Rx.Presence.DeviceLeft:
             {
                 if (change.Device.Usn?.DeviceUUID is not { Length: > 0 } uuid)
                 {

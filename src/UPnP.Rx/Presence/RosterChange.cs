@@ -1,4 +1,4 @@
-namespace UPnP.Rx.Roster;
+namespace UPnP.Rx.Presence;
 
 /// <summary>
 /// One change to the network's device roster (<see cref="UpnpClient.Roster"/>).

@@ -6,7 +6,7 @@ using SSDP.UPnP.PCL;
 using SSDP.UPnP.PCL.Model;
 using UPnP.Rx.Eventing;
 using UPnP.Rx.Parsing;
-using UPnP.Rx.Roster;
+using UPnP.Rx.Presence;
 
 namespace UPnP.Rx;
 

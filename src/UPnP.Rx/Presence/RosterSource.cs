@@ -2,7 +2,7 @@ using System.Reactive;
 using System.Reactive.Linq;
 using Microsoft.Extensions.Logging;
 
-namespace UPnP.Rx.Roster;
+namespace UPnP.Rx.Presence;
 
 /// <summary>
 /// The shared device-roster engine: one per <see cref="UpnpClient"/>, started by

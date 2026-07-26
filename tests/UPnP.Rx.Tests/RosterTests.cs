@@ -1,7 +1,7 @@
 using System.Net;
 using Microsoft.Extensions.Time.Testing;
 using SSDP.UPnP.PCL.Model;
-using UPnP.Rx.Roster;
+using UPnP.Rx.Presence;
 using UPnP.Rx.Tests.TestHelpers;
 using Xunit;
 using static UPnP.Rx.Tests.TestHelpers.TestKit;

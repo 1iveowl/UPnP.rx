@@ -297,7 +297,7 @@ internal sealed class RosterSource : IObservable<RosterChange>
     /// <summary>Delivers to every observer; the caller holds <see cref="_gate"/>.</summary>
     private void EmitLocked(RosterChange value)
     {
-        foreach (var observer in _observers.ToArray())
+        foreach (var observer in SnapshotObserversLocked())
         {
             observer.OnNext(value);
         }
@@ -307,7 +307,7 @@ internal sealed class RosterSource : IObservable<RosterChange>
     {
         lock (_gate)
         {
-            foreach (var observer in _observers.ToArray())
+            foreach (var observer in SnapshotObserversLocked())
             {
                 observer.OnError(error);
             }
@@ -315,4 +315,7 @@ internal sealed class RosterSource : IObservable<RosterChange>
             _observers.Clear();
         }
     }
+
+    /// <summary>Creates a stable observer snapshot; the caller holds <see cref="_gate"/>.</summary>
+    private IObserver<RosterChange>[] SnapshotObserversLocked() => [.. _observers];
 }

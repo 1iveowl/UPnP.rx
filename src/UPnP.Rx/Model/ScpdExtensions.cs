@@ -53,8 +53,7 @@ public static class ScpdExtensions
             // Unknown direction counts as "in" (leniency toward sloppy SCPDs); the
             // strictness here is toward what WE send, per the house policy.
             var inArguments = action.Arguments
-                .Where(a => a.Direction != ArgumentDirection.Out && a.Name is not null)
-                .ToList();
+                .Where(a => a.Direction != ArgumentDirection.Out && a.Name is not null);
 
             var errors = new List<string>();
             var ordered = new Dictionary<string, string>();

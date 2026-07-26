@@ -106,6 +106,7 @@ public static class PortMapper
 
         using var timeoutCts = new CancellationTokenSource(
             timeout ?? _defaultTimeout, client.Options.TimeProvider);
+
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
 
         try

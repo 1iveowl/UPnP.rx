@@ -63,15 +63,9 @@ public sealed class UpnpService : IUpnpService
     /// (house Rx rule 1 applies here doubly).
     /// </summary>
     /// <exception cref="UpnpException">The service declares no <c>eventSubURL</c>.</exception>
-    public IObservable<UpnpEvent> Events()
-    {
-        if (Description.EventSubUrl is null)
-        {
-            throw new UpnpException($"The service {Description.ServiceType} declares no eventSubURL - it is not evented.");
-        }
-
-        return _eventing.GetOrCreateSource(Description.EventSubUrl, _localAddress);
-    }
+    public IObservable<UpnpEvent> Events() =>  Description.EventSubUrl is null
+            ? throw new UpnpException($"The service {Description.ServiceType} declares no eventSubURL - it is not evented.")
+            : _eventing.GetOrCreateSource(Description.EventSubUrl, _localAddress);
 
     /// <summary>The service entry from the device description document.</summary>
     public ServiceDescription Description { get; }
@@ -184,13 +178,10 @@ public sealed class UpnpService : IUpnpService
 
         var result = SoapParser.ParseActionResponse(body, action);
 
-        if (result.IsSuccess)
-        {
-            return result.Value;
-        }
-
-        throw new UpnpException(
-            $"The action {action} returned HTTP {(int)status} with an unparsable body: {result.Error}");
+        return result.IsSuccess
+            ? result.Value
+            : throw new UpnpException(
+                $"The action {action} returned HTTP {(int)status} with an unparsable body: {result.Error}");
     }
 
     private async Task<Scpd> FetchScpdAsync()

@@ -128,16 +128,13 @@ public sealed class InternetGateway : IInternetGateway
         IPAddress? internalClient = null,
         CancellationToken ct = default)
     {
-        if (!string.Equals(
+        return !string.Equals(
                 WanConnectionService.Description.ServiceType,
                 "urn:schemas-upnp-org:service:WANIPConnection:2",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            throw new UpnpException(
-                $"AddAnyPortMapping requires WANIPConnection:2; this gateway offers {WanConnectionService.Description.ServiceType}.");
-        }
-
-        return AddAsync(externalPort, internalPort, protocol, description, lease, internalClient, useAnyPort: true, ct);
+                StringComparison.OrdinalIgnoreCase)
+            ? throw new UpnpException(
+                $"AddAnyPortMapping requires WANIPConnection:2; this gateway offers {WanConnectionService.Description.ServiceType}.")
+            : AddAsync(externalPort, internalPort, protocol, description, lease, internalClient, useAnyPort: true, ct);
     }
 
     /// <summary>The WAN connection state (<c>GetStatusInfo</c>): status, last error, uptime.</summary>
@@ -208,12 +205,12 @@ public sealed class InternetGateway : IInternetGateway
         ushort externalPort,
         Protocol protocol,
         CancellationToken ct = default) =>
-        await WanConnectionService.InvokeAsync("DeletePortMapping", new Dictionary<string, string>
-        {
-            ["NewRemoteHost"] = string.Empty,
-            ["NewExternalPort"] = externalPort.ToString(),
-            ["NewProtocol"] = protocol.ToWireString()
-        }, ct).ConfigureAwait(false);
+            await WanConnectionService.InvokeAsync("DeletePortMapping", new Dictionary<string, string>
+            {
+                ["NewRemoteHost"] = string.Empty,
+                ["NewExternalPort"] = externalPort.ToString(),
+                ["NewProtocol"] = protocol.ToWireString()
+            }, ct).ConfigureAwait(false);
 
     /// <summary>
     /// Enumerates the gateway's port mappings via
@@ -237,8 +234,11 @@ public sealed class InternetGateway : IInternetGateway
             }
             catch (UpnpActionException e)
             {
-                _options.Logger.LogDebug(
-                    "Port mapping enumeration ended at index {Index} with UPnP error {Code}.", index, e.Error.Code);
+                if (_options.Logger.IsEnabled(LogLevel.Debug))
+                {
+                    _options.Logger.LogDebug(
+                        "Port mapping enumeration ended at index {Index} with UPnP error {Code}.", index, e.Error.Code);
+                }
                 yield break;
             }
 
@@ -261,7 +261,7 @@ public sealed class InternetGateway : IInternetGateway
     }
 
     /// <summary>Renews (re-adds) an existing mapping — the standard IGD lease-refresh technique.</summary>
-    internal Task RenewAsync(PortMappingEntry mapping, CancellationToken ct) =>
+    internal Task<ActionResult> RenewAsync(PortMappingEntry mapping, CancellationToken ct) =>
         InvokeAddPortMappingAsync(mapping, ct);
 
     /// <summary>A copy of this gateway that owns (and disposes) the given discovery client.</summary>
@@ -275,14 +275,14 @@ public sealed class InternetGateway : IInternetGateway
     async Task<IPortMappingLease> IInternetGateway.AddPortMappingAsync(
         ushort externalPort, ushort internalPort, Protocol protocol, string description,
         TimeSpan lease, IPAddress? internalClient, CancellationToken ct) =>
-        await AddPortMappingAsync(externalPort, internalPort, protocol, description, lease, internalClient, ct)
-            .ConfigureAwait(false);
+            await AddPortMappingAsync(externalPort, internalPort, protocol, description, lease, internalClient, ct)
+                .ConfigureAwait(false);
 
     async Task<IPortMappingLease> IInternetGateway.AddAnyPortMappingAsync(
         ushort externalPort, ushort internalPort, Protocol protocol, string description,
         TimeSpan lease, IPAddress? internalClient, CancellationToken ct) =>
-        await AddAnyPortMappingAsync(externalPort, internalPort, protocol, description, lease, internalClient, ct)
-            .ConfigureAwait(false);
+            await AddAnyPortMappingAsync(externalPort, internalPort, protocol, description, lease, internalClient, ct)
+                .ConfigureAwait(false);
 
     /// <summary>Releases the discovery client when this gateway owns one (created via <see cref="PortMapper"/>).</summary>
     public void Dispose() => _ownedClient?.Dispose();
@@ -341,7 +341,7 @@ public sealed class InternetGateway : IInternetGateway
         return new PortMappingLease(this, mapping, _options);
     }
 
-    private Task InvokeAddPortMappingAsync(PortMappingEntry mapping, CancellationToken ct) =>
+    private Task<ActionResult> InvokeAddPortMappingAsync(PortMappingEntry mapping, CancellationToken ct) =>
         WanConnectionService.InvokeAsync("AddPortMapping", AddArguments(mapping), ct);
 
     /// <summary>In-arguments in SCPD declaration order (strict in what we send).</summary>

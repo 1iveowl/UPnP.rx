@@ -77,9 +77,12 @@ public sealed class PortMappingLease : IPortMappingLease
         }
         catch (Exception e) when (e is UpnpException or OperationCanceledException)
         {
-            _options.Logger.LogDebug(e,
-                "Deleting port mapping {Port}/{Protocol} on dispose failed; the lease will expire on its own.",
-                Mapping.ExternalPort, Mapping.Protocol);
+            if (_options.Logger.IsEnabled(LogLevel.Debug))
+            {
+                _options.Logger.LogDebug(e,
+                    "Deleting port mapping {Port}/{Protocol} on dispose failed; the lease will expire on its own.",
+                    Mapping.ExternalPort, Mapping.Protocol);
+            }
         }
 
         _events.OnCompleted();

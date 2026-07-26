@@ -113,6 +113,7 @@ internal sealed class EventCallbackListener : IDisposable
         {
             await respond(request, new HttpResponse { StatusCode = 400, ReasonPhrase = "Bad Request" }, ct)
                 .ConfigureAwait(false);
+
             return;
         }
 

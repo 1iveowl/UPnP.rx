@@ -65,7 +65,7 @@ public static class GenaParser
         var properties = XmlLeniency.Children(propertySet, "property")
             .SelectMany(property => property.Elements())
             .Select(variable => new EventedProperty(variable.Name.LocalName, variable.Value.Trim()))
-            .ToList();
+            .ToArray();
 
         return ParseResult<IReadOnlyList<EventedProperty>>.Success(properties);
     }

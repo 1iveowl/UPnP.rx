@@ -28,7 +28,7 @@ public static class SoapParser
         ArgumentNullException.ThrowIfNull(xml);
         ArgumentNullException.ThrowIfNull(actionName);
 
-        if (TryParse(xml, out var document, out var error))
+        if (TryParseWithAmpersandRecovery(xml, out var document, out var error))
         {
             var body = FindBody(document);
 
@@ -51,26 +51,23 @@ public static class SoapParser
                 ?? body.Elements().FirstOrDefault(e => e.Name.LocalName.EndsWith(
                     "Response", StringComparison.OrdinalIgnoreCase));
 
-            if (response is null)
-            {
-                return ParseResult<ActionResult>.Failure(
-                    $"The SOAP Body contains no {actionName}Response element.");
+            return response is null
+                ? ParseResult<ActionResult>.Failure(
+                    $"The SOAP Body contains no {actionName}Response element.")
+                : ParseResult<ActionResult>.Success(new ActionResult
+                {
+                    // Group first: devices have been seen repeating out-arguments
+                    // (also with different casing) — first occurrence wins, the
+                    // parser stays total.
+                    Out = response.Elements()
+                        .Where(e => e.Name.LocalName.Length > 0)
+                        .GroupBy(e => e.Name.LocalName, StringComparer.OrdinalIgnoreCase)
+                        .ToFrozenDictionary(
+                            g => g.Key,
+                            g => g.First().Value.Trim(),
+                            StringComparer.OrdinalIgnoreCase)
+                });
             }
-
-            return ParseResult<ActionResult>.Success(new ActionResult
-            {
-                // Group first: devices have been seen repeating out-arguments
-                // (also with different casing) — first occurrence wins, the
-                // parser stays total.
-                Out = response.Elements()
-                    .Where(e => e.Name.LocalName.Length > 0)
-                    .GroupBy(e => e.Name.LocalName, StringComparer.OrdinalIgnoreCase)
-                    .ToFrozenDictionary(
-                        g => g.Key,
-                        g => g.First().Value.Trim(),
-                        StringComparer.OrdinalIgnoreCase)
-            });
-        }
 
         return ParseResult<ActionResult>.Failure(error);
     }
@@ -86,7 +83,7 @@ public static class SoapParser
     {
         ArgumentNullException.ThrowIfNull(xml);
 
-        if (!TryParse(xml, out var document, out var error))
+        if (!TryParseWithAmpersandRecovery(xml, out var document, out var error))
         {
             return ParseResult<UpnpError>.Failure(error);
         }
@@ -127,28 +124,32 @@ public static class SoapParser
         });
     }
 
-    private static bool TryParse(string xml, out XDocument document, out string error)
+    private static bool TryParseWithAmpersandRecovery(string xml, out XDocument document, out string error)
+    {
+        if (TryParseXml(xml, out document, out var initialError)
+            || TryParseXml(XmlLeniency.EscapeBareAmpersands(xml), out document, out _))
+        {
+            error = string.Empty;
+            return true;
+        }
+
+        error = $"The document is not well-formed XML: {initialError!.Message}";
+        return false;
+    }
+
+    private static bool TryParseXml(string xml, out XDocument document, out XmlException? error)
     {
         try
         {
             document = XDocument.Parse(xml, LoadOptions.None);
-            error = string.Empty;
+            error = null;
             return true;
         }
-        catch (XmlException initial)
+        catch (XmlException exception)
         {
-            try
-            {
-                document = XDocument.Parse(XmlLeniency.EscapeBareAmpersands(xml), LoadOptions.None);
-                error = string.Empty;
-                return true;
-            }
-            catch (XmlException)
-            {
-                document = new XDocument();
-                error = $"The document is not well-formed XML: {initial.Message}";
-                return false;
-            }
+            document = new XDocument();
+            error = exception;
+            return false;
         }
     }
 

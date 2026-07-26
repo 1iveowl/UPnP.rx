@@ -181,7 +181,10 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
                 .FromAsync(device.GetDescriptionAsync)
                 .Catch((UpnpException e) =>
                 {
-                    _options.Logger.LogDebug(e, "Skipping {Location}: description unavailable.", device.Location);
+                    if (_options.Logger.IsEnabled(LogLevel.Debug))
+                    {
+                        _options.Logger.LogDebug(e, "Skipping {Location}: description unavailable.", device.Location);
+                    }
                     return Observable.Empty<DescribedDevice>();
                 }))
             .Distinct(described => described.Description.Udn ?? described.Description.Location.ToString());
@@ -285,7 +288,10 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
             {
                 // One interface failing must not kill discovery on the others.
                 failures++;
-                _options.Logger.LogWarning(e, "M-SEARCH failed on interface {Address}.", address);
+                if (_options.Logger.IsEnabled(LogLevel.Warning))
+                {
+                    _options.Logger.LogWarning(e, "M-SEARCH failed on interface {Address}.", address);
+                }
             }
         }
 
@@ -438,7 +444,7 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
 
         var prefix = $"{location}#";
 
-        foreach (var key in _descriptions.Keys.Where(k => k.StartsWith(prefix, StringComparison.Ordinal)).ToList())
+        foreach (var key in _descriptions.Keys.Where(k => k.StartsWith(prefix, StringComparison.Ordinal)))
         {
             _descriptions.TryRemove(key, out _);
         }
@@ -453,7 +459,10 @@ public sealed class UpnpClient : IAsyncDisposable, IDisposable
     {
         if (location is null)
         {
-            _options.Logger.LogDebug("Dropped an announcement without a usable LOCATION (USN: {Usn}).", usn);
+            if (_options.Logger.IsEnabled(LogLevel.Debug))
+            {
+                _options.Logger.LogDebug("Dropped an announcement without a usable LOCATION (USN: {Usn}).", usn);
+            }
             return null;
         }
 

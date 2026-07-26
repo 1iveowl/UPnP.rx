@@ -264,6 +264,53 @@ Shelved for 4.3, as one piece of work because the first item forces a public-API
    belongs upstream, so check that first.
 3. Guard the dashboard label so a device that sent no boot signature is not given one.
 
+## 7e. UPnP version badges (2026-07-26, 4.3 shelf)
+
+**The spec question, settled against the document** (UPnP-arch-DeviceArchitecture-v2.0,
+2015 - fetched and read, not recalled): *neither* source is authoritative. Clause 1's
+"Versioning" passage says version information "is communicated in discovery and
+description messages... (in the SERVER and USER-AGENT header fields)... Additionally,
+description documents also include **the same information**." The spec treats the two as
+one fact restated, never contemplates them disagreeing, and therefore establishes no
+precedence rule. Both are normative:
+
+- **SERVER** (clause 1.1.2, repeated in the control clause): "the second token represents
+  the UPnP version and shall be UPnP/2.0."
+- **`<specVersion>`** (clause 2.3): "In actual UPnP devices, defines the architecture on
+  which the device is implemented"; `<minor>` "Shall accurately reflect the version number
+  of the UPnP Device Architecture supported by the device."
+
+An earlier guess that `<specVersion>` is pinned to 1.0 for backward compatibility was
+**wrong** - checked and disproved. So a mismatch is not an artefact of the format; it is a
+device violating one of two "shall" clauses, and is real information worth showing.
+
+That vindicates the multi-badge design: since the spec names no authority, a UI that picks
+one silently invents a precedence rule the spec does not have. Show each claim with its
+provenance, and flag disagreement rather than resolving it.
+
+There are up to **four** witnesses, which is a feature - they come from different firmware
+subsystems and so fail independently:
+
+1. `SERVER` on discovery (available immediately, before any description fetch).
+2. `<specVersion>` in the device description (available after describing).
+3. `<specVersion>` in each SCPD - clause 2.5 carries the same "shall accurately reflect"
+   language per service, so a device can disagree with its own services. Already parsed by
+   `ScpdParser`.
+4. `SERVER` on control/eventing responses - clause 1 notes these header fields "are also
+   used in control and eventing to communicate which version of UPnP networking the
+   devices... support."
+
+**Blocked on upstream (§9 candidate 9).** `Server.UpnpMajorVersion`/`UpnpMinorVersion`
+cannot feed a badge today: an absent SERVER reports "2.0", a two-token SERVER fabricates
+"1.0", and the reference device on the author's network reports **1.50** because the parser
+reads whatever sits in the second token (`DLNADOC/1.50`). A badge fed from those fields
+would confidently lie. Either the upstream fix lands first, or UPnP.Rx reads the version
+from `Server.FullString` itself. Note also that `IsUpnp2` must never be the badge's input -
+it is false for UDA 1.1 devices, which are not 1.0.
+
+Open for the author: whether the reconciled view belongs in the library (a computed version
+with documented precedence, since every control point faces this) or stays sample-only.
+
 ## 8. Risks
 
 - **Roster correctness is where subtle bugs live** (the reason it was deferred twice):

@@ -50,12 +50,12 @@ internal sealed class EventCallbackListener : IDisposable
                 .Catch((Exception e) =>
                 {
                     // One bad NOTIFY must not kill the callback stream.
-                    _logger.LogDebug(e, "Handling a NOTIFY failed.");
+                    _logger.NotifyHandlingFailed(e);
                     return Observable.Empty<Unit>();
                 }))
             .Subscribe(
                 _ => { },
-                e => _logger.LogError(e, "The event callback stream terminated."));
+                e => _logger.EventCallbackStreamTerminated(e));
     }
 
     /// <summary>The bound port - resolved even when created with port 0 (ephemeral).</summary>
@@ -143,7 +143,7 @@ internal sealed class EventCallbackListener : IDisposable
         catch (Exception e) when (e is not OperationCanceledException)
         {
             // The sender still deserves an answer; the failure is ours, not theirs.
-            _logger.LogDebug(e, "A NOTIFY handler failed; answering 500.");
+            _logger.NotifyHandlerFailed(e);
             await AnswerAsync(500, "Internal Server Error").ConfigureAwait(false);
 
             return;

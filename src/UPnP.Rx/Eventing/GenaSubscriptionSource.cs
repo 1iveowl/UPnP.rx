@@ -68,7 +68,7 @@ internal sealed class GenaSubscriptionSource : EngineSource<UpnpEvent>
             // The one legitimate OnError: the engine itself died unexpectedly
             // (e.g. an observer threw during an engine-context emission).
             // Silence here would leave subscribers waiting forever.
-            _logger.LogError(e, "The event subscription engine for {Url} failed.", _eventSubUrl);
+            _logger.EventEngineFailed(e, _eventSubUrl);
             Error(new UpnpException($"The event subscription engine for {_eventSubUrl} failed unexpectedly: {e.Message}", e));
         }
     }
@@ -195,10 +195,7 @@ internal sealed class GenaSubscriptionSource : EngineSource<UpnpEvent>
                     }
                     catch (Exception e)
                     {
-                        if (_logger.IsEnabled(LogLevel.Debug))
-                        {
-                            _logger.LogDebug(e, "UNSUBSCRIBE for {Sid} failed; the device will time the subscription out.", sid);
-                        }
+                        _logger.UnsubscribeFailed(e, sid);
                     }
                 }
             }
@@ -217,10 +214,7 @@ internal sealed class GenaSubscriptionSource : EngineSource<UpnpEvent>
 
         if (!parsed.IsSuccess)
         {
-            if (_logger.IsEnabled(LogLevel.Debug))
-            {
-                _logger.LogDebug("Dropped an unparsable NOTIFY: {Error}", parsed.Error);
-            }
+            _logger.UnparsableNotify(parsed.Error);
             return;
         }
 

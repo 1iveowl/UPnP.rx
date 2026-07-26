@@ -117,6 +117,7 @@ UPnP.Rx.IUpnpClient.InvalidateDescriptions(System.Uri! location) -> void
 UPnP.Rx.IUpnpClient.Roster() -> System.IObservable<UPnP.Rx.Presence.RosterChange!>!
 UPnP.Rx.IUpnpClient.Roster() -> System.IObservable<UPnP.Rx.Roster.RosterChange!>!
 UPnP.Rx.IUpnpClient.SearchAsync(SSDP.UPnP.PCL.Model.ST? searchTarget = null, System.TimeSpan? mx = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+UPnP.Rx.LocalNetwork
 UPnP.Rx.Model.ActionResult.VersionClaims.get -> UPnP.Rx.UpnpVersionClaims!
 UPnP.Rx.Model.ActionResult.VersionClaims.init -> void
 UPnP.Rx.Presence.Announcement
@@ -226,6 +227,7 @@ override sealed UPnP.Rx.Presence.DeviceUpdated.Equals(UPnP.Rx.Presence.RosterCha
 static UPnP.Rx.BootSignature.None.get -> UPnP.Rx.BootSignature
 static UPnP.Rx.BootSignature.operator !=(UPnP.Rx.BootSignature left, UPnP.Rx.BootSignature right) -> bool
 static UPnP.Rx.BootSignature.operator ==(UPnP.Rx.BootSignature left, UPnP.Rx.BootSignature right) -> bool
+static UPnP.Rx.LocalNetwork.IPv4Addresses() -> System.Net.IPAddress![]!
 static UPnP.Rx.Presence.Announcement.operator !=(UPnP.Rx.Presence.Announcement? left, UPnP.Rx.Presence.Announcement? right) -> bool
 static UPnP.Rx.Presence.Announcement.operator ==(UPnP.Rx.Presence.Announcement? left, UPnP.Rx.Presence.Announcement? right) -> bool
 static UPnP.Rx.Presence.DeviceAppeared.operator !=(UPnP.Rx.Presence.DeviceAppeared? left, UPnP.Rx.Presence.DeviceAppeared? right) -> bool

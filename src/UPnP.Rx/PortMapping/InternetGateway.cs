@@ -234,11 +234,7 @@ public sealed class InternetGateway : IInternetGateway
             }
             catch (UpnpActionException e)
             {
-                if (_options.Logger.IsEnabled(LogLevel.Debug))
-                {
-                    _options.Logger.LogDebug(
-                        "Port mapping enumeration ended at index {Index} with UPnP error {Code}.", index, e.Error.Code);
-                }
+                _options.Logger.PortMappingEnumerationEnded(index, e.Error.Code);
                 yield break;
             }
 

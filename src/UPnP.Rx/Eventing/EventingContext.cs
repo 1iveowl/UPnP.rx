@@ -85,7 +85,7 @@ internal sealed class EventingContext(
         }
         catch (Exception e)
         {
-            options.Logger.LogDebug(e, "An event subscription's goodbye failed during disposal.");
+            options.Logger.EventGoodbyeFailed(e);
         }
 
         _listener?.Dispose();

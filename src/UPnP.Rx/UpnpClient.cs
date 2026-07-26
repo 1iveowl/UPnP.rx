@@ -183,10 +183,7 @@ public sealed class UpnpClient : IUpnpClient
                 .FromAsync(device.GetDescriptionAsync)
                 .Catch((UpnpException e) =>
                 {
-                    if (_options.Logger.IsEnabled(LogLevel.Debug))
-                    {
-                        _options.Logger.LogDebug(e, "Skipping {Location}: description unavailable.", device.Location);
-                    }
+                    _options.Logger.DescriptionUnavailable(e, device.Location);
                     return Observable.Empty<DescribedDevice>();
                 }))
             .Distinct(described => described.Description.Udn ?? described.Description.Location.ToString());
@@ -290,10 +287,7 @@ public sealed class UpnpClient : IUpnpClient
             {
                 // One interface failing must not kill discovery on the others.
                 failures++;
-                if (_options.Logger.IsEnabled(LogLevel.Warning))
-                {
-                    _options.Logger.LogWarning(e, "M-SEARCH failed on interface {Address}.", address);
-                }
+                _options.Logger.SearchFailedOnInterface(e, address);
             }
         }
 
@@ -426,10 +420,7 @@ public sealed class UpnpClient : IUpnpClient
     {
         if (location is null)
         {
-            if (_options.Logger.IsEnabled(LogLevel.Debug))
-            {
-                _options.Logger.LogDebug("Dropped an announcement without a usable LOCATION (USN: {Usn}).", usn);
-            }
+            _options.Logger.AnnouncementWithoutLocation(usn?.ToUsnString());
             return null;
         }
 

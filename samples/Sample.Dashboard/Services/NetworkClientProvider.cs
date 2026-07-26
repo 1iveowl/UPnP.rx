@@ -14,13 +14,7 @@ public sealed class NetworkClientProvider : IDisposable
 {
     public NetworkClientProvider()
     {
-        Addresses = [.. NetworkInterface.GetAllNetworkInterfaces()
-            .Where(nic => nic.OperationalStatus is OperationalStatus.Up
-                && nic.NetworkInterfaceType is not NetworkInterfaceType.Loopback)
-            .SelectMany(nic => nic.GetIPProperties().UnicastAddresses)
-            .Select(u => u.Address)
-            .Where(a => a.AddressFamily is AddressFamily.InterNetwork)
-            .Distinct()];
+        Addresses = LocalNetwork.IPv4Addresses();
 
         Client = Addresses.Length is 0 ? null : new UpnpClient(new UpnpClientOptions(), Addresses);
     }

@@ -61,17 +61,17 @@ internal sealed class RosterSource : EngineSource<RosterChange>
                     .FromAsync(innerCt => HandleAnnouncementAsync(item.Device, item.MaxAge, innerCt))
                     .Catch((Exception e) =>
                     {
-                        _logger.LogDebug(e, "Handling an announcement for the roster failed.");
+                        _logger.RosterAnnouncementFailed(e);
                         return Observable.Empty<Unit>();
                     }))
                 .Subscribe(
                     _ => { },
-                    e => _logger.LogError(e, "The roster's announcement stream terminated."));
+                    e => _logger.RosterAnnouncementStreamTerminated(e));
 
             using var farewells = _client.DeviceLost()
                 .Subscribe(
                     HandleByeBye,
-                    e => _logger.LogError(e, "The roster's byebye stream terminated."));
+                    e => _logger.RosterByeByeStreamTerminated(e));
 
             try
             {
@@ -80,7 +80,7 @@ internal sealed class RosterSource : EngineSource<RosterChange>
             catch (Exception e) when (e is not OperationCanceledException)
             {
                 // The roster still fills from unsolicited announcements.
-                _logger.LogWarning(e, "The roster's opening M-SEARCH failed.");
+                _logger.RosterOpeningSearchFailed(e);
             }
 
             using var timer = new PeriodicTimer(_sweepPeriod, _options.TimeProvider);
@@ -97,7 +97,7 @@ internal sealed class RosterSource : EngineSource<RosterChange>
         catch (Exception e)
         {
             // The one legitimate OnError: the engine itself died (Rx rule 6).
-            _logger.LogError(e, "The roster engine failed.");
+            _logger.RosterEngineFailed(e);
             Error(new UpnpException($"The device roster failed unexpectedly: {e.Message}", e));
         }
     }
@@ -183,10 +183,7 @@ internal sealed class RosterSource : EngineSource<RosterChange>
         {
             // The failed fetch already evicted itself from the cache; the next
             // announcement retries. Presence is unaffected.
-            if (_logger.IsEnabled(LogLevel.Debug))
-            {
-                _logger.LogDebug(e, "Roster re-describe of {Location} failed.", device.Location);
-            }
+            _logger.RosterRedescribeFailed(e, device.Location);
         }
         finally
         {

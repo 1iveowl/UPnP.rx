@@ -27,7 +27,7 @@ public static class PortMapper
         TimeSpan? timeout = null,
         CancellationToken ct = default)
     {
-        var client = new UpnpClient(LocalIPv4Addresses());
+        var client = new UpnpClient(LocalNetwork.IPv4Addresses());
 
         try
         {
@@ -168,13 +168,4 @@ public static class PortMapper
         }
     }
 
-    private static IPAddress[] LocalIPv4Addresses() =>
-        [.. NetworkInterface
-            .GetAllNetworkInterfaces()
-            .Where(nic => nic.OperationalStatus == OperationalStatus.Up
-                && nic.NetworkInterfaceType != NetworkInterfaceType.Loopback)
-            .SelectMany(nic => nic.GetIPProperties().UnicastAddresses)
-            .Select(unicast => unicast.Address)
-            .Where(address => address.AddressFamily == AddressFamily.InterNetwork)
-            .Distinct()];
 }

@@ -62,6 +62,16 @@ public sealed class DiscoveredDevice
     /// </summary>
     public BootSignature BootSignature { get; }
 
+    /// <summary>
+    /// What the <c>SERVER</c> header claims about the UDA version this device
+    /// implements - the only version witness available before anything is fetched.
+    /// Empty when the device sent no parsable version. Fold in
+    /// <see cref="DescribedDevice.VersionClaims"/> once described, and compare
+    /// sources rather than trusting one: UDA 2.0 names no authority between them.
+    /// </summary>
+    public UpnpVersionClaims VersionClaims =>
+        UpnpVersionClaims.From(UpnpVersionSource.Server, UpnpVersionClaims.ToVersion(Server));
+
     /// <summary>The device's configuration number (<c>CONFIGID.UPNP.ORG</c>); changes when its description changes.</summary>
     public int? ConfigId { get; }
 

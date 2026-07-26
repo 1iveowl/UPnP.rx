@@ -35,6 +35,17 @@ public sealed class DescribedDevice
     public DeviceDescription Description { get; }
 
     /// <summary>
+    /// What this device's description claims about the UDA version it implements
+    /// (<c>&lt;specVersion&gt;</c>). Combine with
+    /// <see cref="DiscoveredDevice.VersionClaims"/>, and with each service's
+    /// <see cref="UpnpService.VersionClaims"/> once its SCPD is loaded, to see
+    /// whether the device agrees with itself.
+    /// </summary>
+    public UpnpVersionClaims VersionClaims =>
+        UpnpVersionClaims.From(
+            UpnpVersionSource.DeviceDescription, UpnpVersionClaims.ToVersion(Description.SpecVersion));
+
+    /// <summary>
     /// A hash of the raw description document, for cheap change detection
     /// (the roster's self-healing compares it across re-reads).
     /// </summary>

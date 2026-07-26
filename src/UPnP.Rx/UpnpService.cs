@@ -1,4 +1,6 @@
 using System.Net;
+using SSDP.UPnP.PCL.Model;
+using SSDP.UPnP.PCL.Parsing;
 using System.Text;
 using UPnP.Rx.Eventing;
 using UPnP.Rx.Model;
@@ -127,7 +129,7 @@ public sealed class UpnpService : IUpnpService
 
         var envelope = SoapComposer.ComposeActionRequest(Description.ServiceType, action, arguments);
 
-        var (status, body) = await TimedExchange.RunAsync(
+        var (status, body, server) = await TimedExchange.RunAsync(
             async token =>
             {
                 using var request = new HttpRequestMessage(HttpMethod.Post, Description.ControlUrl);
@@ -143,7 +145,14 @@ public sealed class UpnpService : IUpnpService
                     .SendAsync(request, HttpCompletionOption.ResponseContentRead, token)
                     .ConfigureAwait(false);
 
-                return (response.StatusCode, await response.Content.ReadAsStringAsync(token).ConfigureAwait(false));
+                var serverHeader = response.Headers.TryGetValues("SERVER", out var values)
+                    ? values.FirstOrDefault()
+                    : null;
+
+                return (
+                    response.StatusCode,
+                    await response.Content.ReadAsStringAsync(token).ConfigureAwait(false),
+                    serverHeader);
             },
             _options.ActionTimeout, _options.TimeProvider, _lifetime, ct,
             timeoutMessage: $"The action {action} timed out after {_options.ActionTimeout}.",
@@ -165,10 +174,45 @@ public sealed class UpnpService : IUpnpService
         var result = SoapParser.ParseActionResponse(body, action);
 
         return result.IsSuccess
-            ? result.Value
+            ? result.Value with { VersionClaims = ToServerClaims(server, action) }
             : throw new UpnpException(
                 $"The action {action} returned HTTP {(int)status} with an unparsable body: {result.Error}");
     }
+
+    /// <summary>
+    /// What this service's SCPD claims about the UDA version it implements
+    /// (<c>&lt;specVersion&gt;</c>, UDA 2.0 clause 2.5). Empty until
+    /// <see cref="GetScpdAsync"/> has completed - the SCPD is fetched lazily, so this
+    /// never triggers network work. Services can contradict their own device.
+    /// </summary>
+    public UpnpVersionClaims VersionClaims
+    {
+        get
+        {
+            Task<Scpd>? task;
+
+            lock (_scpdLock)
+            {
+                task = _scpdTask;
+            }
+
+            // Guarded: only read from a task that has already completed successfully.
+            return task is { IsCompletedSuccessfully: true }
+                ? UpnpVersionClaims.From(
+                    UpnpVersionSource.ServiceDescription,
+                    UpnpVersionClaims.ToVersion(task.Result.SpecVersion),
+                    Description.ServiceId ?? Description.ServiceType)
+                : UpnpVersionClaims.None;
+        }
+    }
+
+    private static UpnpVersionClaims ToServerClaims(string? serverHeader, string action) =>
+        string.IsNullOrWhiteSpace(serverHeader)
+            ? UpnpVersionClaims.None
+            : UpnpVersionClaims.From(
+                UpnpVersionSource.ControlResponse,
+                UpnpVersionClaims.ToVersion(SsdpMessageParser.ParseDeviceInfo<Server>(serverHeader)),
+                action);
 
     private async Task<Scpd> FetchScpdAsync()
     {

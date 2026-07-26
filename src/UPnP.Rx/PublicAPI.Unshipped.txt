@@ -17,7 +17,9 @@ UPnP.Rx.BootSignature.IndicatesRebootSince(UPnP.Rx.BootSignature previous) -> bo
 UPnP.Rx.BootSignature.IsKnown.get -> bool
 UPnP.Rx.BootSignature.Nls.get -> string?
 UPnP.Rx.BootSignature.Nls.init -> void
+UPnP.Rx.DescribedDevice.VersionClaims.get -> UPnP.Rx.UpnpVersionClaims!
 UPnP.Rx.DiscoveredDevice.BootSignature.get -> UPnP.Rx.BootSignature
+UPnP.Rx.DiscoveredDevice.VersionClaims.get -> UPnP.Rx.UpnpVersionClaims!
 UPnP.Rx.IUpnpClient
 UPnP.Rx.IUpnpClient.Announcements() -> System.IObservable<UPnP.Rx.Announcement!>!
 UPnP.Rx.IUpnpClient.DeviceLost() -> System.IObservable<UPnP.Rx.DiscoveredDevice!>!
@@ -26,9 +28,48 @@ UPnP.Rx.IUpnpClient.DiscoverDevices(SSDP.UPnP.PCL.Model.ST? searchTarget = null,
 UPnP.Rx.IUpnpClient.InvalidateDescriptions(System.Uri! location) -> void
 UPnP.Rx.IUpnpClient.Roster() -> System.IObservable<UPnP.Rx.Roster.RosterChange!>!
 UPnP.Rx.IUpnpClient.SearchAsync(SSDP.UPnP.PCL.Model.ST? searchTarget = null, System.TimeSpan? mx = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+UPnP.Rx.Model.ActionResult.VersionClaims.get -> UPnP.Rx.UpnpVersionClaims!
+UPnP.Rx.Model.ActionResult.VersionClaims.init -> void
+UPnP.Rx.UpnpService.VersionClaims.get -> UPnP.Rx.UpnpVersionClaims!
+UPnP.Rx.UpnpVersionClaim
+UPnP.Rx.UpnpVersionClaim.<Clone>$() -> UPnP.Rx.UpnpVersionClaim!
+UPnP.Rx.UpnpVersionClaim.Deconstruct(out UPnP.Rx.UpnpVersionSource Source, out System.Version! Version, out string? Detail) -> void
+UPnP.Rx.UpnpVersionClaim.Detail.get -> string?
+UPnP.Rx.UpnpVersionClaim.Detail.init -> void
+UPnP.Rx.UpnpVersionClaim.Equals(UPnP.Rx.UpnpVersionClaim? other) -> bool
+UPnP.Rx.UpnpVersionClaim.Source.get -> UPnP.Rx.UpnpVersionSource
+UPnP.Rx.UpnpVersionClaim.Source.init -> void
+UPnP.Rx.UpnpVersionClaim.UpnpVersionClaim(UPnP.Rx.UpnpVersionSource Source, System.Version! Version, string? Detail = null) -> void
+UPnP.Rx.UpnpVersionClaim.Version.get -> System.Version!
+UPnP.Rx.UpnpVersionClaim.Version.init -> void
+UPnP.Rx.UpnpVersionClaims
+UPnP.Rx.UpnpVersionClaims.<Clone>$() -> UPnP.Rx.UpnpVersionClaims!
+UPnP.Rx.UpnpVersionClaims.Claims.get -> System.Collections.Generic.IReadOnlyList<UPnP.Rx.UpnpVersionClaim!>!
+UPnP.Rx.UpnpVersionClaims.Effective.get -> System.Version?
+UPnP.Rx.UpnpVersionClaims.Equals(UPnP.Rx.UpnpVersionClaims? other) -> bool
+UPnP.Rx.UpnpVersionClaims.SourcesAgree.get -> bool
+UPnP.Rx.UpnpVersionClaims.UpnpVersionClaims(System.Collections.Generic.IReadOnlyList<UPnP.Rx.UpnpVersionClaim!>! claims) -> void
+UPnP.Rx.UpnpVersionClaims.With(UPnP.Rx.UpnpVersionClaims! other) -> UPnP.Rx.UpnpVersionClaims!
+UPnP.Rx.UpnpVersionClaims.With(params UPnP.Rx.UpnpVersionClaim![]! additional) -> UPnP.Rx.UpnpVersionClaims!
+UPnP.Rx.UpnpVersionSource
+UPnP.Rx.UpnpVersionSource.ControlResponse = 3 -> UPnP.Rx.UpnpVersionSource
+UPnP.Rx.UpnpVersionSource.DeviceDescription = 1 -> UPnP.Rx.UpnpVersionSource
+UPnP.Rx.UpnpVersionSource.Server = 0 -> UPnP.Rx.UpnpVersionSource
+UPnP.Rx.UpnpVersionSource.ServiceDescription = 2 -> UPnP.Rx.UpnpVersionSource
 override UPnP.Rx.BootSignature.GetHashCode() -> int
 override UPnP.Rx.BootSignature.ToString() -> string!
+override UPnP.Rx.UpnpVersionClaim.Equals(object? obj) -> bool
+override UPnP.Rx.UpnpVersionClaim.GetHashCode() -> int
+override UPnP.Rx.UpnpVersionClaim.ToString() -> string!
+override UPnP.Rx.UpnpVersionClaims.Equals(object? obj) -> bool
+override UPnP.Rx.UpnpVersionClaims.GetHashCode() -> int
+override UPnP.Rx.UpnpVersionClaims.ToString() -> string!
 static UPnP.Rx.BootSignature.None.get -> UPnP.Rx.BootSignature
 static UPnP.Rx.BootSignature.operator !=(UPnP.Rx.BootSignature left, UPnP.Rx.BootSignature right) -> bool
 static UPnP.Rx.BootSignature.operator ==(UPnP.Rx.BootSignature left, UPnP.Rx.BootSignature right) -> bool
+static UPnP.Rx.UpnpVersionClaim.operator !=(UPnP.Rx.UpnpVersionClaim? left, UPnP.Rx.UpnpVersionClaim? right) -> bool
+static UPnP.Rx.UpnpVersionClaim.operator ==(UPnP.Rx.UpnpVersionClaim? left, UPnP.Rx.UpnpVersionClaim? right) -> bool
+static UPnP.Rx.UpnpVersionClaims.None.get -> UPnP.Rx.UpnpVersionClaims!
+static UPnP.Rx.UpnpVersionClaims.operator !=(UPnP.Rx.UpnpVersionClaims? left, UPnP.Rx.UpnpVersionClaims? right) -> bool
+static UPnP.Rx.UpnpVersionClaims.operator ==(UPnP.Rx.UpnpVersionClaims? left, UPnP.Rx.UpnpVersionClaims? right) -> bool
 ~override UPnP.Rx.BootSignature.Equals(object obj) -> bool

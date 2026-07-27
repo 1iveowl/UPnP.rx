@@ -231,7 +231,50 @@ boot identity it expects next. What remains is wiring, across four seams:
    exhaustive switches, so either it rides a major or the union documents itself as
    non-exhaustive.
 
+**Compliance reading (checked against the document, 2026-07-27).** The obligation is
+weaker than a bare quote of the "shall" suggests, and the fix is permitted rather
+than mandated - but doing it binds us to requirements we must then honour:
+
+- **Today's behaviour is not a violation.** The clause opens *"It is strongly
+  recommended that subscribers monitor discovery messages from the publisher"* - a
+  recommendation, not a requirement. The "shall" that follows is **conditional on
+  having observed** such a message: *"subscribers shall assume that their
+  subscriptions have been cancelled."* So we currently decline a recommendation; we
+  do not break a rule. Implementing it moves us from ignoring the recommendation to
+  being bound by the requirement.
+- **There are two triggers, not one.** The clause fires *"if the publisher cancels
+  its advertisements **or** if the value of the BOOTID.UPNP.ORG is increased
+  without a prior ssdp:update…"*. A byebye (`DeviceLeft`) cancels subscriptions just
+  as a boot change does; covering only the reboot half would implement half a
+  sentence.
+- **The exclusion requires a *matching* NEXTBOOTID**, not merely that some update
+  arrived. 5.0.0's `Entry.Expected` already carries exactly that semantics.
+- **Do not say goodbye on a dead SID.** The same clause: *"If the subscriber tries
+  to send any message other than a subscription message, the publisher shall reject
+  the message because the subscription identifier is invalid."* Once a subscription
+  is assumed cancelled the SID is void, so `RunAttemptsAsync`'s `finally` - which
+  today always sends UNSUBSCRIBE when a SID exists - must be suppressed on this
+  path, and recovery must be a fresh SUBSCRIBE with NT + CALLBACK (clause 4.1.2),
+  never a renewal carrying the stale SID.
+- **Resubscribing is our choice, not the spec's.** The clause says assume cancelled;
+  it never says re-establish. Gating on `AutoResubscribe` is therefore correct, and
+  with it off the compliant behaviour is to end the stream reporting cancellation.
+
+**The one way to get this wrong and become non-compliant:** resubscribing blind to
+the cached `eventSubURL`. Clause 4.1.2 requires subscribing to the URL obtained from
+the description document, and a rebooted device may have republished a different one.
+CONFIGID decides it - clause 1.2.2: *"if a device sends out two messages with a
+CONFIGID.UPNP.ORG header field with the same field value K, the configuration shall
+be the same at the moments that these messages were sent"*, where the configuration
+explicitly includes the DDD and every SCPD. So: an unchanged CONFIGID across the
+reboot means the eventSubURL is unchanged and the cached URL may be reused; a changed
+or absent CONFIGID means the description must be re-read before resubscribing. Note
+`EventingContext._sources` is keyed by `eventSubUrl`, so a moved URL yields a
+different source - which is another reason the reboot path should end the old one
+rather than quietly retrying it.
+
 Testable end to end against the existing fakes: announce, subscribe, announce with a
-changed boot identity, assert a fresh SUBSCRIBE without waiting for a renewal - and
-the contrast case, that an `ssdp:update` followed by the promised re-advertisement
-does **not** resubscribe.
+changed boot identity, assert a fresh SUBSCRIBE (no SID) without waiting for a
+renewal and assert no UNSUBSCRIBE was sent; the same for a byebye; and the contrast
+case, that an `ssdp:update` followed by its promised re-advertisement does **not**
+resubscribe.

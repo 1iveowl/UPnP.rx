@@ -1,3 +1,5 @@
+using System.Reactive.Concurrency;
+using System.Reactive.Linq;
 using Microsoft.Extensions.Logging;
 using UPnP.Rx.Presence;
 
@@ -27,11 +29,17 @@ internal sealed class GenaSubscriptionSource : EngineSource<UpnpEvent>
     private readonly DeviceIdentity _identity;
     private readonly Func<IObservable<RosterChange>> _presence;
 
-    /// <summary>The attempt currently running, so a presence notice can end it. Under <see cref="EngineSource{TEvent}.Gate"/>.</summary>
+    /// <summary>Why a subscription was abandoned, and whether a fresh one may follow.</summary>
+    private sealed record Cancellation(string Reason, bool MayResubscribe);
+
+    /// <summary>
+    /// The attempt currently running, so a presence notice can end it. Published
+    /// without the gate deliberately - see <see cref="OnPresenceChange"/>.
+    /// </summary>
     private CancellationTokenSource? _attempt;
 
-    /// <summary>Set when the device's presence says this subscription is void. Under the gate.</summary>
-    private (string Reason, bool MayResubscribe)? _cancelled;
+    /// <summary>Set when the device's presence says this subscription is void; also gate-free.</summary>
+    private Cancellation? _cancelled;
 
     internal GenaSubscriptionSource(
         Uri eventSubUrl,
@@ -97,11 +105,19 @@ internal sealed class GenaSubscriptionSource : EngineSource<UpnpEvent>
         // honours the ssdp:update exclusion, so this observes it rather than tracking
         // boot identities a second time. It also means an event subscription keeps the
         // roster engine running for as long as it lives.
+        // SubscribeOn is load-bearing, not decoration. EngineSource starts this engine
+        // while holding THIS source's gate, and subscribing to the roster acquires the
+        // roster's gate - a second, different lock, under which the roster in turn emits
+        // into OnPresenceChange. Taking them in both orders is a deadlock cycle, so the
+        // roster subscription is pushed off the caller's stack; it also keeps SSDP
+        // socket setup and the roster's opening M-SEARCH from happening under a lock.
         using var presence = _identity.Uuid is null
             ? System.Reactive.Disposables.Disposable.Empty
-            : _presence().Subscribe(
-                OnPresenceChange,
-                e => _logger.PresenceWatchEnded(e, _eventSubUrl));
+            : _presence()
+                .SubscribeOn(DefaultScheduler.Instance)
+                .Subscribe(
+                    OnPresenceChange,
+                    e => _logger.PresenceWatchEnded(e, _eventSubUrl));
 
         while (!ct.IsCancellationRequested)
         {
@@ -119,11 +135,7 @@ internal sealed class GenaSubscriptionSource : EngineSource<UpnpEvent>
                 return Task.CompletedTask;
             });
 
-            lock (Gate)
-            {
-                _attempt = resubscribe;
-                _cancelled = null;
-            }
+            Volatile.Write(ref _attempt, resubscribe);
 
             try
             {
@@ -175,8 +187,29 @@ internal sealed class GenaSubscriptionSource : EngineSource<UpnpEvent>
                         return;
                     }
 
-                    await Task.Delay(_retryDelay, _options.TimeProvider, ct).ConfigureAwait(false);
-                    continue;
+                    // On the attempt's token, not the engine's, so a presence notice
+                    // arriving during the wait cuts the backoff short. Its cancellation
+                    // is swallowed here rather than allowed to escape: thrown from
+                    // inside a catch block it would bypass this try's sibling handlers
+                    // and end the engine silently, with the notice never acted on.
+                    try
+                    {
+                        await Task.Delay(_retryDelay, _options.TimeProvider, resubscribe.Token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                    {
+                        // The device's presence changed; handled immediately below.
+                    }
+
+                    // Clause 4.1.1 ends the stream for a departed device rather than
+                    // retrying at it every 10 s forever.
+                    switch (ConsumeCancellation())
+                    {
+                        case CancellationOutcome.Ended:
+                            return;
+                        default:
+                            continue;
+                    }
                 }
 
                 // Subscribed marks the first successful establishment - a retried
@@ -216,13 +249,10 @@ internal sealed class GenaSubscriptionSource : EngineSource<UpnpEvent>
             }
             finally
             {
-                (string Reason, bool MayResubscribe)? cancelled;
+                // Peek, never take: the decision below the finally consumes it.
+                var cancelled = Volatile.Read(ref _cancelled);
 
-                lock (Gate)
-                {
-                    cancelled = _cancelled;
-                    _attempt = null;
-                }
+                Volatile.Write(ref _attempt, null);
 
                 // Teardown runs INSIDE the engine task: say goodbye when we had a live
                 // subscription and the device is presumably still there. Not when its
@@ -243,35 +273,54 @@ internal sealed class GenaSubscriptionSource : EngineSource<UpnpEvent>
                 }
             }
 
-            if (TakeCancellation() is { } cancellation)
+            switch (ConsumeCancellation())
             {
-                // Recovery, when it happens, is a fresh SUBSCRIBE with NT + CALLBACK
-                // (clause 4.1.2) rather than a renewal - the old SID no longer exists
-                // on the device - which is what looping round to the next attempt does.
-                var willResubscribe = cancellation.MayResubscribe && _options.AutoResubscribe;
-
-                Emit(new SubscriptionCancelled(cancellation.Reason, willResubscribe));
-
-                if (!willResubscribe)
-                {
-                    Error(new UpnpException(cancellation.Reason));
+                case CancellationOutcome.Ended:
                     return;
-                }
-
-                everSubscribed = true;
-                continue;
+                case CancellationOutcome.Resubscribe:
+                    continue;
+                default:
+                    break;
             }
         }
     }
 
-    private (string Reason, bool MayResubscribe)? TakeCancellation()
+    private enum CancellationOutcome
     {
-        lock (Gate)
+        /// <summary>No presence notice is pending.</summary>
+        None,
+
+        /// <summary>The subscription is void and a fresh SUBSCRIBE should follow.</summary>
+        Resubscribe,
+
+        /// <summary>The subscription is void and the stream has ended.</summary>
+        Ended
+    }
+
+    /// <summary>
+    /// Acts on a pending presence cancellation exactly once. Called wherever the attempt
+    /// loop can move on, so a notice arriving during a retry backoff is not stranded.
+    /// Recovery is a fresh SUBSCRIBE with NT + CALLBACK (clause 4.1.2), never a renewal:
+    /// the old SID no longer exists on the device.
+    /// </summary>
+    private CancellationOutcome ConsumeCancellation()
+    {
+        if (Interlocked.Exchange(ref _cancelled, null) is not { } cancelled)
         {
-            var cancelled = _cancelled;
-            _cancelled = null;
-            return cancelled;
+            return CancellationOutcome.None;
         }
+
+        var willResubscribe = cancelled.MayResubscribe && _options.AutoResubscribe;
+
+        Emit(new SubscriptionCancelled(cancelled.Reason, willResubscribe));
+
+        if (willResubscribe)
+        {
+            return CancellationOutcome.Resubscribe;
+        }
+
+        Error(new UpnpException(cancelled.Reason));
+        return CancellationOutcome.Ended;
     }
 
     /// <summary>
@@ -289,37 +338,41 @@ internal sealed class GenaSubscriptionSource : EngineSource<UpnpEvent>
             return;
         }
 
-        var cancellation = change switch
+        Cancellation? cancellation = change switch
         {
-            DeviceLeft => ($"The device {_identity.Udn} withdrew its advertisements, so this subscription is cancelled " +
-                "(UDA 2.0 clause 4.1.1).", false),
+            DeviceLeft => new Cancellation(
+                $"The device {_identity.Udn} withdrew its advertisements, so this subscription is cancelled " +
+                "(UDA 2.0 clause 4.1.1).",
+                MayResubscribe: false),
 
             // Clause 4.1.2 requires subscribing to the eventSubURL the device's
             // description advertises. Clause 1.2.2 makes an unchanged CONFIGID a
             // guarantee that the description - and so that URL - is unchanged; without
             // that guarantee the cached URL may no longer be the right one, and
             // re-describing is the consumer's move, not ours.
-            DeviceRebooted rebooted => ($"The device {_identity.Udn} restarted without announcing it, so this " +
+            DeviceRebooted rebooted => new Cancellation(
+                $"The device {_identity.Udn} restarted without announcing it, so this " +
                 "subscription is cancelled (UDA 2.0 clause 4.1.1).",
-                _identity.ConfigId is { } configId && rebooted.Device.ConfigId == configId),
+                MayResubscribe: _identity.ConfigId is { } configId && rebooted.Device.ConfigId == configId),
 
-            _ => default((string, bool)?)
-        } as (string Reason, bool MayResubscribe)?;
+            _ => null
+        };
 
         if (cancellation is null)
         {
             return;
         }
 
-        CancellationTokenSource? attempt;
+        // No gate here, deliberately: this runs while the ROSTER holds its own gate
+        // (it emits under it), and taking this source's gate as well would close a
+        // deadlock cycle against the engine start, which holds this gate and reaches
+        // for the roster's. Both fields are single-writer-per-transition and published
+        // with volatile/interlocked accesses instead.
+        Volatile.Write(ref _cancelled, cancellation);
 
-        lock (Gate)
-        {
-            _cancelled = cancellation;
-            attempt = _attempt;
-        }
+        var attempt = Volatile.Read(ref _attempt);
 
-        // Outside the gate: cancelling runs engine continuations inline.
+        // Cancelling runs engine continuations inline; nothing is held here.
         try
         {
             attempt?.Cancel();

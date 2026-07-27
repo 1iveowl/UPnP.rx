@@ -23,6 +23,13 @@ internal abstract class EngineSource<TEvent> : IObservable<TEvent>
     // inline, so emissions can re-enter the gate on the thread that already
     // holds it (e.g. while Subscribe starts the engine). A non-reentrant
     // primitive here would deadlock.
+    //
+    // Reentrancy covers THIS gate only. Two EngineSource instances have two gates,
+    // and an engine that observes another engine (eventing watches the roster) can
+    // form a cycle: one thread holding gate A reaching for B while another holds B
+    // and reaches for A. So an engine must not acquire a second gate on a caller's
+    // stack - see the yield at the head of GenaSubscriptionSource.RunAttemptsAsync -
+    // and cancellation is never signalled while this gate is held.
     protected Lock Gate { get; } = new();
 
     protected EngineSource(CancellationToken clientLifetime) => _clientLifetime = clientLifetime;
@@ -66,19 +73,27 @@ internal abstract class EngineSource<TEvent> : IObservable<TEvent>
 
         return Disposable.Create(() =>
         {
+            CancellationTokenSource? stopping = null;
+
             lock (Gate)
             {
                 _observers.Remove(observer);
 
                 if (_observers.Count == 0 && _engineCts is not null)
                 {
-                    // The engine observes this and runs its own teardown inside
-                    // the task - disposal-model rule 3.
-                    _engineCts.Cancel();
-                    _engineCts.Dispose();
+                    stopping = _engineCts;
                     _engineCts = null;
                 }
             }
+
+            // Cancelled outside the gate on purpose: cancellation runs the engine's
+            // continuations inline, and an engine may hold or reach for a second lock
+            // (the eventing engine watches the roster). Cancelling under this gate
+            // would let two engines' gates be held at once.
+            // The engine observes this and runs its own teardown inside the task -
+            // disposal-model rule 3.
+            stopping?.Cancel();
+            stopping?.Dispose();
         });
     }
 
@@ -89,14 +104,13 @@ internal abstract class EngineSource<TEvent> : IObservable<TEvent>
     /// </summary>
     internal Task ShutdownAsync()
     {
+        CancellationTokenSource? stopping;
+        Task? engine;
+
         lock (Gate)
         {
-            if (_engineCts is not null)
-            {
-                _engineCts.Cancel();
-                _engineCts.Dispose();
-                _engineCts = null;
-            }
+            stopping = _engineCts;
+            _engineCts = null;
 
             foreach (var observer in SnapshotObserversLocked())
             {
@@ -104,8 +118,14 @@ internal abstract class EngineSource<TEvent> : IObservable<TEvent>
             }
 
             _observers.Clear();
-            return _engineTask;
+            engine = _engineTask;
         }
+
+        // Outside the gate - see the note in Subscribe's disposal.
+        stopping?.Cancel();
+        stopping?.Dispose();
+
+        return engine;
     }
 
     /// <summary>Resets replayable state before a fresh run; the caller holds <see cref="Gate"/>.</summary>

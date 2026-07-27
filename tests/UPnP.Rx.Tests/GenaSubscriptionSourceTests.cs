@@ -17,15 +17,24 @@ public class GenaSubscriptionSourceTests
         public int UnsubscribeCount;
         public bool FailRenewals;
         public Exception? FailSubscribe;
+
+        /// <summary>When set, SUBSCRIBE blocks on this until completed or the attempt is cancelled.</summary>
+        public TaskCompletionSource? HoldSubscribe;
         public TimeSpan GrantedTimeout { get; set; } = TimeSpan.FromMinutes(10);
 
-        public Task<(string Sid, TimeSpan? Timeout)> SubscribeAsync(
+        public async Task<(string Sid, TimeSpan? Timeout)> SubscribeAsync(
             Uri eventSubUrl, Uri callback, TimeSpan requestedTimeout, CancellationToken ct)
         {
             SubscribeCount++;
+
+            if (HoldSubscribe is { } hold)
+            {
+                await hold.Task.WaitAsync(ct);
+            }
+
             return FailSubscribe is { } failure
-                ? Task.FromException<(string Sid, TimeSpan? Timeout)>(failure)
-                : Task.FromResult(($"uuid:sid-{SubscribeCount}", (TimeSpan?)GrantedTimeout));
+                ? throw failure
+                : ($"uuid:sid-{SubscribeCount}", (TimeSpan?)GrantedTimeout);
         }
 
         public Task RenewAsync(Uri eventSubUrl, string sid, TimeSpan requestedTimeout, CancellationToken ct)
@@ -51,6 +60,13 @@ public class GenaSubscriptionSourceTests
     private readonly Subject<UPnP.Rx.Presence.RosterChange> _roster = new();
 
     private Func<IObservable<UPnP.Rx.Presence.RosterChange>> _presence => () => _roster;
+
+    /// <summary>
+    /// The engine subscribes to presence off the caller's stack (deliberately - it
+    /// would otherwise take the roster's gate under its own). A Subject does not
+    /// replay, so tests must wait for the subscription before pushing into it.
+    /// </summary>
+    private Task PresenceReadyAsync() => WaitForAsync(() => _roster.HasObservers);
 
     private GenaSubscriptionSource CreateSource(bool autoResubscribe = true) =>
         CreateSourceWithLifetime(CancellationToken.None, autoResubscribe);
@@ -90,6 +106,7 @@ public class GenaSubscriptionSourceTests
         var events = new List<UpnpEvent>();
         using var subscription = source.Subscribe(events.Add);
         await WaitForAsync(() => _transport.SubscribeCount == 1);
+        await PresenceReadyAsync();
 
         _roster.OnNext(new DeviceRebooted(Device()));
         await WaitForAsync(() => _transport.SubscribeCount == 2);
@@ -115,6 +132,7 @@ public class GenaSubscriptionSourceTests
         Exception? error = null;
         using var subscription = source.Subscribe(events.Add, e => error = e);
         await WaitForAsync(() => _transport.SubscribeCount == 1);
+        await PresenceReadyAsync();
 
         _roster.OnNext(new DeviceLeft(Device()));
         await WaitForAsync(() => error is not null);
@@ -138,6 +156,7 @@ public class GenaSubscriptionSourceTests
         Exception? error = null;
         using var subscription = source.Subscribe(events.Add, e => error = e);
         await WaitForAsync(() => _transport.SubscribeCount == 1);
+        await PresenceReadyAsync();
 
         _roster.OnNext(new DeviceRebooted(Device(configId: 2)));
         await WaitForAsync(() => error is not null);
@@ -148,12 +167,64 @@ public class GenaSubscriptionSourceTests
     }
 
     [Fact]
+    public async Task PresenceCancellationDuringTheRetryBackoff_IsNotLost()
+    {
+        // The engine parks for 10 s after a failed SUBSCRIBE. A byebye arriving in that
+        // window used to be dropped: the retry jumped straight back to the loop head,
+        // skipping the cancellation check, and the next iteration cleared the flag - so
+        // the engine kept issuing SUBSCRIBEs at a device that had left the network.
+        _transport.FailSubscribe = new UpnpException("device busy");
+
+        var source = CreateSource();
+        var events = new List<UpnpEvent>();
+        Exception? error = null;
+        using var subscription = source.Subscribe(events.Add, e => error = e);
+        await WaitForAsync(() => _transport.SubscribeCount == 1);
+        await PresenceReadyAsync();
+
+        _roster.OnNext(new DeviceLeft(Device()));
+        await WaitForAsync(() => error is not null);
+
+        var cancelled = Assert.Single(events.OfType<SubscriptionCancelled>());
+        Assert.False(cancelled.WillResubscribe);
+        Assert.Equal(1, _transport.SubscribeCount);
+    }
+
+    [Fact]
+    public async Task CancellationBeforeTheFirstSubscribeSucceeds_StillReportsSubscribedNotResubscribed()
+    {
+        // A device restarting while the very first SUBSCRIBE is still in flight -
+        // routine when it reboots during a discovery sweep - must not consume that
+        // first establishment. Resubscribed carries no granted timeout, so a consumer
+        // that never sees Subscribed never learns the subscription's duration.
+        _transport.HoldSubscribe = new TaskCompletionSource();
+
+        var source = CreateSource();
+        var events = new List<UpnpEvent>();
+        using var subscription = source.Subscribe(events.Add, _ => { });
+        await WaitForAsync(() => _transport.SubscribeCount == 1);
+        await PresenceReadyAsync();
+
+        // Let the retry through; only the in-flight attempt is cancelled.
+        _transport.HoldSubscribe = null;
+
+        // A restart with an unchanged CONFIGID: void but recoverable.
+        _roster.OnNext(new DeviceRebooted(Device()));
+        await WaitForAsync(() => events.OfType<SubscriptionCancelled>().Any());
+        await WaitForAsync(() => events.OfType<Subscribed>().Any() || events.OfType<Resubscribed>().Any());
+
+        Assert.Empty(events.OfType<Resubscribed>());
+        Assert.Equal(TimeSpan.FromMinutes(10), Assert.Single(events.OfType<Subscribed>()).Timeout);
+    }
+
+    [Fact]
     public async Task PresenceChangesForOtherDevices_AreIgnored()
     {
         var source = CreateSource();
         var events = new List<UpnpEvent>();
         using var subscription = source.Subscribe(events.Add);
         await WaitForAsync(() => _transport.SubscribeCount == 1);
+        await PresenceReadyAsync();
 
         _roster.OnNext(new DeviceLeft(Device("uuid:someone-else")));
         _roster.OnNext(new DeviceRebooted(Device("uuid:someone-else")));
@@ -174,6 +245,7 @@ public class GenaSubscriptionSourceTests
         var events = new List<UpnpEvent>();
         using var subscription = source.Subscribe(events.Add);
         await WaitForAsync(() => _transport.SubscribeCount == 1);
+        await PresenceReadyAsync();
 
         _roster.OnNext(new DeviceUpdated(Device()));
         await SettleAsync();
@@ -190,6 +262,7 @@ public class GenaSubscriptionSourceTests
         Exception? error = null;
         using var subscription = source.Subscribe(events.Add, e => error = e);
         await WaitForAsync(() => _transport.SubscribeCount == 1);
+        await PresenceReadyAsync();
 
         _roster.OnNext(new DeviceRebooted(Device()));
         await WaitForAsync(() => error is not null);

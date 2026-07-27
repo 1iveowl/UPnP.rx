@@ -23,7 +23,7 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 | — | `Announcements()` device activity timeline (library + dashboard per-card feed, expandable rows, counter) | ✅ done |
 | — | `SearchAsync()` solicitation (+ dashboard Probe/'Solicit responses now'); memory audit + SoakTests (three accumulations fixed) | ✅ done |
 | R7 | 4.1.0 release (branch, tag, Trusted Publishing + GitHub release) | ✅ released |
-| 5.0 | Honest optionals (on `dev/5.0.0`): 9.0.0 adoption, `BootSignature`, nullable `MaxAge`, `UpnpVersionClaims` (4 witnesses), `UPnP.Rx.Presence`, `LocalNetwork` + `[LoggerMessage]`, dashboard version badges, clause 4.1.1 subscription cancellation, API ledger reissued | 🚧 in review |
+| 5.0 | Honest optionals (on `dev/5.0.0`): SSDP.UPnP.PCL 9.1 adoption, `BootSignature`, nullable `MaxAge`, `UpnpVersionClaims` (4 witnesses), `UPnP.Rx.Presence`, `LocalNetwork` + `[LoggerMessage]`, dashboard version badges, clause 4.1.1 subscription cancellation, API ledger reissued | 🚧 in review |
 | 4.2 | Structural batch (on `dev/4.2.0`, 4.1.1 skipped): API ledger (PublicApiAnalyzers), `DescriptionCache` extraction, `IUpnpClient`, `EngineSource`/`TimedExchange`/`TestKit` dedups, DECISIONS.md, CI snupkg + trim smoke | ✅ released |
 
 ## Tree (current)

@@ -1,10 +1,14 @@
 # UPnP.Rx 5.0.0 — the honest-optionals release
 
-**Status: proposed, awaiting author sign-off on §7 (Q1-Q5).** Assumes
-`SSDP.UPnP.PCL` 9.0.0 has shipped with upstream candidates 7, 8 and 9 addressed
-(see [project plan §9](upnp-rx-project-plan.md)). Successor to the 4.2.0
-structural batch; consolidates the 4.3 shelf recorded in
-[DECISIONS.md](DECISIONS.md).
+**Status: implemented.** Q1-Q5 (§7) were answered by the author and are recorded in
+[DECISIONS.md](DECISIONS.md); the answers are reflected below. Built against
+`SSDP.UPnP.PCL` **9.1.0** and `SimpleHttpListener.Rx` 7.4.0 - upstream candidates
+1, 2, 6, 7, 8 and 9 are all resolved (see [project plan §9](upnp-rx-project-plan.md)).
+Successor to the 4.2.0 structural batch; consolidates the 4.3 shelf.
+
+Two things landed beyond the original plan: UDA 2.0 clause 4.1.1 subscription
+cancellation (§12), which the plan had shelved for 5.1, and the 9.1.0 adoption that
+made an advertised lifetime say what the device actually said.
 
 ## 1. Why this is 5.0.0 and not 4.3.0
 

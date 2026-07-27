@@ -12,7 +12,14 @@ internal static class TestKit
     public static string Fixture(string name) =>
         File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", name));
 
-    /// <summary>Yields until the condition holds; asserts if it never does. No real or fake time involved.</summary>
+    /// <summary>
+    /// Yields until the condition holds; asserts if it never does. No real or fake time
+    /// involved, so it is the right wait for work that completes on continuations of
+    /// the current flow. It is the WRONG wait for work handed to another thread - the
+    /// yields can all run while the other thread is still queued, which is exactly how
+    /// a two-core CI runner fails a test that passes on a big machine. Use
+    /// <see cref="WaitForRealTimeAsync"/> there.
+    /// </summary>
     public static async Task WaitForAsync(Func<bool> condition)
     {
         for (var i = 0; i < 200_000 && !condition(); i++)
@@ -21,6 +28,26 @@ internal static class TestKit
         }
 
         Assert.True(condition(), "The condition was not reached.");
+    }
+
+    /// <summary>
+    /// Polls on the system clock until the condition holds. For work that genuinely
+    /// crosses threads - anything downstream of a <c>SubscribeOn</c> or a thread-pool
+    /// hand-off - where counting yields proves nothing about the other thread's
+    /// progress. Deliberately the system clock: a fake one would never advance here.
+    /// </summary>
+    /// <param name="condition">The condition to wait for.</param>
+    /// <param name="timeout">How long to allow; generous by default, since it only elapses on failure.</param>
+    public static async Task WaitForRealTimeAsync(Func<bool> condition, TimeSpan? timeout = null)
+    {
+        var deadline = TimeProvider.System.GetUtcNow() + (timeout ?? TimeSpan.FromSeconds(10));
+
+        while (!condition() && TimeProvider.System.GetUtcNow() < deadline)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(10), TimeProvider.System);
+        }
+
+        Assert.True(condition(), "The condition was not reached within the timeout.");
     }
 
     /// <summary>

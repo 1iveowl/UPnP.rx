@@ -434,14 +434,22 @@ public class UpnpClientTests
         await using var _1 = client;
         http.Map(Location, Fixture("linksys_WAG200G_desc.xml"));
 
+        // The SUBSCRIBE must succeed, or the engine dies on a permanent refusal
+        // within microseconds - and a dead subscription rightly never watches
+        // presence, so this test would be racing the engine's teardown against the
+        // scheduler and passing only on machines with cores to spare.
+        http.MapGenaSubscribe("http://192.168.1.1:49152/upnp/event/WANCommonIFC1");
+
         var device = await DescribedLinksysAsync(controlPoint, client);
         var searchesBefore = controlPoint.SentSearches.Count;
 
         using var subscription = device.Service("WANCommonInterfaceConfig").Events().Subscribe(_ => { }, _ => { });
 
-        await WaitForAsync(() => controlPoint.SentSearches.Count > searchesBefore);
-
-        Assert.True(controlPoint.SentSearches.Count > searchesBefore);
+        // Real time, not yields: the presence subscription is handed to the scheduler
+        // (deliberately - it is what breaks the roster/eventing lock cycle), so the
+        // roster's opening M-SEARCH happens on another thread and no number of yields
+        // here proves anything about its progress.
+        await WaitForRealTimeAsync(() => controlPoint.SentSearches.Count > searchesBefore);
     }
 
     [Fact]

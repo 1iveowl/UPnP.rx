@@ -90,7 +90,7 @@ public class GenaSubscriptionSourceTests
     /// would otherwise take the roster's gate under its own). A Subject does not
     /// replay, so tests must wait for the subscription before pushing into it.
     /// </summary>
-    private Task PresenceReadyAsync() => WaitForAsync(() => _roster.HasObservers);
+    private Task PresenceReadyAsync() => WaitForRealTimeAsync(() => _roster.HasObservers);
 
     private GenaSubscriptionSource CreateSource(bool autoResubscribe = true) =>
         CreateSourceWithLifetime(CancellationToken.None, autoResubscribe);

@@ -80,18 +80,6 @@ public sealed class EventingLoopbackTests : IDisposable
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
-    private static async Task WaitForAsync(Func<bool> condition)
-    {
-        // Real sockets: bounded real-time polling (integration test, not a
-        // fake-clock unit test).
-        for (var i = 0; i < 200 && !condition(); i++)
-        {
-            await Task.Delay(TimeSpan.FromMilliseconds(50), TimeProvider.System);
-        }
-
-        Assert.True(condition(), "The condition was not reached.");
-    }
-
     [Fact]
     public async Task SubscribeNotifyUnsubscribe_OverRealSockets()
     {
@@ -115,12 +103,12 @@ public sealed class EventingLoopbackTests : IDisposable
         var events = new List<UpnpEvent>();
         var subscription = source.Subscribe(events.Add);
 
-        await WaitForAsync(() => _callbackUrl is not null && events.OfType<Subscribed>().Any());
+        await WaitForRealTimeAsync(() => _callbackUrl is not null && events.OfType<Subscribed>().Any());
 
         await NotifyAsync(0,
             "<e:propertyset xmlns:e=\"urn:schemas-upnp-org:event-1-0\"><e:property><TransportState>PLAYING</TransportState></e:property></e:propertyset>");
 
-        await WaitForAsync(() => events.OfType<PropertyChange>().Any());
+        await WaitForRealTimeAsync(() => events.OfType<PropertyChange>().Any());
 
         var change = Assert.Single(events.OfType<PropertyChange>());
         Assert.Equal(("TransportState", "PLAYING", true), (change.Name, change.Value, change.IsInitialState));
@@ -149,7 +137,7 @@ public sealed class EventingLoopbackTests : IDisposable
             .GetOrCreateSource(new Uri($"http://127.0.0.1:{_devicePort}/event"), IPAddress.Any, Identity())
             .Subscribe(events.Add);
 
-        await WaitForAsync(() => _callbackUrl is not null && events.OfType<Subscribed>().Any());
+        await WaitForRealTimeAsync(() => _callbackUrl is not null && events.OfType<Subscribed>().Any());
 
         Assert.StartsWith("http://127.0.0.1:", _callbackUrl);
     }

@@ -10,21 +10,46 @@ namespace UPnP.Rx.Tests.TestHelpers;
 internal sealed class FakeHttpHandler : HttpMessageHandler
 {
     private readonly Dictionary<string, Func<HttpRequestMessage, (HttpStatusCode Status, string Body)>> _routes = [];
-    private readonly Dictionary<string, string> _servers = [];
+    private readonly Dictionary<string, Dictionary<string, string>> _responseHeaders = [];
 
     public List<(HttpRequestMessage Request, string Body)> Requests { get; } = [];
 
     public Dictionary<string, int> FetchCounts { get; } = [];
 
-    public void Map(string url, string body, HttpStatusCode status = HttpStatusCode.OK, string? server = null)
+    public void Map(
+        string url,
+        string body,
+        HttpStatusCode status = HttpStatusCode.OK,
+        string? server = null,
+        IReadOnlyDictionary<string, string>? headers = null)
     {
         _routes[url] = _ => (status, body);
 
+        var all = new Dictionary<string, string>(headers ?? new Dictionary<string, string>());
+
         if (server is not null)
         {
-            _servers[url] = server;
+            all["SERVER"] = server;
+        }
+
+        if (all.Count > 0)
+        {
+            _responseHeaders[url] = all;
         }
     }
+
+    /// <summary>
+    /// Maps a GENA event endpoint so a SUBSCRIBE succeeds: 200 with the SID and
+    /// TIMEOUT headers the transport requires. Without this an event URL answers
+    /// 404, which the engine rightly treats as a permanent refusal and dies on -
+    /// taking anything that only exists while the subscription lives with it.
+    /// </summary>
+    public void MapGenaSubscribe(string url, string sid = "uuid:test-sid-1", int timeoutSeconds = 1800) =>
+        Map(url, string.Empty, headers: new Dictionary<string, string>
+        {
+            ["SID"] = sid,
+            ["TIMEOUT"] = $"Second-{timeoutSeconds}"
+        });
 
     public void Map(string url, Func<HttpRequestMessage, (HttpStatusCode, string)> responder) =>
         _routes[url] = responder;
@@ -54,9 +79,12 @@ internal sealed class FakeHttpHandler : HttpMessageHandler
             Content = new StringContent(responseBody, Encoding.UTF8, "text/xml")
         };
 
-        if (_servers.TryGetValue(url, out var server))
+        if (_responseHeaders.TryGetValue(url, out var extra))
         {
-            response.Headers.TryAddWithoutValidation("SERVER", server);
+            foreach (var (name, value) in extra)
+            {
+                response.Headers.TryAddWithoutValidation(name, value);
+            }
         }
 
         return response;

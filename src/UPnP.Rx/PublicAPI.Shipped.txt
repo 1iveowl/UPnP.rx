@@ -379,8 +379,8 @@ UPnP.Rx.PortMapping.Protocol.Udp = 1 -> UPnP.Rx.PortMapping.Protocol
 UPnP.Rx.PortMapping.ProtocolExtensions
 UPnP.Rx.Presence.Announcement
 UPnP.Rx.Presence.Announcement.<Clone>$() -> UPnP.Rx.Presence.Announcement!
-UPnP.Rx.Presence.Announcement.Announcement(UPnP.Rx.Presence.AnnouncementKind Kind, UPnP.Rx.DiscoveredDevice! Device, System.TimeSpan? MaxAge, System.DateTimeOffset Seen) -> void
-UPnP.Rx.Presence.Announcement.Deconstruct(out UPnP.Rx.Presence.AnnouncementKind Kind, out UPnP.Rx.DiscoveredDevice! Device, out System.TimeSpan? MaxAge, out System.DateTimeOffset Seen) -> void
+UPnP.Rx.Presence.Announcement.Announcement(UPnP.Rx.Presence.AnnouncementKind Kind, UPnP.Rx.DiscoveredDevice! Device, System.TimeSpan? MaxAge, System.DateTimeOffset Seen, uint? NextBootId = null) -> void
+UPnP.Rx.Presence.Announcement.Deconstruct(out UPnP.Rx.Presence.AnnouncementKind Kind, out UPnP.Rx.DiscoveredDevice! Device, out System.TimeSpan? MaxAge, out System.DateTimeOffset Seen, out uint? NextBootId) -> void
 UPnP.Rx.Presence.Announcement.Device.get -> UPnP.Rx.DiscoveredDevice!
 UPnP.Rx.Presence.Announcement.Device.init -> void
 UPnP.Rx.Presence.Announcement.Equals(UPnP.Rx.Presence.Announcement? other) -> bool
@@ -388,6 +388,8 @@ UPnP.Rx.Presence.Announcement.Kind.get -> UPnP.Rx.Presence.AnnouncementKind
 UPnP.Rx.Presence.Announcement.Kind.init -> void
 UPnP.Rx.Presence.Announcement.MaxAge.get -> System.TimeSpan?
 UPnP.Rx.Presence.Announcement.MaxAge.init -> void
+UPnP.Rx.Presence.Announcement.NextBootId.get -> uint?
+UPnP.Rx.Presence.Announcement.NextBootId.init -> void
 UPnP.Rx.Presence.Announcement.Seen.get -> System.DateTimeOffset
 UPnP.Rx.Presence.Announcement.Seen.init -> void
 UPnP.Rx.Presence.AnnouncementKind

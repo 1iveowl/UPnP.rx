@@ -92,6 +92,20 @@
                 }
                 else
                 {
+                    @* UDA 2.0 clause 2.5 gives every SCPD its own specVersion, so a
+                       service can contradict the device that declares it - which is
+                       only visible once the SCPD has actually been fetched. *@
+                    @if (detail.UpnpVersion is not null)
+                    {
+                        <div class="svc-section">
+                            <FluentBadge Appearance="@(ServiceVersionDiffers(detail) ? Appearance.Accent : Appearance.Neutral)"
+                                         Title="@(ServiceVersionDiffers(detail)
+                                             ? $"This service's SCPD claims UPnP {detail.UpnpVersion}, which differs from what its device claims. UDA 2.0 requires both to be accurate."
+                                             : $"This service's SCPD claims UPnP {detail.UpnpVersion}.")">
+                                UPnP @detail.UpnpVersion <span class="claim-src">service</span>
+                            </FluentBadge>
+                        </div>
+                    }
                     @if (detail.Actions.Length > 0)
                     {
                         <div class="svc-section">Actions (@detail.Actions.Length) <span class="muted">- click one to invoke it</span></div>
@@ -147,6 +161,19 @@
                                     </div>
                                     @if (_results.TryGetValue(formKey, out var invokeResult))
                                     {
+                                        @* The response's SERVER header is a fourth,
+                                           independent version witness (clause 3.2.2).
+                                           Agreement is unremarkable; a contradiction
+                                           is the device disagreeing with itself. *@
+                                        @if (ControlVersionDiffers(invokeResult))
+                                        {
+                                            <div class="svc-row">
+                                                <FluentBadge Appearance="Appearance.Accent"
+                                                             Title="@($"The control response's SERVER header claims UPnP {invokeResult.UpnpVersion}, which differs from what this device claims elsewhere.")">
+                                                    UPnP @invokeResult.UpnpVersion <span class="claim-src">control</span>
+                                                </FluentBadge>
+                                            </div>
+                                        }
                                         @if (invokeResult.Error is not null)
                                         {
                                             <div class="svc-error">@invokeResult.Error</div>
@@ -199,7 +226,7 @@
 
         @if (_open.Contains(key))
         {
-            <DeviceNode Node="child" DeviceKey="@DeviceKey" />
+            <DeviceNode Node="child" DeviceKey="@DeviceKey" DeviceUpnpVersion="@DeviceUpnpVersion" />
         }
     }
 </div>
@@ -214,7 +241,25 @@
     [Parameter, EditorRequired]
     public string DeviceKey { get; set; } = string.Empty;
 
+    /// <summary>
+    /// What the device itself claims about its UDA version, so a service whose SCPD
+    /// disagrees can be flagged where the disagreement actually is. Null when the
+    /// device claimed nothing.
+    /// </summary>
+    [Parameter]
+    public string? DeviceUpnpVersion { get; set; }
+
     private const int _maxLiveRows = 8;
+
+    private bool ControlVersionDiffers(InvokeResultDto result) =>
+        DeviceUpnpVersion is not null
+        && result.UpnpVersion is not null
+        && result.UpnpVersion != DeviceUpnpVersion;
+
+    private bool ServiceVersionDiffers(ServiceDetailDto detail) =>
+        DeviceUpnpVersion is not null
+        && detail.UpnpVersion is not null
+        && detail.UpnpVersion != DeviceUpnpVersion;
 
     private readonly HashSet<string> _open = [];
     private readonly HashSet<string> _openServices = [];

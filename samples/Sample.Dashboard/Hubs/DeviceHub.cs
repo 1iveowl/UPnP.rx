@@ -272,7 +272,11 @@ public sealed class DeviceHub(
             }
 
             var result = await service.InvokeAsync(actionName, ordered.Value, Context.ConnectionAborted);
-            return new InvokeResultDto([.. result.Out.Select(pair => new OutValueDto(pair.Key, pair.Value))], null);
+
+            return new InvokeResultDto(
+                [.. result.Out.Select(pair => new OutValueDto(pair.Key, pair.Value))],
+                null,
+                result.VersionClaims.Claims.FirstOrDefault()?.Version.ToString(2));
         }
         catch (UpnpActionException e)
         {
@@ -321,7 +325,10 @@ public sealed class DeviceHub(
                     v.Name ?? "(unnamed)",
                     v.DataType,
                     [.. v.AllowedValues]))],
-                Error: null);
+                Error: null,
+                // Available only now: the SCPD is what carries a service's own
+                // specVersion (UDA 2.0 clause 2.5), and it can contradict its device.
+                UpnpVersion: service.VersionClaims.Claims.FirstOrDefault()?.Version.ToString(2));
         }
         catch (UpnpException e)
         {

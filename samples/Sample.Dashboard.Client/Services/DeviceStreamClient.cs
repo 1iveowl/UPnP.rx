@@ -37,6 +37,8 @@ public sealed class DeviceStreamClient : IAsyncDisposable
     // feature of this sample.
     private const int _maxActivityRows = 20;
     private static readonly TimeSpan _activityMaxAge = TimeSpan.FromHours(1);
+
+    private readonly System.Reactive.Subjects.Subject<string> _reboots = new();
     private IDisposable? _rescanFallback;
 
     public DeviceStreamClient(NavigationManager navigation)
@@ -69,6 +71,7 @@ public sealed class DeviceStreamClient : IAsyncDisposable
             _activity.Remove(key);
             _activityCount.Remove(key);
         });
+        _connection.On<string>(HubEvents.DeviceRebooted, key => _reboots.OnNext(key));
         _connection.On<LeaseEventDto>(HubEvents.LeaseEvent, e => _leaseEvents.OnNext(e));
         _connection.On<SsdpActivityDto>(HubEvents.SsdpActivity, dto =>
         {
@@ -147,6 +150,13 @@ public sealed class DeviceStreamClient : IAsyncDisposable
 
     /// <summary>Each SSDP activity row as it arrives - subscribe to re-render open timelines.</summary>
     public IObservable<SsdpActivityDto> SsdpActivity => _ssdpActivity.AsObservable();
+
+    /// <summary>
+    /// Device keys as they restart. A reboot voids everything held about a device
+    /// (UDA 2.0 clause 1.2.4), including any live event subscription, so it is worth
+    /// showing rather than folding into an ordinary refresh.
+    /// </summary>
+    public IObservable<string> Reboots => _reboots;
 
     /// <summary>The capped, newest-first activity log for one device.</summary>
     public IReadOnlyList<SsdpActivityDto> ActivityFor(string deviceKey) =>

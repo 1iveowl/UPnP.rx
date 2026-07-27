@@ -188,6 +188,15 @@ public sealed class UpnpDiscoveryService(
                 var dto = roster.Record(described, change.Device);
 
                 await hub.Clients.All.SendAsync(HubEvents.DeviceUp, dto, ct);
+
+                // A reboot is not an ordinary refresh: UDA 2.0 clause 1.2.4 says every
+                // piece of stored state is invalid, which the user is entitled to see -
+                // their live watches will have dropped at the same moment.
+                if (change is UPnP.Rx.Presence.DeviceRebooted)
+                {
+                    await hub.Clients.All.SendAsync(HubEvents.DeviceRebooted, dto.Key, ct);
+                }
+
                 break;
             }
             case UPnP.Rx.Presence.DeviceExpired or UPnP.Rx.Presence.DeviceLeft:
@@ -219,6 +228,7 @@ public sealed class UpnpDiscoveryService(
         announcement.Device.Location?.ToString(),
         announcement.Device.BootSignature.BootId,
         announcement.Device.BootSignature.Nls,
+        announcement.NextBootId,
         announcement.Device.ConfigId,
         (int?)announcement.MaxAge?.TotalSeconds,
         announcement.Device.HasParsingError,

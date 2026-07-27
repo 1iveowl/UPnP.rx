@@ -336,7 +336,7 @@ public sealed class UpnpClient : IUpnpClient
 
             return AnnouncementStream()
                 .Select(item => new Announcement(
-                    item.Kind, item.Device, item.MaxAge, _options.TimeProvider.GetUtcNow()));
+                    item.Kind, item.Device, item.MaxAge, _options.TimeProvider.GetUtcNow(), item.NextBootId));
         });
 
     /// <summary>The roster's raw feed: every alive/response envelope with its advertisement lifetime, undeduplicated.</summary>
@@ -345,21 +345,22 @@ public sealed class UpnpClient : IUpnpClient
             .Where(item => item.Kind is not (AnnouncementKind.ByeBye or AnnouncementKind.Update))
             .Select(item => (item.Device, item.MaxAge));
 
-    private IObservable<(AnnouncementKind Kind, DiscoveredDevice Device, TimeSpan? MaxAge)> AnnouncementStream() =>
+    private IObservable<(AnnouncementKind Kind, DiscoveredDevice Device, TimeSpan? MaxAge, uint? NextBootId)> AnnouncementStream() =>
         _controlPoint
             .MSearchResponseObservable()
             .Select(response => (Kind: AnnouncementKind.SearchResponse, Device: ToDiscovered(response),
-                MaxAge: response.MaxAge))
+                MaxAge: response.MaxAge, NextBootId: (uint?)null))
             .Merge(NotifiesOf(NTS.Alive)
                 .Select(notify => (Kind: AnnouncementKind.Alive, Device: ToDiscovered(notify),
-                    MaxAge: notify.MaxAge)))
+                    MaxAge: notify.MaxAge, NextBootId: (uint?)null)))
             .Merge(NotifiesOf(NTS.Update)
                 .Select(notify => (Kind: AnnouncementKind.Update, Device: ToDiscovered(notify),
-                    MaxAge: notify.MaxAge)))
+                    MaxAge: notify.MaxAge, NextBootId: notify.NEXTBOOTID)))
             .Merge(DeviceLost()
-                .Select(device => (Kind: AnnouncementKind.ByeBye, Device: (DiscoveredDevice?)device, MaxAge: (TimeSpan?)null)))
+                .Select(device => (Kind: AnnouncementKind.ByeBye, Device: (DiscoveredDevice?)device,
+                    MaxAge: (TimeSpan?)null, NextBootId: (uint?)null)))
             .Where(item => item.Device is not null)
-            .Select(item => (item.Kind, item.Device!, item.MaxAge));
+            .Select(item => (item.Kind, item.Device!, item.MaxAge, item.NextBootId));
 
     /// <summary>
     /// <c>ssdp:update</c> notices with the boot identity the device says it is moving

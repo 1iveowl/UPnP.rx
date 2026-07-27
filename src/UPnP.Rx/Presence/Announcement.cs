@@ -37,8 +37,15 @@ public enum AnnouncementKind
 /// <see cref="UpnpClientOptions.RosterExpiryFallback"/>.
 /// </param>
 /// <param name="Seen">When it arrived, stamped on the options' <see cref="TimeProvider"/>.</param>
+/// <param name="NextBootId">
+/// The boot identity the device says it is moving to
+/// (<c>NEXTBOOTID.UPNP.ORG</c>), set only on <see cref="AnnouncementKind.Update"/>.
+/// It is the whole point of an <c>ssdp:update</c>: the message carries the device's
+/// <i>current</i> BOOTID, and this is the one every later message will carry.
+/// </param>
 public sealed record Announcement(
     AnnouncementKind Kind,
     DiscoveredDevice Device,
     TimeSpan? MaxAge,
-    DateTimeOffset Seen);
+    DateTimeOffset Seen,
+    uint? NextBootId = null);

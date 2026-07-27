@@ -260,6 +260,36 @@ public class RosterTests
     }
 
     [Fact]
+    public async Task Announcements_SsdpUpdate_CarriesTheBootIdItIsMovingTo()
+    {
+        // The message carries the device's current BOOTID; NEXTBOOTID is the one every
+        // later message will carry, which is the whole point of clause 1.2.4.
+        using var client = CreateClient();
+        var seen = new List<Announcement>();
+        using var subscription = client.Announcements().Subscribe(seen.Add);
+
+        Update(bootId: 1, nextBootId: 2);
+        await WaitForAsync(() => seen.Count == 1);
+
+        Assert.Equal(AnnouncementKind.Update, seen[0].Kind);
+        Assert.Equal(1u, seen[0].Device.BootSignature.BootId);
+        Assert.Equal(2u, seen[0].NextBootId);
+    }
+
+    [Fact]
+    public async Task Announcements_NonUpdateKinds_CarryNoNextBootId()
+    {
+        using var client = CreateClient();
+        var seen = new List<Announcement>();
+        using var subscription = client.Announcements().Subscribe(seen.Add);
+
+        Announce();
+        await WaitForAsync(() => seen.Count == 1);
+
+        Assert.Null(seen[0].NextBootId);
+    }
+
+    [Fact]
     public async Task SilentVanish_ExpiresOnTheClock()
     {
         using var client = CreateClient();

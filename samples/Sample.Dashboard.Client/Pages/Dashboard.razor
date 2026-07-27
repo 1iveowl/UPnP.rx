@@ -98,6 +98,13 @@ net start SSDPSRV</pre>
                                 UPnP @claim.Version <span class="claim-src">@SourceLabel(claim.Source)</span>
                             </FluentBadge>
                         }
+                        @if (_rebooted.Contains(device.Key))
+                        {
+                            <FluentBadge Appearance="Appearance.Accent"
+                                         Title="This device restarted. UDA 2.0 clause 1.2.4: everything stored about it is invalid - any live watch was dropped and its description has been re-read.">
+                                restarted
+                            </FluentBadge>
+                        }
                         @if (Disagrees(device))
                         {
                             <FluentBadge Appearance="Appearance.Accent"
@@ -145,11 +152,15 @@ net start SSDPSRV</pre>
                             <dt>Location</dt>
                             <dd><a href="@device.Location" target="_blank">@device.Location</a></dd>
                         </dl>
-                        <DeviceNode Node="device.Root" DeviceKey="@device.Key" />
+                        <DeviceNode Node="device.Root" DeviceKey="@device.Key"
+                                    DeviceUpnpVersion="@device.VersionClaims.FirstOrDefault()?.Version" />
 
                         <div class="svc-section">
                             SSDP activity (log)
-                            <span class="muted">· @Stream.ActivityCountFor(device.Key) message(s) since page load</span>
+                            <span class="muted"
+                                                  title="The log keeps only the most recent messages per device, and drops anything older than an hour - long retention belongs in a file log, not a browser tab.">
+                                                @ActivityCounts(device.Key)
+                                            </span>
                         </div>
                         @if (Stream.ActivityFor(device.Key) is { Count: > 0 } activity)
                         {
@@ -164,7 +175,7 @@ net start SSDPSRV</pre>
                                         <span class="svc-name">@ActivityLabel(row.Kind)</span>
                                         @if (row.Kind != "ByeBye")
                                         {
-                                            <span class="muted">@BootLabel(row)@(row.MaxAgeSeconds is int age ? $", max-age {age}" : "")</span>
+                                            <span class="muted" title="@MaxAgeHint(row)">@BootLabel(row)@NextBootLabel(row)@MaxAgeLabel(row)</span>
                                         }
                                     </div>
 
@@ -236,6 +247,33 @@ net start SSDPSRV</pre>
         _ => source
     };
 
+    // The ring keeps a bounded window, so a bare total implies rows the list does not
+    // have. Say both, and only say both when they differ.
+    private string ActivityCounts(string key)
+    {
+        var total = Stream.ActivityCountFor(key);
+        var shown = Stream.ActivityFor(key).Count;
+
+        return shown < total
+            ? $"· showing {shown} of {total} message(s) since page load"
+            : $"· {total} message(s) since page load";
+    }
+
+    private static string MaxAgeLabel(SsdpActivityDto row) => row.MaxAgeSeconds switch
+    {
+        null => "",
+        0 => ", max-age 0",
+        var age => $", max-age {age}"
+    };
+
+    private static string? MaxAgeHint(SsdpActivityDto row) => row.MaxAgeSeconds is 0
+        ? "This device advertised a zero lifetime. A device that keeps announcing cannot mean "
+          + "\"expire me now\", so the roster uses its fallback instead of this value."
+        : null;
+
+    private static string NextBootLabel(SsdpActivityDto row) =>
+        row.NextBootId is uint next ? $" → BOOTID {next}" : "";
+
     private static bool Disagrees(DeviceDto device) =>
         device.VersionClaims.Select(c => c.Version).Distinct().Count() > 1;
 
@@ -283,7 +321,11 @@ net start SSDPSRV</pre>
 
     private readonly HashSet<string> _refreshing = [];
     private readonly HashSet<string> _refreshed = [];
+
+    /// <summary>Devices that restarted recently; cleared on a timer like the refresh tick.</summary>
+    private readonly HashSet<string> _rebooted = [];
     private readonly CompositeDisposable _checkmarkTimers = new();
+    private IDisposable? _rebootSubscription;
 
     private async Task RefreshDeviceAsync(string key)
     {
@@ -339,6 +381,22 @@ net start SSDPSRV</pre>
             _ = InvokeAsync(StateHasChanged);
         });
 
+        // A restart is worth showing for a moment: it means every live watch on that
+        // device just dropped and its description has been re-read.
+        _rebootSubscription = Stream.Reboots.Subscribe(key =>
+        {
+            _rebooted.Add(key);
+            _ = InvokeAsync(StateHasChanged);
+
+            _checkmarkTimers.Add(Observable
+                .Timer(TimeSpan.FromSeconds(8), DefaultScheduler.Instance)
+                .Subscribe(tick =>
+                {
+                    _rebooted.Remove(key);
+                    _ = InvokeAsync(StateHasChanged);
+                }));
+        });
+
         // Re-render when activity arrives for a card the user has open.
         _activitySubscription = Stream.SsdpActivity.Subscribe(row =>
         {
@@ -358,6 +416,7 @@ net start SSDPSRV</pre>
     {
         _rescanSubscription?.Dispose();
         _activitySubscription?.Dispose();
+        _rebootSubscription?.Dispose();
         _checkmarkTimers.Dispose();
         ViewModel?.Dispose();
     }

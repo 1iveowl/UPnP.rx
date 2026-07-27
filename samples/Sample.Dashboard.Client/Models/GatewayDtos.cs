@@ -31,6 +31,7 @@ public sealed record SsdpActivityDto(
     string? Location,
     uint? BootId,
     string? Nls,
+    uint? NextBootId,
     int? ConfigId,
     int? MaxAgeSeconds,
     bool HasParsingError,

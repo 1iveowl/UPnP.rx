@@ -9,6 +9,9 @@ public static class HubEvents
     /// <summary>A device said byebye; payload: the device key.</summary>
     public const string DeviceGone = "DeviceGone";
 
+    /// <summary>A known device restarted: everything held about it is void (UDA 2.0 clause 1.2.4).</summary>
+    public const string DeviceRebooted = "DeviceRebooted";
+
     /// <summary>The hub path.</summary>
     public const string Path = "/devicehub";
 

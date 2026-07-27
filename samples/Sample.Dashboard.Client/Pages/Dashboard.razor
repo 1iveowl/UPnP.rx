@@ -150,7 +150,7 @@ net start SSDPSRV</pre>
                                landed, a toast when the device refused. *@
                             <FluentButton Appearance="Appearance.Stealth"
                                           Title="@(_refreshed.Contains(device.Key) ? "Description re-read" : "Re-read this device's description")"
-                                          Disabled="@_refreshing.Contains(device.Key)"
+                                          Disabled="@(_refreshing.Contains(device.Key) || Stream.DepartureOf(device.Key) is not null)"
                                           OnClick="@(() => RefreshDeviceAsync(device.Key))">
                                 @if (_refreshing.Contains(device.Key))
                                 {
@@ -272,7 +272,10 @@ net start SSDPSRV</pre>
             ? "This device sent ssdp:byebye - it announced that it was going. "
             : "This device stopped announcing and its advertisement lapsed; it never said goodbye, "
               + "which is what a device dropping to standby looks like. ")
-        + $"Last seen {departure.At.ToLocalTime():HH:mm} on {departure.At.ToLocalTime():d MMM}.";
+        + $"Noticed at {departure.At.ToLocalTime():HH:mm} on {departure.At.ToLocalTime():d MMM}"
+        + (departure.Reason == DepartureReasons.Left
+            ? "."
+            : " - it may have stopped announcing up to its full advertised lifetime before that.");
 
     private static string SourceLabel(string source) => source switch
     {

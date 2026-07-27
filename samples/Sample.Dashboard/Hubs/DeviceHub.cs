@@ -38,7 +38,8 @@ public sealed class DeviceHub(
     /// clause 1.3.3 obliges a device to answer either, but plenty of consumer hardware
     /// answers only the broader one - so this finds devices the ordinary search cannot.
     /// It is markedly noisier: the same clause has a root device answer <c>ssdp:all</c>
-    /// 3+2d+k times (once per device and distinct service) against once for
+    /// 3+2d+k times - three for the root, two per embedded device, and one per
+    /// <i>distinct service type</i> (not per service) - against once for
     /// <c>upnp:rootdevice</c>.
     /// </param>
     public Task Probe(bool deep = false) =>

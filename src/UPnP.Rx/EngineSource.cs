@@ -28,7 +28,7 @@ internal abstract class EngineSource<TEvent> : IObservable<TEvent>
     // and an engine that observes another engine (eventing watches the roster) can
     // form a cycle: one thread holding gate A reaching for B while another holds B
     // and reaches for A. So an engine must not acquire a second gate on a caller's
-    // stack - see the yield at the head of GenaSubscriptionSource.RunAttemptsAsync -
+    // stack - see the SubscribeOn in GenaSubscriptionSource.RunAttemptsAsync -
     // and cancellation is never signalled while this gate is held.
     protected Lock Gate { get; } = new();
 

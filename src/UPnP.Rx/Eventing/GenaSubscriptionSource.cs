@@ -188,10 +188,11 @@ internal sealed class GenaSubscriptionSource : EngineSource<UpnpEvent>
                     }
 
                     // On the attempt's token, not the engine's, so a presence notice
-                    // arriving during the wait cuts the backoff short. Its cancellation
-                    // is swallowed here rather than allowed to escape: thrown from
-                    // inside a catch block it would bypass this try's sibling handlers
-                    // and end the engine silently, with the notice never acted on.
+                    // arriving during the wait cuts the backoff short. Swallowed here
+                    // rather than allowed to escape: thrown from inside a catch block it
+                    // would unwind past the rest of this block to the enclosing handler,
+                    // which does act on the notice - but only by a longer route, and the
+                    // retry's own decision is easier to follow when it stays local.
                     try
                     {
                         await Task.Delay(_retryDelay, _options.TimeProvider, resubscribe.Token).ConfigureAwait(false);
@@ -201,8 +202,10 @@ internal sealed class GenaSubscriptionSource : EngineSource<UpnpEvent>
                         // The device's presence changed; handled immediately below.
                     }
 
-                    // Clause 4.1.1 ends the stream for a departed device rather than
-                    // retrying at it every 10 s forever.
+                    // Clause 4.1.1 ends the stream for a device that said byebye, or that
+                    // raised its BOOTID without announcing it, rather than retrying at it
+                    // every 10 s forever. A device that merely goes quiet is not one of
+                    // the clause's triggers, and is deliberately still retried.
                     if (ConsumeCancellation() is CancellationOutcome.Ended)
                     {
                         return;

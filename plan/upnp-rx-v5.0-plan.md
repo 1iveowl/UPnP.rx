@@ -371,6 +371,8 @@ already received them distinctly - it was only collapsing them at the wire.
   rather than `.stale`: grayed, still unfoldable so the user can see what it was, but
   its body is `pointer-events: none`. Operating it would fail anyway, since the live
   objects behind it are gone from the server - better to make that visible than to
-  produce "Service not found on the roster."
+  produce "Service not found on the roster." Note the header sits outside that rule
+  by design (it has to stay clickable to unfold), so the re-read button living there
+  is disabled explicitly rather than by the CSS.
 - **The header count stopped lying**: departed devices are no longer counted as
   present, and appear as a separate "N gone" badge.

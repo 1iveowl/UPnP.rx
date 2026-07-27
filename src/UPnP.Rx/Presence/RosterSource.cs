@@ -151,7 +151,15 @@ internal sealed class RosterSource : EngineSource<RosterChange>
         }
 
         var key = KeyFor(device);
-        var effectiveMaxAge = maxAge ?? _options.RosterExpiryFallback;
+        // The announcement feed reports what the device said; the roster has to turn
+        // it into a deadline. A device that announces max-age=0 while still announcing
+        // would appear and expire on every message, so a non-positive lifetime is
+        // treated the same as none at all - UDA 2.0 clause 1.2.2 says max-age "should
+        // be greater than or equal to 1800 seconds", and zero is not a lifetime a live
+        // device can have meant.
+        var effectiveMaxAge = maxAge is { } announced && announced > TimeSpan.Zero
+            ? announced
+            : _options.RosterExpiryFallback;
         var knownAndUnchanged = false;
 
         lock (Gate)

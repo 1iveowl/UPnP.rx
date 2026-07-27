@@ -28,13 +28,13 @@ public enum AnnouncementKind
 /// <param name="Kind">Search response, alive, or byebye.</param>
 /// <param name="Device">The parsed discovery envelope (byebyes carry no location).</param>
 /// <param name="MaxAge">
-/// The advertised lifetime (<c>CACHE-CONTROL: max-age</c>), or <see langword="null"/>
-/// when no usable lifetime was announced - and always null for byebyes, which revoke
-/// an advertisement rather than carrying one. Null covers three upstream cases that
-/// cannot currently be told apart (absent header, unparsable value, and a literal
-/// <c>max-age=0</c>), because the SSDP layer reports all three as zero; none of them
-/// is a lifetime a device can have meant, so the roster substitutes
-/// <see cref="UpnpClientOptions.RosterExpiryFallback"/> for all of them.
+/// Exactly what the device advertised in <c>CACHE-CONTROL: max-age</c>:
+/// <see langword="null"/> when it announced no usable lifetime (no header, no
+/// <c>max-age</c> directive, or an unparsable one), and <see cref="TimeSpan.Zero"/>
+/// when it genuinely said zero - those are different statements and are reported as
+/// such. Always null for byebyes, which revoke an advertisement rather than carrying
+/// one. What the roster does with a zero lifetime is its own decision; see
+/// <see cref="UpnpClientOptions.RosterExpiryFallback"/>.
 /// </param>
 /// <param name="Seen">When it arrived, stamped on the options' <see cref="TimeProvider"/>.</param>
 public sealed record Announcement(

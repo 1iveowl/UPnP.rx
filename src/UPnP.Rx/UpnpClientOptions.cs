@@ -55,7 +55,8 @@ public sealed record UpnpClientOptions
 
     /// <summary>
     /// The advertisement lifetime <see cref="UpnpClient.Roster"/> assumes when a
-    /// device announces without a usable <c>CACHE-CONTROL: max-age</c>.
+    /// device announces no usable <c>CACHE-CONTROL: max-age</c> - either none at all,
+    /// or a non-positive one, which a device that keeps announcing cannot have meant.
     /// Defaults to 30 minutes (the UDA 2.0 recommended advertisement duration).
     /// </summary>
     public TimeSpan RosterExpiryFallback { get; init; } = TimeSpan.FromMinutes(30);

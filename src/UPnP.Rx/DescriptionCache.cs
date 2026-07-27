@@ -17,7 +17,7 @@ namespace UPnP.Rx;
 /// </summary>
 internal sealed class DescriptionCache(TimeProvider timeProvider)
 {
-    private sealed record Entry(Lazy<Task<DescribedDevice>> Described, long Created, TimeSpan MaxAge);
+    private sealed record Entry(Lazy<Task<DescribedDevice>> Described, long Created, TimeSpan? MaxAge);
 
     private readonly ConcurrentDictionary<string, Entry> _entries = new();
 
@@ -25,7 +25,7 @@ internal sealed class DescriptionCache(TimeProvider timeProvider)
     internal int Count => _entries.Count;
 
     internal Task<DescribedDevice> GetOrFetchAsync(
-        Uri location, int? configId, BootSignature bootSignature, TimeSpan maxAge,
+        Uri location, int? configId, BootSignature bootSignature, TimeSpan? maxAge,
         Func<Task<DescribedDevice>> fetch, CancellationToken ct)
     {
         var key = $"{location}#{configId}#{bootSignature}";
@@ -44,8 +44,8 @@ internal sealed class DescriptionCache(TimeProvider timeProvider)
                         maxAge);
                 });
 
-            if (entry.MaxAge > TimeSpan.Zero
-                && timeProvider.GetElapsedTime(entry.Created) > entry.MaxAge)
+            if (entry.MaxAge is { } ttl && ttl > TimeSpan.Zero
+                && timeProvider.GetElapsedTime(entry.Created) > ttl)
             {
                 // Expired: remove exactly this entry (benign race with others) and retry.
                 _entries.TryRemove(new KeyValuePair<string, Entry>(key, entry));
@@ -92,8 +92,8 @@ internal sealed class DescriptionCache(TimeProvider timeProvider)
             return (false, null);
         }
 
-        var expired = newest.MaxAge > TimeSpan.Zero
-            && timeProvider.GetElapsedTime(newest.Created) > newest.MaxAge;
+        var expired = newest.MaxAge is { } ttl && ttl > TimeSpan.Zero
+            && timeProvider.GetElapsedTime(newest.Created) > ttl;
         // Guarded .Result: the task is known completed - no blocking (rule 3).
         var hash = newest.Described.IsValueCreated && newest.Described.Value.IsCompletedSuccessfully
             ? newest.Described.Value.Result.ContentHash

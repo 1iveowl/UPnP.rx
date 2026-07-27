@@ -349,13 +349,13 @@ public sealed class UpnpClient : IUpnpClient
         _controlPoint
             .MSearchResponseObservable()
             .Select(response => (Kind: AnnouncementKind.SearchResponse, Device: ToDiscovered(response),
-                MaxAge: ToMaxAge(response.CacheControl)))
+                MaxAge: response.MaxAge))
             .Merge(NotifiesOf(NTS.Alive)
                 .Select(notify => (Kind: AnnouncementKind.Alive, Device: ToDiscovered(notify),
-                    MaxAge: ToMaxAge(notify.CacheControl))))
+                    MaxAge: notify.MaxAge)))
             .Merge(NotifiesOf(NTS.Update)
                 .Select(notify => (Kind: AnnouncementKind.Update, Device: ToDiscovered(notify),
-                    MaxAge: ToMaxAge(notify.CacheControl))))
+                    MaxAge: notify.MaxAge)))
             .Merge(DeviceLost()
                 .Select(device => (Kind: AnnouncementKind.ByeBye, Device: (DiscoveredDevice?)device, MaxAge: (TimeSpan?)null)))
             .Where(item => item.Device is not null)
@@ -378,12 +378,6 @@ public sealed class UpnpClient : IUpnpClient
     // costs nothing beyond the subscription.
     private IObservable<Notify> NotifiesOf(NTS nts) =>
         _controlPoint.NotifyObservable().Where(notify => notify.NTS == nts);
-
-    // Upstream reports an absent or unusable CACHE-CONTROL as TimeSpan.Zero. An
-    // advertisement that expires the instant it arrives is not a lifetime a device
-    // can mean, so zero is read here as "none announced" and surfaced as null.
-    private static TimeSpan? ToMaxAge(TimeSpan cacheControl) =>
-        cacheControl > TimeSpan.Zero ? cacheControl : null;
 
     /// <summary>
     /// Sends one M-SEARCH burst on every configured interface without
@@ -422,15 +416,15 @@ public sealed class UpnpClient : IUpnpClient
 
     private DiscoveredDevice? ToDiscovered(MSearchResponse response) => ToDiscovered(
         response.USN, response.Location, response.Server, new BootSignature(response.BOOTID, response.NLS),
-        response.CONFIGID, response.HasParsingError, response.LocalIpEndPoint, response.CacheControl);
+        response.CONFIGID, response.HasParsingError, response.LocalIpEndPoint, response.MaxAge);
 
     private DiscoveredDevice? ToDiscovered(Notify notify) => ToDiscovered(
         notify.USN, notify.Location, notify.Server, new BootSignature(notify.BOOTID, notify.NLS),
-        notify.CONFIGID, notify.HasParsingError, notify.LocalIpEndPoint, notify.CacheControl);
+        notify.CONFIGID, notify.HasParsingError, notify.LocalIpEndPoint, notify.MaxAge);
 
     private DiscoveredDevice? ToDiscovered(
         USN? usn, Uri? location, Server? server, BootSignature bootSignature, int? configId,
-        bool hasParsingError, IPEndPoint? localEndPoint, TimeSpan maxAge)
+        bool hasParsingError, IPEndPoint? localEndPoint, TimeSpan? maxAge)
     {
         if (location is null)
         {
@@ -451,7 +445,7 @@ public sealed class UpnpClient : IUpnpClient
     }
 
     private Task<DescribedDevice> GetOrFetchDescriptionAsync(
-        Uri location, int? configId, BootSignature bootSignature, TimeSpan maxAge, IPAddress? localAddress,
+        Uri location, int? configId, BootSignature bootSignature, TimeSpan? maxAge, IPAddress? localAddress,
         CancellationToken ct)
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);

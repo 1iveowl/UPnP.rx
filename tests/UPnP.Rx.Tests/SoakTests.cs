@@ -56,7 +56,7 @@ public class SoakTests
                     Location = new Uri($"http://192.168.2.{device % 250}:1400/d{device}.xml"),
                     USN = USN.Parse($"uuid:soak-{device}::upnp:rootdevice").Value,
                     BOOTID = 1,
-                    CacheControl = TimeSpan.FromSeconds(300)
+                    MaxAge = TimeSpan.FromSeconds(300)
                 });
             }
         }

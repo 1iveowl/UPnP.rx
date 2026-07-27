@@ -28,7 +28,7 @@ public class UpnpClientTests
         Location = new Uri(Location),
         USN = USN.Parse(usn).Value,
         BOOTID = bootId,
-        CacheControl = cacheControl
+        MaxAge = cacheControl
     };
 
     private static (UpnpClient Client, FakeControlPoint ControlPoint, FakeHttpHandler Http) CreateClient(

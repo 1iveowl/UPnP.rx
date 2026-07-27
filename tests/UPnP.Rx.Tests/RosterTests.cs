@@ -25,7 +25,7 @@ public class RosterTests
         new(_controlPoint, _http.CreateClient(), new UpnpClientOptions { TimeProvider = _time }, IPAddress.Parse("192.168.1.42"));
 
     private void Announce(
-        string usn = "uuid:roster-1::upnp:rootdevice", uint? bootId = 1, int maxAgeSeconds = 100,
+        string usn = "uuid:roster-1::upnp:rootdevice", uint? bootId = 1, int? maxAgeSeconds = 100,
         string? nls = null) =>
         _controlPoint.Notifies.OnNext(new Notify
         {
@@ -34,7 +34,7 @@ public class RosterTests
             USN = USN.Parse(usn).Value,
             BOOTID = bootId,
             NLS = nls,
-            CacheControl = TimeSpan.FromSeconds(maxAgeSeconds)
+            MaxAge = maxAgeSeconds is { } seconds ? TimeSpan.FromSeconds(seconds) : null
         });
 
     private void Update(
@@ -46,7 +46,7 @@ public class RosterTests
             USN = USN.Parse(usn).Value,
             BOOTID = bootId,
             NEXTBOOTID = nextBootId,
-            CacheControl = TimeSpan.FromSeconds(100)
+            MaxAge = TimeSpan.FromSeconds(100)
         });
 
     private void ByeBye(string usn = "uuid:roster-1::upnp:rootdevice") =>
@@ -167,16 +167,41 @@ public class RosterTests
     }
 
     [Fact]
-    public async Task Announcements_AbsentCacheControl_IsNullNotZero()
+    public async Task Announcements_DistinguishAbsentCacheControlFromAGenuineZero()
     {
+        // The two are different statements by the device, and since SSDP.UPnP.PCL
+        // 9.1.0 they survive the parse separately - the feed reports what was said.
         using var client = CreateClient();
         var seen = new List<Announcement>();
         using var subscription = client.Announcements().Subscribe(seen.Add);
 
-        Announce(maxAgeSeconds: 0);
+        Announce(maxAgeSeconds: null);
         await WaitForAsync(() => seen.Count == 1);
+        Announce(maxAgeSeconds: 0);
+        await WaitForAsync(() => seen.Count == 2);
 
         Assert.Null(seen[0].MaxAge);
+        Assert.Equal(TimeSpan.Zero, seen[1].MaxAge);
+    }
+
+    [Fact]
+    public async Task Roster_ZeroMaxAge_DoesNotMakeADeviceFlap()
+    {
+        // A device that keeps announcing cannot have meant "expire me now", so the
+        // roster falls back rather than honouring a zero deadline literally - which
+        // would appear-and-expire the device on every single announcement.
+        using var client = CreateClient();
+        using var subscription = client.Roster().Subscribe(_changes.Add);
+        await WaitForAsync(() => _controlPoint.SentSearches.Count > 0);
+
+        Announce(maxAgeSeconds: 0);
+        await WaitForAsync(() => _changes.Count == 1);
+
+        _time.Advance(TimeSpan.FromSeconds(5));
+        await SettleAsync();
+
+        Assert.Single(_changes);
+        Assert.IsType<DeviceAppeared>(_changes[0]);
     }
 
     [Fact]
@@ -338,7 +363,7 @@ public class RosterTests
             Location = new Uri(Location),
             USN = USN.Parse("uuid:roster-1::upnp:rootdevice").Value,
             BOOTID = 1,
-            CacheControl = TimeSpan.FromSeconds(100)
+            MaxAge = TimeSpan.FromSeconds(100)
         });
         ByeBye();
         await WaitForAsync(() => seen.Count == 4);

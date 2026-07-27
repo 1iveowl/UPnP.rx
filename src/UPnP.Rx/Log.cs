@@ -43,6 +43,9 @@ internal static partial class Log
     [LoggerMessage(10, LogLevel.Error, "The roster engine failed.")]
     internal static partial void RosterEngineFailed(this ILogger logger, Exception e);
 
+    [LoggerMessage(19, LogLevel.Error, "The roster's ssdp:update stream terminated.")]
+    internal static partial void RosterUpdateStreamTerminated(this ILogger logger, Exception e);
+
     [LoggerMessage(11, LogLevel.Debug, "Roster re-describe of {Location} failed.")]
     internal static partial void RosterRedescribeFailed(this ILogger logger, Exception e, Uri? location);
 

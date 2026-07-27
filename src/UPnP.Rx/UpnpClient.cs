@@ -329,7 +329,7 @@ public sealed class UpnpClient : IUpnpClient
 
     /// <summary>
     /// Every parsed SSDP envelope as it arrives - M-SEARCH responses,
-    /// <c>ssdp:alive</c>, <c>ssdp:byebye</c> - undeduplicated and kind-tagged,
+    /// <c>ssdp:alive</c>, <c>ssdp:byebye</c>, <c>ssdp:update</c> - undeduplicated and kind-tagged,
     /// timestamped on the options' <see cref="TimeProvider"/>: the device
     /// activity timeline. Deliberately passive: subscribing does <em>not</em>
     /// send an M-SEARCH (<see cref="Roster"/> and <see cref="DiscoverDevices"/>
@@ -351,7 +351,7 @@ public sealed class UpnpClient : IUpnpClient
     /// <summary>The roster's raw feed: every alive/response envelope with its advertisement lifetime, undeduplicated.</summary>
     internal IObservable<(DiscoveredDevice Device, TimeSpan? MaxAge)> RosterAnnouncements() =>
         AnnouncementStream()
-            .Where(item => item.Kind is not AnnouncementKind.ByeBye)
+            .Where(item => item.Kind is not (AnnouncementKind.ByeBye or AnnouncementKind.Update))
             .Select(item => (item.Device, item.MaxAge));
 
     private IObservable<(AnnouncementKind Kind, DiscoveredDevice Device, TimeSpan? MaxAge)> AnnouncementStream() =>
@@ -368,10 +368,35 @@ public sealed class UpnpClient : IUpnpClient
                     notify.USN, notify.Location, notify.Server, new BootSignature(notify.BOOTID, notify.NLS),
                     notify.CONFIGID, notify.HasParsingError, notify.LocalIpEndPoint,
                     notify.CacheControl), MaxAge: ToMaxAge(notify.CacheControl))))
+            .Merge(_controlPoint
+                .NotifyObservable()
+                .Where(notify => notify.NTS == NTS.Update)
+                .Select(notify => (Kind: AnnouncementKind.Update, Device: ToDiscovered(
+                    notify.USN, notify.Location, notify.Server, new BootSignature(notify.BOOTID, notify.NLS),
+                    notify.CONFIGID, notify.HasParsingError, notify.LocalIpEndPoint,
+                    notify.CacheControl), MaxAge: ToMaxAge(notify.CacheControl))))
             .Merge(DeviceLost()
                 .Select(device => (Kind: AnnouncementKind.ByeBye, Device: (DiscoveredDevice?)device, MaxAge: (TimeSpan?)null)))
             .Where(item => item.Device is not null)
             .Select(item => (item.Kind, item.Device!, item.MaxAge));
+
+    /// <summary>
+    /// <c>ssdp:update</c> notices with the boot identity the device says it is moving
+    /// to (UDA 2.0 clause 1.2.4): the control point "shall" record NEXTBOOTID as the
+    /// device's current BOOTID, so the re-advertisement that follows is not mistaken
+    /// for a restart.
+    /// </summary>
+    internal IObservable<(DiscoveredDevice Device, BootSignature Next)> RosterUpdates() =>
+        _controlPoint
+            .NotifyObservable()
+            .Where(notify => notify.NTS == NTS.Update && notify.NEXTBOOTID.HasValue)
+            .Select(notify => (
+                Device: ToDiscovered(
+                    notify.USN, notify.Location, notify.Server, new BootSignature(notify.BOOTID, notify.NLS),
+                    notify.CONFIGID, notify.HasParsingError, notify.LocalIpEndPoint, notify.CacheControl),
+                Next: new BootSignature(notify.NEXTBOOTID, notify.NLS)))
+            .Where(item => item.Device is not null)
+            .Select(item => (item.Device!, item.Next));
 
     // Upstream reports an absent or unusable CACHE-CONTROL as TimeSpan.Zero. An
     // advertisement that expires the instant it arrives is not a lifetime a device

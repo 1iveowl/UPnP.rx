@@ -18,12 +18,33 @@ public abstract record RosterChange(DiscoveredDevice Device);
 public sealed record DeviceAppeared(DiscoveredDevice Device, bool IsReplay) : RosterChange(Device);
 
 /// <summary>
-/// A known device changed: it rebooted (new <c>BOOTID</c> - descriptions are
-/// re-read on next access), or a lazy re-describe after the description cache
-/// lapsed found materially different content (self-healing; see the 4.1 plan).
+/// A known device's description changed under it: a lazy re-describe after the
+/// description cache lapsed found materially different content (self-healing; see
+/// the 4.1 plan). The device stayed up throughout - a restart is
+/// <see cref="DeviceRebooted"/>.
 /// </summary>
 /// <param name="Device">The device's latest discovery envelope.</param>
 public sealed record DeviceUpdated(DiscoveredDevice Device) : RosterChange(Device);
+
+/// <summary>
+/// A known device restarted: its boot identity changed, so everything held about it
+/// is void.
+/// </summary>
+/// <remarks>
+/// UDA 2.0 clause 1.2.4 is explicit about what this means to a control point - on
+/// seeing a different BOOTID "any stored state information about the device has
+/// become invalid. It shall treat the device as a newly discovered device." That is
+/// a stronger statement than <see cref="DeviceUpdated"/> makes: event subscriptions
+/// are gone, cached action results are meaningless, and the description is re-read
+/// on next access. It is reported separately so a consumer holding device-scoped
+/// state can tell "throw it all away" from "the XML moved".
+/// <para>
+/// A device that changes network configuration rather than restarting announces that
+/// with <c>ssdp:update</c> first, and that path deliberately does not raise this.
+/// </para>
+/// </remarks>
+/// <param name="Device">The device's discovery envelope carrying the new boot identity.</param>
+public sealed record DeviceRebooted(DiscoveredDevice Device) : RosterChange(Device);
 
 /// <summary>
 /// A device's advertisement lapsed without a byebye - it vanished silently

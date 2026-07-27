@@ -36,6 +36,13 @@ internal sealed class RosterSource : EngineSource<RosterChange>
         public required DiscoveredDevice Device { get; set; }
         public required long SeenAt { get; set; }
         public required TimeSpan MaxAge { get; set; }
+
+        /// <summary>
+        /// The boot identity the next message should carry. Normally the last one
+        /// seen, but an <c>ssdp:update</c> moves it forward ahead of the device
+        /// (clause 1.2.4), so the re-advertisement that follows reads as continuity.
+        /// </summary>
+        public required BootSignature Expected { get; set; }
     }
 
     /// <summary>A previous run's roster is stale; a restart begins from a clean slate.</summary>
@@ -73,6 +80,11 @@ internal sealed class RosterSource : EngineSource<RosterChange>
                     HandleByeBye,
                     e => _logger.RosterByeByeStreamTerminated(e));
 
+            using var updates = _client.RosterUpdates()
+                .Subscribe(
+                    item => HandleUpdate(item.Device, item.Next),
+                    e => _logger.RosterUpdateStreamTerminated(e));
+
             try
             {
                 await _client.SearchAsync(ct: ct).ConfigureAwait(false);
@@ -102,6 +114,35 @@ internal sealed class RosterSource : EngineSource<RosterChange>
         }
     }
 
+    /// <summary>
+    /// UDA 2.0 clause 1.2.4: on <c>ssdp:update</c> the control point "shall" record
+    /// NEXTBOOTID as the device's current boot identity. The device is changing
+    /// network configuration, not restarting - it "has remained continuously
+    /// available (including all device state)" - so nothing is emitted and no
+    /// description is invalidated; only the expectation moves, which is what stops
+    /// the re-advertisement that follows from reading as a reboot.
+    /// </summary>
+    private void HandleUpdate(DiscoveredDevice device, BootSignature next)
+    {
+        if (device.Location is null)
+        {
+            return;
+        }
+
+        var key = KeyFor(device);
+
+        lock (Gate)
+        {
+            if (_entries.TryGetValue(key, out var entry))
+            {
+                entry.Expected = next;
+            }
+        }
+    }
+
+    private static string KeyFor(DiscoveredDevice device) =>
+        device.Usn?.DeviceUUID is { Length: > 0 } uuid ? uuid : device.Location!.ToString();
+
     private async Task HandleAnnouncementAsync(DiscoveredDevice device, TimeSpan? maxAge, CancellationToken ct)
     {
         if (device.Location is null)
@@ -109,7 +150,7 @@ internal sealed class RosterSource : EngineSource<RosterChange>
             return;
         }
 
-        var key = device.Usn?.DeviceUUID is { Length: > 0 } uuid ? uuid : device.Location.ToString();
+        var key = KeyFor(device);
         var effectiveMaxAge = maxAge ?? _options.RosterExpiryFallback;
         var knownAndUnchanged = false;
 
@@ -117,14 +158,15 @@ internal sealed class RosterSource : EngineSource<RosterChange>
         {
             if (_entries.TryGetValue(key, out var entry))
             {
-                var rebooted = device.BootSignature.IndicatesRebootSince(entry.Device.BootSignature);
+                var rebooted = device.BootSignature.IndicatesRebootSince(entry.Expected);
                 entry.Device = device;
                 entry.SeenAt = _options.TimeProvider.GetTimestamp();
                 entry.MaxAge = effectiveMaxAge;
+                entry.Expected = device.BootSignature;
 
                 if (rebooted)
                 {
-                    EmitLocked(new DeviceUpdated(device));
+                    EmitLocked(new DeviceRebooted(device));
                 }
                 else
                 {
@@ -137,7 +179,8 @@ internal sealed class RosterSource : EngineSource<RosterChange>
                 {
                     Device = device,
                     SeenAt = _options.TimeProvider.GetTimestamp(),
-                    MaxAge = effectiveMaxAge
+                    MaxAge = effectiveMaxAge,
+                    Expected = device.BootSignature
                 };
                 EmitLocked(new DeviceAppeared(device, IsReplay: false));
             }

@@ -35,7 +35,8 @@ public sealed record UpnpVersionClaim(UpnpVersionSource Source, Version Version,
 /// <remarks>
 /// <para>
 /// UDA 2.0 states the architecture version in more than one place and makes each
-/// one normative: the <c>SERVER</c> header "shall be UPnP/2.0" (clause 1.1.2), and
+/// one normative: the <c>SERVER</c> header's second product token "shall be UPnP/2.0"
+/// (stated identically in clauses 1.2.2, 1.3.3 and 3.2.2), and
 /// the description's <c>&lt;specVersion&gt;</c> "defines the architecture on which
 /// the device is implemented", with the minor element required to "accurately
 /// reflect the version number of the UPnP Device Architecture supported by the

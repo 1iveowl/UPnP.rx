@@ -37,6 +37,18 @@ public class RosterTests
             CacheControl = TimeSpan.FromSeconds(maxAgeSeconds)
         });
 
+    private void Update(
+        string usn = "uuid:roster-1::upnp:rootdevice", uint bootId = 1, uint nextBootId = 2) =>
+        _controlPoint.Notifies.OnNext(new Notify
+        {
+            NTS = NTS.Update,
+            Location = new Uri(Location),
+            USN = USN.Parse(usn).Value,
+            BOOTID = bootId,
+            NEXTBOOTID = nextBootId,
+            CacheControl = TimeSpan.FromSeconds(100)
+        });
+
     private void ByeBye(string usn = "uuid:roster-1::upnp:rootdevice") =>
         _controlPoint.Notifies.OnNext(new Notify
         {
@@ -112,8 +124,8 @@ public class RosterTests
         Announce(bootId: 2);
         await WaitForAsync(() => _changes.Count == 2);
 
-        var updated = Assert.IsType<DeviceUpdated>(_changes[1]);
-        Assert.Equal(2u, updated.Device.BootSignature.BootId);
+        var rebooted = Assert.IsType<DeviceRebooted>(_changes[1]);
+        Assert.Equal(2u, rebooted.Device.BootSignature.BootId);
     }
 
     [Fact]
@@ -130,9 +142,9 @@ public class RosterTests
         Announce(bootId: null, nls: "1785099999");
         await WaitForAsync(() => _changes.Count == 2);
 
-        var updated = Assert.IsType<DeviceUpdated>(_changes[1]);
-        Assert.Null(updated.Device.BootSignature.BootId);
-        Assert.Equal("1785099999", updated.Device.BootSignature.Nls);
+        var rebooted = Assert.IsType<DeviceRebooted>(_changes[1]);
+        Assert.Null(rebooted.Device.BootSignature.BootId);
+        Assert.Equal("1785099999", rebooted.Device.BootSignature.Nls);
     }
 
     [Fact]
@@ -165,6 +177,61 @@ public class RosterTests
         await WaitForAsync(() => seen.Count == 1);
 
         Assert.Null(seen[0].MaxAge);
+    }
+
+    [Fact]
+    public async Task SsdpUpdate_MovesTheExpectedBootId_WithoutReportingAReboot()
+    {
+        // UDA 2.0 clause 1.2.4: a multi-homed device that gains an interface or
+        // changes an IP raises its BOOTID, but says so with ssdp:update first. The
+        // control point "shall" record NEXTBOOTID, and may then "assume that the
+        // device has remained continuously available (including all device state)".
+        // Without this the re-advertisement that follows reads as a restart.
+        using var client = CreateClient();
+        using var subscription = client.Roster().Subscribe(_changes.Add);
+        await WaitForAsync(() => _controlPoint.SentSearches.Count > 0);
+
+        Announce(bootId: 1);
+        await WaitForAsync(() => _changes.Count == 1);
+
+        Update(bootId: 1, nextBootId: 2);
+        await SettleAsync();
+        Announce(bootId: 2);                 // the promised re-advertisement
+        await SettleAsync();
+
+        Assert.Single(_changes);
+        Assert.IsType<DeviceAppeared>(_changes[0]);
+    }
+
+    [Fact]
+    public async Task BootIdChangeWithoutAnUpdate_IsReportedAsAReboot()
+    {
+        // The contrast to the test above: clause 1.2.4 says an unannounced BOOTID
+        // change means "any stored state information about the device has become
+        // invalid", which is a stronger claim than DeviceUpdated makes.
+        using var client = CreateClient();
+        using var subscription = client.Roster().Subscribe(_changes.Add);
+        await WaitForAsync(() => _controlPoint.SentSearches.Count > 0);
+
+        Announce(bootId: 1);
+        await WaitForAsync(() => _changes.Count == 1);
+        Announce(bootId: 2);
+        await WaitForAsync(() => _changes.Count == 2);
+
+        Assert.IsType<DeviceRebooted>(_changes[1]);
+    }
+
+    [Fact]
+    public async Task Announcements_IncludeSsdpUpdate()
+    {
+        using var client = CreateClient();
+        var seen = new List<Announcement>();
+        using var subscription = client.Announcements().Subscribe(seen.Add);
+
+        Update();
+        await WaitForAsync(() => seen.Count == 1);
+
+        Assert.Equal(AnnouncementKind.Update, seen[0].Kind);
     }
 
     [Fact]

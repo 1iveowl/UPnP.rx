@@ -419,6 +419,37 @@ public class UpnpClientTests
     }
 
     [Fact]
+    public async Task InvokeAsync_RecordsTheControlResponseVersionClaim()
+    {
+        // UDA 2.0 clause 3.2.2 requires SERVER on control responses, in the same
+        // three-product-token form as discovery. HttpResponseHeaders splits that into
+        // its tokens, so reading only the first yields the OS and the claim is lost -
+        // this asserts the whole header is reassembled.
+        var (client, controlPoint, http) = CreateClient();
+        await using var _1 = client;
+        http.Map(Location, Fixture("linksys_WAG200G_desc.xml"));
+        http.Map("http://192.168.1.1:49152/upnp/control/WANPPPConn1", """
+            <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+              <s:Body>
+                <u:GetExternalIPAddressResponse xmlns:u="urn:schemas-upnp-org:service:WANPPPConnection:1">
+                  <NewExternalIPAddress>203.0.113.17</NewExternalIPAddress>
+                </u:GetExternalIPAddressResponse>
+              </s:Body>
+            </s:Envelope>
+            """, server: "unix/5.1 UPnP/2.0 MyProduct/1.0");
+
+        var device = await DescribedLinksysAsync(controlPoint, client);
+        var wan = device.Service("WANPPPConnection");
+
+        var result = await wan.InvokeAsync("GetExternalIPAddress", ct: TestContext.Current.CancellationToken);
+
+        var claim = Assert.Single(result.VersionClaims.Claims);
+        Assert.Equal(UpnpVersionSource.ControlResponse, claim.Source);
+        Assert.Equal(new Version(2, 0), claim.Version);
+        Assert.Equal("GetExternalIPAddress", claim.Detail);
+    }
+
+    [Fact]
     public async Task InvokeAsync_SoapFault_ThrowsUpnpActionExceptionWithError()
     {
         var (client, controlPoint, http) = CreateClient();

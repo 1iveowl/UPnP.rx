@@ -160,7 +160,7 @@ public sealed class UpnpDiscoveryService(
     {
         switch (change)
         {
-            case UPnP.Rx.Presence.DeviceAppeared or UPnP.Rx.Presence.DeviceUpdated:
+            case UPnP.Rx.Presence.DeviceAppeared or UPnP.Rx.Presence.DeviceUpdated or UPnP.Rx.Presence.DeviceRebooted:
             {
                 // Describe (the library caches; self-healed and rebooted
                 // devices re-fetch automatically) and broadcast. A device whose

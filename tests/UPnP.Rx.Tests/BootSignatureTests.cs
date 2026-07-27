@@ -49,6 +49,21 @@ public class BootSignatureTests
     }
 
     [Fact]
+    public void IndicatesRebootSince_BootIdWins_WhenBothSidesStateOne()
+    {
+        // Annex A.4.1 lets a device set NLS equal to its BOOTID, and A.4.2 requires
+        // NLS on IPv6 advertisements but not on the paired IPv4 ones - so the same
+        // device legitimately emits (5, "5") and (5, null). Clause 1.2.2 says an
+        // unchanged BOOTID means it has not restarted, so NLS must not override it.
+        var withNls = new BootSignature(5, "5");
+        var withoutNls = new BootSignature(5, null);
+
+        Assert.False(withNls.IndicatesRebootSince(withoutNls));
+        Assert.False(withoutNls.IndicatesRebootSince(withNls));
+        Assert.True(new BootSignature(6, "5").IndicatesRebootSince(withNls));
+    }
+
+    [Fact]
     public void IndicatesRebootSince_IsFalseWhenEitherSideIsUnknown()
     {
         // No evidence is not evidence of change - otherwise every announcement

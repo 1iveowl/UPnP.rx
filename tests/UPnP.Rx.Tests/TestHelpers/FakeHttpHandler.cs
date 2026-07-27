@@ -10,13 +10,21 @@ namespace UPnP.Rx.Tests.TestHelpers;
 internal sealed class FakeHttpHandler : HttpMessageHandler
 {
     private readonly Dictionary<string, Func<HttpRequestMessage, (HttpStatusCode Status, string Body)>> _routes = [];
+    private readonly Dictionary<string, string> _servers = [];
 
     public List<(HttpRequestMessage Request, string Body)> Requests { get; } = [];
 
     public Dictionary<string, int> FetchCounts { get; } = [];
 
-    public void Map(string url, string body, HttpStatusCode status = HttpStatusCode.OK) =>
+    public void Map(string url, string body, HttpStatusCode status = HttpStatusCode.OK, string? server = null)
+    {
         _routes[url] = _ => (status, body);
+
+        if (server is not null)
+        {
+            _servers[url] = server;
+        }
+    }
 
     public void Map(string url, Func<HttpRequestMessage, (HttpStatusCode, string)> responder) =>
         _routes[url] = responder;
@@ -41,9 +49,16 @@ internal sealed class FakeHttpHandler : HttpMessageHandler
 
         var (status, responseBody) = responder(request);
 
-        return new HttpResponseMessage(status)
+        var response = new HttpResponseMessage(status)
         {
             Content = new StringContent(responseBody, Encoding.UTF8, "text/xml")
         };
+
+        if (_servers.TryGetValue(url, out var server))
+        {
+            response.Headers.TryAddWithoutValidation("SERVER", server);
+        }
+
+        return response;
     }
 }

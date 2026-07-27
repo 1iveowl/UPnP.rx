@@ -145,8 +145,12 @@ public sealed class UpnpService : IUpnpService
                     .SendAsync(request, HttpCompletionOption.ResponseContentRead, token)
                     .ConfigureAwait(false);
 
+                // HttpResponseHeaders parses SERVER into its individual product
+                // tokens, so the spec-mandated "unix/5.1 UPnP/2.0 MyProduct/1.0"
+                // arrives as three values and taking the first yields the OS token.
+                // Rejoining reconstructs the header verbatim.
                 var serverHeader = response.Headers.TryGetValues("SERVER", out var values)
-                    ? values.FirstOrDefault()
+                    ? string.Join(' ', values)
                     : null;
 
                 return (

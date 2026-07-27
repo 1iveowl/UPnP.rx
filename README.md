@@ -23,7 +23,7 @@ UPnP.Rx covers the full control-point chain of the [UPnP Device Architecture 2.0
 - **Description** (clause 2) - device description documents and SCPDs fetched lazily, parsed into immutable records, cached by `LOCATION` + `CONFIGID`.
 - **Control** (clause 3) - SOAP 1.1 action calls with typed results and typed UPnP faults.
 - **Port mapping** - the flagship: find the internet gateway and map ports in one call, with automatic lease renewal.
-- **Eventing** (clause 4, GENA) - subscribe to a service's evented state as an observable: `service.Events()` handles SUBSCRIBE/renewal/UNSUBSCRIBE, replays last-known state to late subscribers, and recovers from failures and SEQ gaps automatically. AV services' `LastChange` payloads decode via `UPnP.Rx.Eventing.Av` (`events.SelectAvChanges()`).
+- **Eventing** (clause 4, GENA) - subscribe to a service's evented state as an observable: `service.Events()` handles SUBSCRIBE/renewal/UNSUBSCRIBE, replays last-known state to late subscribers, and recovers from failures and SEQ gaps automatically. A subscription also watches its device's presence, so a byebye or an unannounced reboot abandons it with `SubscriptionCancelled` and a reason instead of leaving it silently dead until a renewal fails (UDA 2.0 clause 4.1.1). AV services' `LastChange` payloads decode via `UPnP.Rx.Eventing.Av` (`events.SelectAvChanges()`).
 - **Roster** - `client.Roster()` (in `UPnP.Rx.Presence`) streams device presence as changes: arrivals, restarts (`DeviceRebooted`, including UPnP 1.0 devices, which signal one with `NLS` rather than `BOOTID`), description changes under a device that stayed up, `CACHE-CONTROL`-driven expiry for devices that vanish silently, and byebye departures - with the current roster replayed to late subscribers. Bounded state, built for long-lived apps. Alongside it: `Announcements()` streams every parsed SSDP envelope undeduplicated (the activity-log feed), and `SearchAsync()` sends one M-SEARCH burst to solicit fresh responses without resetting anything.
 - **Version claims** - `UpnpVersionClaims` reports what a device says about the UDA version it implements in each of the four places UDA 2.0 makes normative (the `SERVER` header, the device description, each SCPD, and control responses). The spec names no authority between them, so the claims are kept with their provenance rather than reconciled away, and a device that contradicts itself is visible as exactly that.
 
@@ -72,7 +72,13 @@ More gotchas under [Troubleshooting](#troubleshooting).
 The dashboard sample answers it live: every device on your LAN, unfolded down
 to its services and actions. Watch a Sonos change state in real time, drag its
 volume from the browser, follow the SSDP chatter per device - or invoke any
-action its SCPD declares, with a form generated from the spec itself:
+action its SCPD declares, with a form generated from the spec itself.
+
+Leave it running and it becomes a record rather than a snapshot: devices that go
+stay listed, grayed, saying whether they announced their departure or simply went
+quiet, and when. Restarts are called out, each device shows what UDA version it
+claims and flags itself when those claims disagree, and a deep search asks
+`ssdp:all` for the hardware that ignores an ordinary root-device search.
 
 ```bash
 dotnet run --project samples/Sample.Dashboard      # on the host, then open http://localhost:5287
@@ -329,11 +335,34 @@ If there is one lesson from building this way, it is that **getting specs right 
 the quality of what AI produces tracks the quality of the plan and the rules
 set up front. This code wasn't "vibe-coded" it was managed and directed, with the AI as a tool.
 
+## Upgrading from 4.x
+
+One breaking change, and it is the point of the release: a device's boot identity is
+no longer a bare number, because a `uint` cannot say "the device sent nothing" - and
+the UPnP 1.0 installed base sends nothing.
+
+```csharp
+// 4.x - 0 meant both "the device said 0" and "the device said nothing"
+if (device.BootId != previous.BootId) { /* rebooted? maybe. */ }
+
+// 5.0 - three states, and one question with one answer
+if (device.BootSignature.IndicatesRebootSince(previous.BootSignature)) { /* rebooted. */ }
+
+device.BootSignature.BootId    // uint?   - BOOTID.UPNP.ORG, null when not sent
+device.BootSignature.Nls       // string? - the UPnP 1.0 signature, when that is what it sends
+device.BootSignature.IsKnown   // false   - reboots are undetectable for this device
+```
+
+Alongside it: `Announcement.MaxAge` is `TimeSpan?` (null when no usable lifetime was
+announced, `TimeSpan.Zero` when the device genuinely said zero), and the presence types
+moved to `UPnP.Rx.Presence` - `RosterChange`, `Announcement` and friends need that
+`using`. Everything else is additive.
+
 ## Version history
 
 | Version | Notes |
 |---|---|
-| 5.0.0 | **Breaking.** Absence is now representable: `DiscoveredDevice.BootId` (`uint`) becomes `BootSignature`, carrying `BOOTID.UPNP.ORG`, the UPnP 1.0 `NLS` signature, or neither - so a UPnP 1.0 device that reboots is finally detected, and one that announces no boot identity is no longer mistaken for a value of 0. `Announcement.MaxAge` becomes `TimeSpan?`. New `UpnpVersionClaims` records what a device claims about its UDA version in each of the four places UDA 2.0 makes normative, keeping the provenance instead of reconciling silently. Event subscriptions now follow their device's presence: a byebye or an unannounced `BOOTID` change abandons the subscription (`SubscriptionCancelled`) instead of leaving it silently dead until a renewal fails, per UDA 2.0 clause 4.1.1. Presence types move to `UPnP.Rx.Presence`; new `LocalNetwork.IPv4Addresses()`; all logging source-generated. Rides SSDP.UPnP.PCL 9.1 (nullable BOOTID and advertisement lifetime, `NLS`, corrected SERVER version parsing, `IAsyncDisposable`) and SimpleHttpListener.Rx 7.4. |
+| 5.0.0 | **Breaking.** *Absence is now representable* - an optional field a device did not send is no longer reported as a value it did not send. `DiscoveredDevice.BootId` (`uint`) becomes `BootSignature`, carrying `BOOTID.UPNP.ORG`, the UPnP 1.0 `NLS` signature, or neither, so a UPnP 1.0 device that reboots is finally detected and one that announces no boot identity is never mistaken for a value of 0; `Announcement.MaxAge` becomes `TimeSpan?`. Event subscriptions now follow their device's presence: a byebye or an unannounced `BOOTID` change abandons the subscription with `SubscriptionCancelled` and a reason, rather than leaving it silently dead until a renewal fails minutes later (UDA 2.0 clause 4.1.1). `ssdp:update` is honoured, so a multi-homed device changing address is no longer mistaken for a restart. New `UpnpVersionClaims` records what a device claims about its UDA version in each of the four places the spec makes normative, keeping the provenance rather than reconciling silently. Presence types move to `UPnP.Rx.Presence`; `IUpnpService` gains `VersionClaims`; new `LocalNetwork.IPv4Addresses()`; all logging source-generated. Dashboard: version badges with a disagreement flag, restart markers, departed devices retained and grayed, a deep `ssdp:all` search. Rides SSDP.UPnP.PCL 9.1 (nullable `BOOTID` and advertisement lifetime, `NLS`, corrected `SERVER` version parsing, `IAsyncDisposable`) and SimpleHttpListener.Rx 7.4. |
 | 4.2.0 | Structural release: `IUpnpClient` (mock/decorate the client), public-API ledger (PublicApiAnalyzers - surface changes now fail the build), the description cache extracted and directly unit-tested, engine/HTTP-exchange/test-helper dedups (`EngineSource`, `TimedExchange`, `TestKit`), decision ledger (`plan/DECISIONS.md`), CI trimmed-publish smoke and symbol packages on GitHub releases. No behavioral changes. |
 | 4.1.0 | Device roster (`Roster()`: presence changes with replay, max-age expiry, reboot detection and lazy description self-healing), `Announcements()` + `SearchAsync()` (activity feed and solicitation), typed AV `LastChange` decoding (`UPnP.Rx.Eventing.Av`), `TryService`, trim/AOT-clean, memory audit with soak tests; dashboard: generic SCPD-driven action invocation with confirm-step, volume/mute/transport quick controls that follow the device live, and a per-device SSDP activity log. |
 | 4.0.0 | GENA eventing: `service.Events()` as a shared observable with automatic renewal, SEQ-gap recovery and last-known-state replay; permanent SUBSCRIBE refusals surfaced as `SubscriptionRefused` (devices advertise eventSubURLs they don't honor - Sonos QPlay/SpeakerGroup); clause 4 compliance review; dashboard live-event watching and rescan; `Sample.Eventing`. Rides SSDP.UPnP.PCL 8.0 (lazy Rx lifecycle) and SimpleHttpListener.Rx 7.3 (packet-info local endpoints, reliable restarts). |

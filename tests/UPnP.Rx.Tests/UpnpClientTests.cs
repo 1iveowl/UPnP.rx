@@ -10,6 +10,18 @@ public class UpnpClientTests
 {
     private const string Location = "http://192.168.1.1:49152/desc.xml";
 
+    private const string ControlUrl = "http://192.168.1.1:49152/upnp/control/WANPPPConn1";
+
+    private const string _getExternalIpResponse = """
+        <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
+          <s:Body>
+            <u:GetExternalIPAddressResponse xmlns:u="urn:schemas-upnp-org:service:WANPPPConnection:1">
+              <NewExternalIPAddress>203.0.113.17</NewExternalIPAddress>
+            </u:GetExternalIPAddressResponse>
+          </s:Body>
+        </s:Envelope>
+        """;
+
     private static MSearchResponse Response(
         string usn = "uuid:device-1::upnp:rootdevice", uint bootId = 1, TimeSpan cacheControl = default) => new()
     {
@@ -386,15 +398,7 @@ public class UpnpClientTests
         var (client, controlPoint, http) = CreateClient();
         await using var _1 = client;
         http.Map(Location, Fixture("linksys_WAG200G_desc.xml"));
-        http.Map("http://192.168.1.1:49152/upnp/control/WANPPPConn1", """
-            <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
-              <s:Body>
-                <u:GetExternalIPAddressResponse xmlns:u="urn:schemas-upnp-org:service:WANPPPConnection:1">
-                  <NewExternalIPAddress>203.0.113.17</NewExternalIPAddress>
-                </u:GetExternalIPAddressResponse>
-              </s:Body>
-            </s:Envelope>
-            """);
+        http.Map(ControlUrl, _getExternalIpResponse);
 
         var device = await DescribedLinksysAsync(controlPoint, client);
         var wan = device.Service("WANPPPConnection");
@@ -428,15 +432,7 @@ public class UpnpClientTests
         var (client, controlPoint, http) = CreateClient();
         await using var _1 = client;
         http.Map(Location, Fixture("linksys_WAG200G_desc.xml"));
-        http.Map("http://192.168.1.1:49152/upnp/control/WANPPPConn1", """
-            <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
-              <s:Body>
-                <u:GetExternalIPAddressResponse xmlns:u="urn:schemas-upnp-org:service:WANPPPConnection:1">
-                  <NewExternalIPAddress>203.0.113.17</NewExternalIPAddress>
-                </u:GetExternalIPAddressResponse>
-              </s:Body>
-            </s:Envelope>
-            """, server: "unix/5.1 UPnP/2.0 MyProduct/1.0");
+        http.Map(ControlUrl, _getExternalIpResponse, server: "unix/5.1 UPnP/2.0 MyProduct/1.0");
 
         var device = await DescribedLinksysAsync(controlPoint, client);
         var wan = device.Service("WANPPPConnection");

@@ -123,17 +123,8 @@ public sealed class UpnpClient : IUpnpClient
 
             var discovered = _controlPoint
                 .MSearchResponseObservable()
-                .Select(response => ToDiscovered(
-                    response.USN, response.Location, response.Server, new BootSignature(response.BOOTID, response.NLS),
-                    response.CONFIGID, response.HasParsingError, response.LocalIpEndPoint,
-                    response.CacheControl))
-                .Merge(_controlPoint
-                    .NotifyObservable()
-                    .Where(notify => notify.NTS == NTS.Alive)
-                    .Select(notify => ToDiscovered(
-                        notify.USN, notify.Location, notify.Server, new BootSignature(notify.BOOTID, notify.NLS),
-                        notify.CONFIGID, notify.HasParsingError, notify.LocalIpEndPoint,
-                        notify.CacheControl)))
+                .Select(ToDiscovered)
+                .Merge(NotifiesOf(NTS.Alive).Select(ToDiscovered))
                 .Where(device => device is not null)
                 .Select(device => device!)
                 .Distinct(device => $"{device.Usn?.ToUsnString() ?? device.Location!.ToString()}#{device.BootSignature}");
@@ -198,9 +189,9 @@ public sealed class UpnpClient : IUpnpClient
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
 
-            return _controlPoint
-                .NotifyObservable()
-                .Where(notify => notify.NTS == NTS.ByeBye)
+            // Not ToDiscovered: a byebye carries no LOCATION, so instead of being
+            // dropped it keeps a describe that explains why it cannot be described.
+            return NotifiesOf(NTS.ByeBye)
                 .Select(notify => new DiscoveredDevice(
                     notify.USN, notify.Location, notify.Server, new BootSignature(notify.BOOTID, notify.NLS), notify.CONFIGID,
                     notify.HasParsingError, notify.LocalIpEndPoint,
@@ -357,24 +348,14 @@ public sealed class UpnpClient : IUpnpClient
     private IObservable<(AnnouncementKind Kind, DiscoveredDevice Device, TimeSpan? MaxAge)> AnnouncementStream() =>
         _controlPoint
             .MSearchResponseObservable()
-            .Select(response => (Kind: AnnouncementKind.SearchResponse, Device: ToDiscovered(
-                response.USN, response.Location, response.Server, new BootSignature(response.BOOTID, response.NLS),
-                response.CONFIGID, response.HasParsingError, response.LocalIpEndPoint,
-                response.CacheControl), MaxAge: ToMaxAge(response.CacheControl)))
-            .Merge(_controlPoint
-                .NotifyObservable()
-                .Where(notify => notify.NTS == NTS.Alive)
-                .Select(notify => (Kind: AnnouncementKind.Alive, Device: ToDiscovered(
-                    notify.USN, notify.Location, notify.Server, new BootSignature(notify.BOOTID, notify.NLS),
-                    notify.CONFIGID, notify.HasParsingError, notify.LocalIpEndPoint,
-                    notify.CacheControl), MaxAge: ToMaxAge(notify.CacheControl))))
-            .Merge(_controlPoint
-                .NotifyObservable()
-                .Where(notify => notify.NTS == NTS.Update)
-                .Select(notify => (Kind: AnnouncementKind.Update, Device: ToDiscovered(
-                    notify.USN, notify.Location, notify.Server, new BootSignature(notify.BOOTID, notify.NLS),
-                    notify.CONFIGID, notify.HasParsingError, notify.LocalIpEndPoint,
-                    notify.CacheControl), MaxAge: ToMaxAge(notify.CacheControl))))
+            .Select(response => (Kind: AnnouncementKind.SearchResponse, Device: ToDiscovered(response),
+                MaxAge: ToMaxAge(response.CacheControl)))
+            .Merge(NotifiesOf(NTS.Alive)
+                .Select(notify => (Kind: AnnouncementKind.Alive, Device: ToDiscovered(notify),
+                    MaxAge: ToMaxAge(notify.CacheControl))))
+            .Merge(NotifiesOf(NTS.Update)
+                .Select(notify => (Kind: AnnouncementKind.Update, Device: ToDiscovered(notify),
+                    MaxAge: ToMaxAge(notify.CacheControl))))
             .Merge(DeviceLost()
                 .Select(device => (Kind: AnnouncementKind.ByeBye, Device: (DiscoveredDevice?)device, MaxAge: (TimeSpan?)null)))
             .Where(item => item.Device is not null)
@@ -387,16 +368,16 @@ public sealed class UpnpClient : IUpnpClient
     /// for a restart.
     /// </summary>
     internal IObservable<(DiscoveredDevice Device, BootSignature Next)> RosterUpdates() =>
-        _controlPoint
-            .NotifyObservable()
-            .Where(notify => notify.NTS == NTS.Update && notify.NEXTBOOTID.HasValue)
-            .Select(notify => (
-                Device: ToDiscovered(
-                    notify.USN, notify.Location, notify.Server, new BootSignature(notify.BOOTID, notify.NLS),
-                    notify.CONFIGID, notify.HasParsingError, notify.LocalIpEndPoint, notify.CacheControl),
-                Next: new BootSignature(notify.NEXTBOOTID, notify.NLS)))
+        NotifiesOf(NTS.Update)
+            .Where(notify => notify.NEXTBOOTID.HasValue)
+            .Select(notify => (Device: ToDiscovered(notify), Next: new BootSignature(notify.NEXTBOOTID, notify.NLS)))
             .Where(item => item.Device is not null)
             .Select(item => (item.Device!, item.Next));
+
+    // The upstream notify stream is parse-once and shared, so filtering it per NTS
+    // costs nothing beyond the subscription.
+    private IObservable<Notify> NotifiesOf(NTS nts) =>
+        _controlPoint.NotifyObservable().Where(notify => notify.NTS == nts);
 
     // Upstream reports an absent or unusable CACHE-CONTROL as TimeSpan.Zero. An
     // advertisement that expires the instant it arrives is not a lifetime a device
@@ -438,6 +419,14 @@ public sealed class UpnpClient : IUpnpClient
         ArgumentNullException.ThrowIfNull(location);
         _descriptions.Invalidate(location);
     }
+
+    private DiscoveredDevice? ToDiscovered(MSearchResponse response) => ToDiscovered(
+        response.USN, response.Location, response.Server, new BootSignature(response.BOOTID, response.NLS),
+        response.CONFIGID, response.HasParsingError, response.LocalIpEndPoint, response.CacheControl);
+
+    private DiscoveredDevice? ToDiscovered(Notify notify) => ToDiscovered(
+        notify.USN, notify.Location, notify.Server, new BootSignature(notify.BOOTID, notify.NLS),
+        notify.CONFIGID, notify.HasParsingError, notify.LocalIpEndPoint, notify.CacheControl);
 
     private DiscoveredDevice? ToDiscovered(
         USN? usn, Uri? location, Server? server, BootSignature bootSignature, int? configId,

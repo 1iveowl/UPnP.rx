@@ -57,12 +57,7 @@ app.Lifetime.ApplicationStarted.Register(() =>
         Console.WriteLine($"  {url}");
     }
 
-    var lanAddress = System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces()
-        .Where(nic => nic.OperationalStatus is System.Net.NetworkInformation.OperationalStatus.Up
-            && nic.NetworkInterfaceType is not System.Net.NetworkInformation.NetworkInterfaceType.Loopback)
-        .SelectMany(nic => nic.GetIPProperties().UnicastAddresses)
-        .Select(u => u.Address)
-        .FirstOrDefault(a => a.AddressFamily is System.Net.Sockets.AddressFamily.InterNetwork);
+    var lanAddress = UPnP.Rx.LocalNetwork.IPv4Addresses().FirstOrDefault();
 
     var port = app.Urls
         .Select(u => Uri.TryCreate(u, UriKind.Absolute, out var uri) ? uri : null)

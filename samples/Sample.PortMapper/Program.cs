@@ -1,6 +1,7 @@
-using System.Net.NetworkInformation;
-using System.Net.Sockets;
+
+
 using UPnP.Rx.PortMapping;
+using UPnP.Rx;
 
 // Sample.PortMapper - discover the internet gateway, show its state, and
 // (optionally) hold an auto-renewing port mapping until Enter is pressed.
@@ -16,18 +17,11 @@ await using var gateway = await PortMapper.DiscoverGatewayAsync();
 
 if (gateway is null)
 {
-    var searched = NetworkInterface.GetAllNetworkInterfaces()
-        .Where(nic => nic.OperationalStatus is OperationalStatus.Up
-            && nic.NetworkInterfaceType is not NetworkInterfaceType.Loopback)
-        .SelectMany(nic => nic.GetIPProperties().UnicastAddresses)
-        .Select(u => u.Address)
-        .Where(a => a.AddressFamily is AddressFamily.InterNetwork)
-        .Distinct()
-        .ToList();
+    var searched = LocalNetwork.IPv4Addresses();
 
     WriteLine(ConsoleColor.Red, "No internet gateway answered.");
     Write(ConsoleColor.DarkGray, "Searched from: ");
-    Console.WriteLine(searched.Count is 0 ? "(no usable IPv4 interfaces!)" : string.Join(", ", searched));
+    Console.WriteLine(searched.Length is 0 ? "(no usable IPv4 interfaces!)" : string.Join(", ", searched));
     WriteLine(ConsoleColor.Yellow, """
 
         Things to check:

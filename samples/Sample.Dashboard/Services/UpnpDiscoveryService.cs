@@ -22,6 +22,24 @@ public sealed class DeviceRoster
 
     /// <summary>The discovery envelopes - the hub uses them to re-describe a device on demand.</summary>
     public ConcurrentDictionary<string, DiscoveredDevice> Discovered { get; } = new();
+
+    /// <summary>
+    /// Records a freshly described device under one key and returns its DTO. The three
+    /// dictionaries have to move together - the hub previously left
+    /// <see cref="Discovered"/> behind, which orphaned the old entry whenever a
+    /// re-read produced a different UDN - so the write lives here rather than at each
+    /// call site.
+    /// </summary>
+    public DeviceDto Record(DescribedDevice described, DiscoveredDevice discovered)
+    {
+        var dto = DtoMapper.ToDto(described, discovered);
+
+        Devices[dto.Key] = dto;
+        Described[dto.Key] = described;
+        Discovered[dto.Key] = discovered;
+
+        return dto;
+    }
 }
 
 /// <summary>Maps library objects to the wire DTOs; shared by the discovery service and the hub.</summary>
@@ -167,11 +185,8 @@ public sealed class UpnpDiscoveryService(
                 // describe fails stays off the dashboard until its next roster
                 // cycle (expiry + reappearance) or a manual rescan.
                 var described = await change.Device.GetDescriptionAsync(ct);
-                var dto = DtoMapper.ToDto(described, change.Device);
+                var dto = roster.Record(described, change.Device);
 
-                roster.Devices[dto.Key] = dto;
-                roster.Described[dto.Key] = described;
-                roster.Discovered[dto.Key] = change.Device;
                 await hub.Clients.All.SendAsync(HubEvents.DeviceUp, dto, ct);
                 break;
             }

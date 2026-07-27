@@ -1,5 +1,5 @@
-using System.Net.NetworkInformation;
-using System.Net.Sockets;
+
+
 using System.Reactive.Linq;
 using UPnP.Rx;
 using UPnP.Rx.Eventing;
@@ -21,14 +21,7 @@ for (var i = 0; i < args.Length - 1; i++)
     }
 }
 
-var addresses = NetworkInterface.GetAllNetworkInterfaces()
-    .Where(nic => nic.OperationalStatus is OperationalStatus.Up
-        && nic.NetworkInterfaceType is not NetworkInterfaceType.Loopback)
-    .SelectMany(nic => nic.GetIPProperties().UnicastAddresses)
-    .Select(u => u.Address)
-    .Where(a => a.AddressFamily is AddressFamily.InterNetwork)
-    .Distinct()
-    .ToArray();
+var addresses = LocalNetwork.IPv4Addresses();
 
 if (addresses.Length is 0)
 {

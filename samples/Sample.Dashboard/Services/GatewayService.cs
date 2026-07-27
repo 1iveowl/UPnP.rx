@@ -127,9 +127,7 @@ public sealed class GatewayService(
             return "No gateway available.";
         }
 
-        var proto = string.Equals(protocol, "UDP", StringComparison.OrdinalIgnoreCase)
-            ? Protocol.Udp
-            : Protocol.Tcp;
+        var proto = ToProtocol(protocol);
 
         try
         {
@@ -154,7 +152,7 @@ public sealed class GatewayService(
                     _ => { },
                     e => logger.LogDebug(e, "Lease event forwarding ended."));
 
-            _held[(lease.Mapping.ExternalPort, lease.Mapping.Protocol.ToWireString())] = (lease, events);
+            _held[HeldKey(lease.Mapping.ExternalPort, lease.Mapping.Protocol)] = (lease, events);
             return null;
         }
         catch (UpnpException e)
@@ -162,6 +160,14 @@ public sealed class GatewayService(
             return e.Message;
         }
     }
+
+    private static Protocol ToProtocol(string protocol) =>
+        string.Equals(protocol, "UDP", StringComparison.OrdinalIgnoreCase) ? Protocol.Udp : Protocol.Tcp;
+
+    // One key helper for both sides of the dictionary: writing with ToWireString() and
+    // reading with ToUpperInvariant() agreed only because both happen to yield "TCP".
+    private static (ushort Port, string Protocol) HeldKey(ushort externalPort, Protocol protocol) =>
+        (externalPort, protocol.ToWireString());
 
     /// <summary>Deletes a mapping - via the held lease when it is ours (graceful disposal), plain delete otherwise.</summary>
     public async Task<string?> DeletePortMappingAsync(ushort externalPort, string protocol)
@@ -175,18 +181,14 @@ public sealed class GatewayService(
 
         try
         {
-            if (_held.Remove((externalPort, protocol.ToUpperInvariant()), out var held))
+            if (_held.Remove(HeldKey(externalPort, ToProtocol(protocol)), out var held))
             {
                 held.Events.Dispose();
                 await held.Lease.DisposeAsync();     // graceful: stops renewal + deletes on the router
                 return null;
             }
 
-            var proto = string.Equals(protocol, "UDP", StringComparison.OrdinalIgnoreCase)
-                ? Protocol.Udp
-                : Protocol.Tcp;
-
-            await gateway.DeletePortMappingAsync(externalPort, proto);
+            await gateway.DeletePortMappingAsync(externalPort, ToProtocol(protocol));
             return null;
         }
         catch (UpnpException e)

@@ -50,10 +50,8 @@ public sealed class DeviceHub(
         try
         {
             var described = await discovered.GetDescriptionAsync(Context.ConnectionAborted);
-            var dto = Services.DtoMapper.ToDto(described, discovered);
+            var dto = roster.Record(described, discovered);
 
-            roster.Devices[dto.Key] = dto;
-            roster.Described[dto.Key] = described;
             await Clients.All.SendAsync(HubEvents.DeviceUp, dto);
             return null;
         }

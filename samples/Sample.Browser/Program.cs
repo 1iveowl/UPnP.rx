@@ -1,5 +1,5 @@
-using System.Net.NetworkInformation;
-using System.Net.Sockets;
+
+
 using System.Text;
 using UPnP.Rx;
 using UPnP.Rx.Model;
@@ -21,14 +21,7 @@ catch (Exception)
     // Legacy console: the CP437-safe glyph set below still renders fine.
 }
 
-var addresses = NetworkInterface.GetAllNetworkInterfaces()
-    .Where(nic => nic.OperationalStatus is OperationalStatus.Up
-        && nic.NetworkInterfaceType is not NetworkInterfaceType.Loopback)
-    .SelectMany(nic => nic.GetIPProperties().UnicastAddresses)
-    .Select(u => u.Address)
-    .Where(a => a.AddressFamily is AddressFamily.InterNetwork)
-    .Distinct()
-    .ToArray();
+var addresses = LocalNetwork.IPv4Addresses();
 
 if (addresses.Length is 0)
 {

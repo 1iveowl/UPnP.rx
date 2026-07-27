@@ -90,6 +90,8 @@ public class SoakTests
             },
             new UpnpClientOptions { TimeProvider = time },
             NullLogger.Instance,
+            Identity(),
+            NoPresence,
             CancellationToken.None);
 
         var received = 0;

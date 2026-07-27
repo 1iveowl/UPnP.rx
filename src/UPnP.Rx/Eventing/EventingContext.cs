@@ -12,6 +12,7 @@ namespace UPnP.Rx.Eventing;
 internal sealed class EventingContext(
     HttpClient httpClient,
     UpnpClientOptions options,
+    Func<IObservable<UPnP.Rx.Presence.RosterChange>> presence,
     CancellationToken clientLifetime) : IDisposable, IAsyncDisposable
 {
     private readonly ConcurrentDictionary<Uri, GenaSubscriptionSource> _sources = new();
@@ -28,7 +29,12 @@ internal sealed class EventingContext(
     /// Our address on the network shared with the device (from the discovery
     /// envelope); resolved via a route lookup when unknown.
     /// </param>
-    internal IObservable<UpnpEvent> GetOrCreateSource(Uri eventSubUrl, IPAddress? localAddress)
+    /// <param name="identity">
+    /// Which device is behind the endpoint, so the subscription can notice the
+    /// presence changes UDA 2.0 clause 4.1.1 says cancel it.
+    /// </param>
+    internal IObservable<UpnpEvent> GetOrCreateSource(
+        Uri eventSubUrl, IPAddress? localAddress, DeviceIdentity identity)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -46,6 +52,8 @@ internal sealed class EventingContext(
                 listener.Register,
                 options,
                 options.Logger,
+                identity,
+                presence,
                 clientLifetime);
         });
     }

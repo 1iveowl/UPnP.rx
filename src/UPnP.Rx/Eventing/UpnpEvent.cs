@@ -13,6 +13,29 @@ public abstract record UpnpEvent
     }
 }
 
+/// <summary>
+/// The device's presence says this subscription is no longer live, so it has been
+/// abandoned without a goodbye.
+/// </summary>
+/// <remarks>
+/// UDA 2.0 clause 4.1.1: it "is strongly recommended that subscribers monitor
+/// discovery messages from the publisher. If the publisher cancels its
+/// advertisements or if the value of the BOOTID.UPNP.ORG is increased without a
+/// prior ssdp:update message with a matching NEXTBOOTID.UPNP.ORG field value,
+/// subscribers shall assume that their subscriptions have been cancelled." Once
+/// assumed cancelled the SID is void, so no UNSUBSCRIBE is sent - the same clause
+/// notes the publisher "shall reject" any non-subscribe message carrying it.
+/// <para>
+/// Whether a fresh subscription follows is this library's choice, not the spec's:
+/// it happens when <see cref="UpnpClientOptions.AutoResubscribe"/> is on and the
+/// device's CONFIGID is unchanged, because only then is the cached
+/// <c>eventSubURL</c> still the one its description advertises (clause 4.1.2).
+/// </para>
+/// </remarks>
+/// <param name="Reason">Why the subscription was assumed cancelled.</param>
+/// <param name="WillResubscribe">Whether a fresh SUBSCRIBE follows; when false the stream ends.</param>
+public sealed record SubscriptionCancelled(string Reason, bool WillResubscribe) : UpnpEvent;
+
 /// <summary>An evented state variable changed (or was reported in an initial/replayed state set).</summary>
 /// <param name="Name">The state variable's name.</param>
 /// <param name="Value">The raw value; escaped payloads (e.g. AVTransport <c>LastChange</c>) arrive decoded but untyped.</param>

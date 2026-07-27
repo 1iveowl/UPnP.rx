@@ -49,6 +49,10 @@ internal static partial class Log
     [LoggerMessage(11, LogLevel.Debug, "Roster re-describe of {Location} failed.")]
     internal static partial void RosterRedescribeFailed(this ILogger logger, Exception e, Uri? location);
 
+    [LoggerMessage(20, LogLevel.Debug,
+        "The presence stream backing an event subscription for {Url} ended; cancellations will go unnoticed.")]
+    internal static partial void PresenceWatchEnded(this ILogger logger, Exception e, Uri url);
+
     [LoggerMessage(12, LogLevel.Error, "The event subscription engine for {Url} failed.")]
     internal static partial void EventEngineFailed(this ILogger logger, Exception e, Uri url);
 

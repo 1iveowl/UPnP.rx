@@ -2,6 +2,7 @@ using Microsoft.Extensions.Time.Testing;
 using UPnP.Rx.Eventing;
 using UPnP.Rx.Parsing;
 using Xunit;
+using static UPnP.Rx.Tests.TestHelpers.TestKit;
 
 namespace UPnP.Rx.Tests;
 
@@ -22,7 +23,7 @@ public sealed class DescriptionCacheTests : IDisposable
     public DescriptionCacheTests()
     {
         _cache = new DescriptionCache(_time);
-        _eventing = new EventingContext(_http, new UpnpClientOptions(), CancellationToken.None);
+        _eventing = new EventingContext(_http, new UpnpClientOptions(), NoPresence, CancellationToken.None);
     }
 
     private Task<DescribedDevice> Fetch(string hash = "H1")

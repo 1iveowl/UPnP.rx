@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.Extensions.Logging.Abstractions;
 using UPnP.Rx.Eventing;
 using Xunit;
+using static UPnP.Rx.Tests.TestHelpers.TestKit;
 
 namespace UPnP.Rx.Tests;
 
@@ -107,6 +108,8 @@ public sealed class EventingLoopbackTests : IDisposable
             listener.Register,
             options,
             NullLogger.Instance,
+            Identity(),
+            NoPresence,
             lifetime.Token);
 
         var events = new List<UpnpEvent>();
@@ -139,11 +142,11 @@ public sealed class EventingLoopbackTests : IDisposable
         var options = new UpnpClientOptions();
         using var httpClient = new HttpClient();
         using var lifetime = new CancellationTokenSource();
-        using var eventing = new EventingContext(httpClient, options, lifetime.Token);
+        using var eventing = new EventingContext(httpClient, options, NoPresence, lifetime.Token);
 
         var events = new List<UpnpEvent>();
         using var subscription = eventing
-            .GetOrCreateSource(new Uri($"http://127.0.0.1:{_devicePort}/event"), IPAddress.Any)
+            .GetOrCreateSource(new Uri($"http://127.0.0.1:{_devicePort}/event"), IPAddress.Any, Identity())
             .Subscribe(events.Add);
 
         await WaitForAsync(() => _callbackUrl is not null && events.OfType<Subscribed>().Any());

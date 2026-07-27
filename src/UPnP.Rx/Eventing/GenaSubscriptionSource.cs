@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using UPnP.Rx.Presence;
 
 namespace UPnP.Rx.Eventing;
 
@@ -23,6 +24,15 @@ internal sealed class GenaSubscriptionSource : EngineSource<UpnpEvent>
 
     private readonly Dictionary<string, PropertyChange> _lastKnown = new(StringComparer.OrdinalIgnoreCase);
 
+    private readonly DeviceIdentity _identity;
+    private readonly Func<IObservable<RosterChange>> _presence;
+
+    /// <summary>The attempt currently running, so a presence notice can end it. Under <see cref="EngineSource{TEvent}.Gate"/>.</summary>
+    private CancellationTokenSource? _attempt;
+
+    /// <summary>Set when the device's presence says this subscription is void. Under the gate.</summary>
+    private (string Reason, bool MayResubscribe)? _cancelled;
+
     internal GenaSubscriptionSource(
         Uri eventSubUrl,
         Func<string, Uri> callbackForToken,
@@ -30,9 +40,13 @@ internal sealed class GenaSubscriptionSource : EngineSource<UpnpEvent>
         Func<string, Func<NotifyRequest, CancellationToken, Task>, IDisposable> registerRoute,
         UpnpClientOptions options,
         ILogger logger,
+        DeviceIdentity identity,
+        Func<IObservable<RosterChange>> presence,
         CancellationToken clientLifetime)
         : base(clientLifetime)
     {
+        _identity = identity;
+        _presence = presence;
         _eventSubUrl = eventSubUrl;
         _callbackForToken = callbackForToken;
         _transport = transport;
@@ -77,6 +91,18 @@ internal sealed class GenaSubscriptionSource : EngineSource<UpnpEvent>
     {
         var everSubscribed = false;
 
+        // UDA 2.0 clause 4.1.1 strongly recommends that subscribers watch the
+        // publisher's discovery messages; the roster already derives both events the
+        // clause names - a byebye and an unannounced BOOTID change - and already
+        // honours the ssdp:update exclusion, so this observes it rather than tracking
+        // boot identities a second time. It also means an event subscription keeps the
+        // roster engine running for as long as it lives.
+        using var presence = _identity.Uuid is null
+            ? System.Reactive.Disposables.Disposable.Empty
+            : _presence().Subscribe(
+                OnPresenceChange,
+                e => _logger.PresenceWatchEnded(e, _eventSubUrl));
+
         while (!ct.IsCancellationRequested)
         {
             // A fresh token per attempt: NOTIFYs route by token, so a NOTIFY
@@ -92,6 +118,12 @@ internal sealed class GenaSubscriptionSource : EngineSource<UpnpEvent>
                 HandleNotify(notify, seqTracker, resubscribe);
                 return Task.CompletedTask;
             });
+
+            lock (Gate)
+            {
+                _attempt = resubscribe;
+                _cancelled = null;
+            }
 
             try
             {
@@ -184,9 +216,20 @@ internal sealed class GenaSubscriptionSource : EngineSource<UpnpEvent>
             }
             finally
             {
-                // Teardown runs INSIDE the engine task: say goodbye when we had
-                // a live subscription and the device is presumably still there.
-                if (sid is not null)
+                (string Reason, bool MayResubscribe)? cancelled;
+
+                lock (Gate)
+                {
+                    cancelled = _cancelled;
+                    _attempt = null;
+                }
+
+                // Teardown runs INSIDE the engine task: say goodbye when we had a live
+                // subscription and the device is presumably still there. Not when its
+                // presence says otherwise - clause 4.1.1 makes the SID void at that
+                // point, and the publisher "shall reject" any non-subscribe message
+                // carrying it, so UNSUBSCRIBE would be a message we know is refused.
+                if (sid is not null && cancelled is null)
                 {
                     try
                     {
@@ -199,6 +242,91 @@ internal sealed class GenaSubscriptionSource : EngineSource<UpnpEvent>
                     }
                 }
             }
+
+            if (TakeCancellation() is { } cancellation)
+            {
+                // Recovery, when it happens, is a fresh SUBSCRIBE with NT + CALLBACK
+                // (clause 4.1.2) rather than a renewal - the old SID no longer exists
+                // on the device - which is what looping round to the next attempt does.
+                var willResubscribe = cancellation.MayResubscribe && _options.AutoResubscribe;
+
+                Emit(new SubscriptionCancelled(cancellation.Reason, willResubscribe));
+
+                if (!willResubscribe)
+                {
+                    Error(new UpnpException(cancellation.Reason));
+                    return;
+                }
+
+                everSubscribed = true;
+                continue;
+            }
+        }
+    }
+
+    private (string Reason, bool MayResubscribe)? TakeCancellation()
+    {
+        lock (Gate)
+        {
+            var cancelled = _cancelled;
+            _cancelled = null;
+            return cancelled;
+        }
+    }
+
+    /// <summary>
+    /// The two events UDA 2.0 clause 4.1.1 names as cancelling a subscription: the
+    /// publisher withdrawing its advertisements, and a boot-identity change it did not
+    /// announce in advance. <see cref="DeviceUpdated"/> is deliberately absent - a
+    /// description that changed under a device that never restarted leaves the
+    /// subscription intact - and so is the announced-config-change path, which the
+    /// roster resolves to no change at all.
+    /// </summary>
+    private void OnPresenceChange(RosterChange change)
+    {
+        if (!string.Equals(change.Device.Usn?.DeviceUUID, _identity.Uuid, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var cancellation = change switch
+        {
+            DeviceLeft => ($"The device {_identity.Udn} withdrew its advertisements, so this subscription is cancelled " +
+                "(UDA 2.0 clause 4.1.1).", false),
+
+            // Clause 4.1.2 requires subscribing to the eventSubURL the device's
+            // description advertises. Clause 1.2.2 makes an unchanged CONFIGID a
+            // guarantee that the description - and so that URL - is unchanged; without
+            // that guarantee the cached URL may no longer be the right one, and
+            // re-describing is the consumer's move, not ours.
+            DeviceRebooted rebooted => ($"The device {_identity.Udn} restarted without announcing it, so this " +
+                "subscription is cancelled (UDA 2.0 clause 4.1.1).",
+                _identity.ConfigId is { } configId && rebooted.Device.ConfigId == configId),
+
+            _ => default((string, bool)?)
+        } as (string Reason, bool MayResubscribe)?;
+
+        if (cancellation is null)
+        {
+            return;
+        }
+
+        CancellationTokenSource? attempt;
+
+        lock (Gate)
+        {
+            _cancelled = cancellation;
+            attempt = _attempt;
+        }
+
+        // Outside the gate: cancelling runs engine continuations inline.
+        try
+        {
+            attempt?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // The attempt already ended; the flag is enough.
         }
     }
 

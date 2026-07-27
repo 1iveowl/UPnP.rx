@@ -423,6 +423,28 @@ public class UpnpClientTests
     }
 
     [Fact]
+    public async Task Events_WatchTheDevicesPresence_SoACancellationCanBeNoticed()
+    {
+        // UDA 2.0 clause 4.1.1 strongly recommends subscribers monitor the publisher's
+        // discovery messages. That means an event subscription observes presence - and
+        // this asserts the client actually wires the real roster in, which the
+        // engine-level tests cannot, since they inject a fake presence stream.
+        // An address is required or the roster's opening M-SEARCH is skipped entirely.
+        var (client, controlPoint, http) = CreateClient(IPAddress.Parse("192.168.1.42"));
+        await using var _1 = client;
+        http.Map(Location, Fixture("linksys_WAG200G_desc.xml"));
+
+        var device = await DescribedLinksysAsync(controlPoint, client);
+        var searchesBefore = controlPoint.SentSearches.Count;
+
+        using var subscription = device.Service("WANCommonInterfaceConfig").Events().Subscribe(_ => { }, _ => { });
+
+        await WaitForAsync(() => controlPoint.SentSearches.Count > searchesBefore);
+
+        Assert.True(controlPoint.SentSearches.Count > searchesBefore);
+    }
+
+    [Fact]
     public async Task InvokeAsync_RecordsTheControlResponseVersionClaim()
     {
         // UDA 2.0 clause 3.2.2 requires SERVER on control responses, in the same

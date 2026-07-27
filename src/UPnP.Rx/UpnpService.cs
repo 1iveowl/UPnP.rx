@@ -31,9 +31,11 @@ public sealed class UpnpService : IUpnpService
     private readonly IPAddress? _localAddress;
     private readonly Lock _scpdLock = new();
     private Task<Scpd>? _scpdTask;
+    private readonly DeviceIdentity _identity;
 
     internal UpnpService(
         ServiceDescription description,
+        DeviceIdentity identity,
         HttpClient httpClient,
         UpnpClientOptions options,
         EventingContext eventing,
@@ -41,6 +43,7 @@ public sealed class UpnpService : IUpnpService
         CancellationToken lifetime)
     {
         Description = description;
+        _identity = identity;
         _httpClient = httpClient;
         _options = options;
         _eventing = eventing;
@@ -64,10 +67,20 @@ public sealed class UpnpService : IUpnpService
     /// atomic) - do async work in the pipeline, not in the subscriber
     /// (house Rx rule 1 applies here doubly).
     /// </summary>
+    /// <remarks>
+    /// A live subscription also watches the device's presence, because UDA 2.0 clause
+    /// 4.1.1 says a subscriber that sees the publisher withdraw its advertisements, or
+    /// raise its <c>BOOTID</c> without announcing it, "shall assume that their
+    /// subscriptions have been cancelled" - noticing that is what turns minutes of
+    /// silence into a <see cref="SubscriptionCancelled"/>. Presence comes from the same
+    /// roster <see cref="UpnpClient.Roster"/> exposes, so subscribing here starts the
+    /// roster engine (including its opening M-SEARCH) for as long as any event
+    /// subscription lives.
+    /// </remarks>
     /// <exception cref="UpnpException">The service declares no <c>eventSubURL</c>.</exception>
     public IObservable<UpnpEvent> Events() => Description.EventSubUrl is null
             ? throw new UpnpException($"The service {Description.ServiceType} declares no eventSubURL - it is not evented.")
-            : _eventing.GetOrCreateSource(Description.EventSubUrl, _localAddress);
+            : _eventing.GetOrCreateSource(Description.EventSubUrl, _localAddress, _identity);
 
     /// <summary>The service entry from the device description document.</summary>
     public ServiceDescription Description { get; }

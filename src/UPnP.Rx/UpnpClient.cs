@@ -69,7 +69,7 @@ public sealed class UpnpClient : IUpnpClient
         _httpClient = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
         _ownsHttpClient = true;
         _descriptions = new DescriptionCache(_options.TimeProvider);
-        _eventing = new EventingContext(_httpClient, _options, _lifetime.Token);
+        _eventing = new EventingContext(_httpClient, _options, Roster, _lifetime.Token);
     }
 
     /// <summary>
@@ -96,7 +96,7 @@ public sealed class UpnpClient : IUpnpClient
         _options = options ?? new UpnpClientOptions();
         _addresses = [.. addresses];
         _descriptions = new DescriptionCache(_options.TimeProvider);
-        _eventing = new EventingContext(_httpClient, _options, _lifetime.Token);
+        _eventing = new EventingContext(_httpClient, _options, Roster, _lifetime.Token);
     }
 
     /// <summary>

@@ -1,7 +1,9 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using UPnP.Rx.Eventing;
+using UPnP.Rx.Presence;
 using Xunit;
+using System.Reactive.Subjects;
 using static UPnP.Rx.Tests.TestHelpers.TestKit;
 
 namespace UPnP.Rx.Tests;
@@ -45,6 +47,11 @@ public class GenaSubscriptionSourceTests
     private readonly FakeTimeProvider _time = new();
     private Func<NotifyRequest, CancellationToken, Task>? _route;
 
+    /// <summary>Drives the presence notices UDA 2.0 clause 4.1.1 says cancel a subscription.</summary>
+    private readonly Subject<UPnP.Rx.Presence.RosterChange> _roster = new();
+
+    private Func<IObservable<UPnP.Rx.Presence.RosterChange>> _presence => () => _roster;
+
     private GenaSubscriptionSource CreateSource(bool autoResubscribe = true) =>
         CreateSourceWithLifetime(CancellationToken.None, autoResubscribe);
 
@@ -59,12 +66,137 @@ public class GenaSubscriptionSourceTests
         },
         new UpnpClientOptions { TimeProvider = _time, AutoResubscribe = autoResubscribe },
         NullLogger.Instance,
+        Identity(),
+        _presence,
         lifetime);
 
     private Task NotifyAsync(uint seq, string name, string value) =>
         _route!(new NotifyRequest("uuid:sid-1", seq,
             $"<e:propertyset xmlns:e=\"urn:schemas-upnp-org:event-1-0\"><e:property><{name}>{value}</{name}></e:property></e:propertyset>"),
             CancellationToken.None);
+
+    // UDA 2.0 clause 4.1.1: "If the publisher cancels its advertisements or if the
+    // value of the BOOTID.UPNP.ORG is increased without a prior ssdp:update message
+    // with a matching NEXTBOOTID.UPNP.ORG field value, subscribers shall assume that
+    // their subscriptions have been cancelled."
+
+    private static DiscoveredDevice Device(string udn = "uuid:device-1", int? configId = 1) =>
+        DiscoveredFor(udn, configId);
+
+    [Fact]
+    public async Task DeviceReboots_SubscriptionIsAssumedCancelled_AndResubscribedFresh()
+    {
+        var source = CreateSource();
+        var events = new List<UpnpEvent>();
+        using var subscription = source.Subscribe(events.Add);
+        await WaitForAsync(() => _transport.SubscribeCount == 1);
+
+        _roster.OnNext(new DeviceRebooted(Device()));
+        await WaitForAsync(() => _transport.SubscribeCount == 2);
+
+        var cancelled = Assert.Single(events.OfType<SubscriptionCancelled>());
+        Assert.True(cancelled.WillResubscribe);
+        Assert.Contains("restarted", cancelled.Reason);
+
+        // Recovery is a fresh SUBSCRIBE (clause 4.1.2), never a renewal on the old SID.
+        Assert.Equal(2, _transport.SubscribeCount);
+        Assert.Equal(0, _transport.RenewCount);
+
+        // And no goodbye: the same clause makes the SID void, and says the publisher
+        // "shall reject" any non-subscribe message carrying it.
+        Assert.Equal(0, _transport.UnsubscribeCount);
+    }
+
+    [Fact]
+    public async Task DeviceSaysByeBye_SubscriptionEnds_WithoutUnsubscribing()
+    {
+        var source = CreateSource();
+        var events = new List<UpnpEvent>();
+        Exception? error = null;
+        using var subscription = source.Subscribe(events.Add, e => error = e);
+        await WaitForAsync(() => _transport.SubscribeCount == 1);
+
+        _roster.OnNext(new DeviceLeft(Device()));
+        await WaitForAsync(() => error is not null);
+
+        var cancelled = Assert.Single(events.OfType<SubscriptionCancelled>());
+        Assert.False(cancelled.WillResubscribe);          // the device is gone; retrying is pointless
+        Assert.Contains("withdrew", cancelled.Reason);
+        Assert.Equal(1, _transport.SubscribeCount);
+        Assert.Equal(0, _transport.UnsubscribeCount);
+    }
+
+    [Fact]
+    public async Task RebootWithAChangedConfigId_EndsInsteadOfResubscribing()
+    {
+        // Clause 4.1.2 requires subscribing to the eventSubURL the description
+        // advertises; clause 1.2.2 makes an unchanged CONFIGID the guarantee that the
+        // description has not moved. Without that guarantee the cached URL may be
+        // stale, so the stream ends rather than subscribing to a URL we cannot vouch for.
+        var source = CreateSource();
+        var events = new List<UpnpEvent>();
+        Exception? error = null;
+        using var subscription = source.Subscribe(events.Add, e => error = e);
+        await WaitForAsync(() => _transport.SubscribeCount == 1);
+
+        _roster.OnNext(new DeviceRebooted(Device(configId: 2)));
+        await WaitForAsync(() => error is not null);
+
+        Assert.False(Assert.Single(events.OfType<SubscriptionCancelled>()).WillResubscribe);
+        Assert.Equal(1, _transport.SubscribeCount);
+        Assert.Equal(0, _transport.UnsubscribeCount);
+    }
+
+    [Fact]
+    public async Task PresenceChangesForOtherDevices_AreIgnored()
+    {
+        var source = CreateSource();
+        var events = new List<UpnpEvent>();
+        using var subscription = source.Subscribe(events.Add);
+        await WaitForAsync(() => _transport.SubscribeCount == 1);
+
+        _roster.OnNext(new DeviceLeft(Device("uuid:someone-else")));
+        _roster.OnNext(new DeviceRebooted(Device("uuid:someone-else")));
+        await SettleAsync();
+
+        Assert.Empty(events.OfType<SubscriptionCancelled>());
+        Assert.Equal(1, _transport.SubscribeCount);
+    }
+
+    [Fact]
+    public async Task DeviceUpdated_DoesNotCancel_TheSubscriptionSurvivesADescriptionChange()
+    {
+        // Only the two events the clause names cancel a subscription. A device whose
+        // description changed while it kept running has not lost its subscriptions -
+        // and an announced config change (ssdp:update) never reaches here at all,
+        // because the roster resolves it to no change.
+        var source = CreateSource();
+        var events = new List<UpnpEvent>();
+        using var subscription = source.Subscribe(events.Add);
+        await WaitForAsync(() => _transport.SubscribeCount == 1);
+
+        _roster.OnNext(new DeviceUpdated(Device()));
+        await SettleAsync();
+
+        Assert.Empty(events.OfType<SubscriptionCancelled>());
+        Assert.Equal(1, _transport.SubscribeCount);
+    }
+
+    [Fact]
+    public async Task WithAutoResubscribeOff_ARebootEndsTheStream()
+    {
+        var source = CreateSource(autoResubscribe: false);
+        var events = new List<UpnpEvent>();
+        Exception? error = null;
+        using var subscription = source.Subscribe(events.Add, e => error = e);
+        await WaitForAsync(() => _transport.SubscribeCount == 1);
+
+        _roster.OnNext(new DeviceRebooted(Device()));
+        await WaitForAsync(() => error is not null);
+
+        Assert.False(Assert.Single(events.OfType<SubscriptionCancelled>()).WillResubscribe);
+        Assert.Equal(1, _transport.SubscribeCount);
+    }
 
     [Fact]
     public async Task FirstSubscriber_StartsTheEngine_InitialStateFlows()

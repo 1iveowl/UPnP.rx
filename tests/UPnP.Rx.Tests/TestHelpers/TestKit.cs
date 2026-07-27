@@ -35,4 +35,30 @@ internal static class TestKit
             await Task.Yield();
         }
     }
+
+    /// <summary>
+    /// The device a subscription belongs to. Tests that do not exercise presence-driven
+    /// cancellation still need one, so the default carries a UDN and a CONFIGID.
+    /// </summary>
+    public static UPnP.Rx.Eventing.DeviceIdentity Identity(string? udn = "uuid:device-1", int? configId = 1) =>
+        new(udn, configId);
+
+    /// <summary>A presence stream that never fires - the device simply stays put.</summary>
+    public static Func<IObservable<UPnP.Rx.Presence.RosterChange>> NoPresence { get; } =
+        () => System.Reactive.Linq.Observable.Never<UPnP.Rx.Presence.RosterChange>();
+
+    /// <summary>
+    /// A discovery envelope for presence tests. The USN is spelled as devices spell it
+    /// (<c>uuid:x::upnp:rootdevice</c>), so identity matching is exercised through the
+    /// same normalisation the real path uses.
+    /// </summary>
+    public static DiscoveredDevice DiscoveredFor(string udn, int? configId) =>
+        new(SSDP.UPnP.PCL.Model.USN.Parse($"{udn}::upnp:rootdevice").Value,
+            new Uri("http://192.168.1.9/desc.xml"),
+            null,
+            new BootSignature(1, null),
+            configId,
+            false,
+            null,
+            _ => Task.FromException<DescribedDevice>(new UpnpException("not described in these tests")));
 }

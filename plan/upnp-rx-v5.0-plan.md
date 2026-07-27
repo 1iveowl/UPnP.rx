@@ -196,11 +196,11 @@ Raw SSDP wire log (upstream, `SimpleHttpListener.Rx`); multicast eventing; the Q
 filings (dotnet/reactive WASM scheduler, ReactiveUI `WithBlazorWasm` default, SSDP
 candidates 1/2), which remain independent of this release.
 
-## 12. The 5.1 shelf
+## 12. Clause 4.1.1: subscriptions follow the device's presence (SHIPPED in 5.0.0)
 
-### 12a. GENA subscriptions die silently when a device reboots
+### 12a. GENA subscriptions no longer die silently when a device reboots
 
-**Ours to fix, in this repo** - it was briefly misfiled under the project plan's
+**Was ours to fix, in this repo, and is now done** - it was briefly misfiled under the project plan's
 upstream-candidate list, which is for the sibling libraries only.
 
 UDA 2.0 clause 4.1.1: *"if the value of the BOOTID.UPNP.ORG is increased without a
@@ -278,3 +278,24 @@ changed boot identity, assert a fresh SUBSCRIBE (no SID) without waiting for a
 renewal and assert no UNSUBSCRIBE was sent; the same for a byebye; and the contrast
 case, that an `ssdp:update` followed by its promised re-advertisement does **not**
 resubscribe.
+
+### 12b. How it landed
+
+Implemented in 5.0.0 rather than deferred. Notes worth keeping:
+
+- **No second boot tracker.** The roster already derives both events the clause names
+  and already honours the `ssdp:update` exclusion, so `GenaSubscriptionSource`
+  observes `Roster()` rather than tracking boot identities again. `EngineSource`'s
+  refcount does the lifecycle work: an event subscription keeps the roster engine
+  running for exactly as long as it lives. The visible consequence - `Events()` now
+  starts discovery, including the roster's opening M-SEARCH - is documented on
+  `Events()` itself.
+- **A near-miss worth remembering.** A description's `<UDN>` is spelled
+  `uuid:x` while the SSDP layer reports `USN.DeviceUUID` as bare `x`. Comparing them
+  directly compiles, runs, and silently never matches - the feature would have been
+  dead on arrival exactly like the `SERVER` product-token bug. `DeviceIdentity.Uuid`
+  normalises, and the engine tests would fail loudly if it stopped.
+- **The tests assert the spec, not the implementation**: a fresh SUBSCRIBE rather
+  than a renewal, *zero* UNSUBSCRIBEs on a cancelled SID, `DeviceUpdated` explicitly
+  not cancelling, and other devices' presence ignored. One integration test asserts
+  the client wires the real roster in, which the engine-level tests cannot see.

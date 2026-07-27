@@ -24,10 +24,14 @@ public sealed class DescribedDevice
         ContentHash = contentHash;
         Services =
         [
+            // Each service is tagged with the device that declares it, and with the
+            // root's CONFIGID - the configuration this description belongs to.
             .. description
                 .SelfAndDescendants()
-                .SelectMany(device => device.Services)
-                .Select(service => new UpnpService(service, httpClient, options, eventing, localAddress, lifetime))
+                .SelectMany(device => device.Services.Select(service => new UpnpService(
+                    service,
+                    new DeviceIdentity(device.Udn, description.ConfigId),
+                    httpClient, options, eventing, localAddress, lifetime)))
         ];
     }
 

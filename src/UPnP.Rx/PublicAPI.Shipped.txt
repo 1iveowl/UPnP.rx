@@ -95,6 +95,14 @@ UPnP.Rx.Eventing.Subscribed.Sid.init -> void
 UPnP.Rx.Eventing.Subscribed.Subscribed(string! Sid, System.TimeSpan Timeout) -> void
 UPnP.Rx.Eventing.Subscribed.Timeout.get -> System.TimeSpan
 UPnP.Rx.Eventing.Subscribed.Timeout.init -> void
+UPnP.Rx.Eventing.SubscriptionCancelled
+UPnP.Rx.Eventing.SubscriptionCancelled.Deconstruct(out string! Reason, out bool WillResubscribe) -> void
+UPnP.Rx.Eventing.SubscriptionCancelled.Equals(UPnP.Rx.Eventing.SubscriptionCancelled? other) -> bool
+UPnP.Rx.Eventing.SubscriptionCancelled.Reason.get -> string!
+UPnP.Rx.Eventing.SubscriptionCancelled.Reason.init -> void
+UPnP.Rx.Eventing.SubscriptionCancelled.SubscriptionCancelled(string! Reason, bool WillResubscribe) -> void
+UPnP.Rx.Eventing.SubscriptionCancelled.WillResubscribe.get -> bool
+UPnP.Rx.Eventing.SubscriptionCancelled.WillResubscribe.init -> void
 UPnP.Rx.Eventing.SubscriptionRefused
 UPnP.Rx.Eventing.SubscriptionRefused.Deconstruct(out int HttpStatus, out string! Reason) -> void
 UPnP.Rx.Eventing.SubscriptionRefused.Equals(UPnP.Rx.Eventing.SubscriptionRefused? other) -> bool
@@ -523,6 +531,10 @@ override UPnP.Rx.Eventing.Subscribed.<Clone>$() -> UPnP.Rx.Eventing.Subscribed!
 override UPnP.Rx.Eventing.Subscribed.Equals(object? obj) -> bool
 override UPnP.Rx.Eventing.Subscribed.GetHashCode() -> int
 override UPnP.Rx.Eventing.Subscribed.ToString() -> string!
+override UPnP.Rx.Eventing.SubscriptionCancelled.<Clone>$() -> UPnP.Rx.Eventing.SubscriptionCancelled!
+override UPnP.Rx.Eventing.SubscriptionCancelled.Equals(object? obj) -> bool
+override UPnP.Rx.Eventing.SubscriptionCancelled.GetHashCode() -> int
+override UPnP.Rx.Eventing.SubscriptionCancelled.ToString() -> string!
 override UPnP.Rx.Eventing.SubscriptionRefused.<Clone>$() -> UPnP.Rx.Eventing.SubscriptionRefused!
 override UPnP.Rx.Eventing.SubscriptionRefused.Equals(object? obj) -> bool
 override UPnP.Rx.Eventing.SubscriptionRefused.GetHashCode() -> int
@@ -615,6 +627,7 @@ override sealed UPnP.Rx.Eventing.PropertyChange.Equals(UPnP.Rx.Eventing.UpnpEven
 override sealed UPnP.Rx.Eventing.RenewalFailed.Equals(UPnP.Rx.Eventing.UpnpEvent? other) -> bool
 override sealed UPnP.Rx.Eventing.Resubscribed.Equals(UPnP.Rx.Eventing.UpnpEvent? other) -> bool
 override sealed UPnP.Rx.Eventing.Subscribed.Equals(UPnP.Rx.Eventing.UpnpEvent? other) -> bool
+override sealed UPnP.Rx.Eventing.SubscriptionCancelled.Equals(UPnP.Rx.Eventing.UpnpEvent? other) -> bool
 override sealed UPnP.Rx.Eventing.SubscriptionRefused.Equals(UPnP.Rx.Eventing.UpnpEvent? other) -> bool
 override sealed UPnP.Rx.Presence.DeviceAppeared.Equals(UPnP.Rx.Presence.RosterChange? other) -> bool
 override sealed UPnP.Rx.Presence.DeviceExpired.Equals(UPnP.Rx.Presence.RosterChange? other) -> bool
@@ -645,6 +658,8 @@ static UPnP.Rx.Eventing.Resubscribed.operator !=(UPnP.Rx.Eventing.Resubscribed? 
 static UPnP.Rx.Eventing.Resubscribed.operator ==(UPnP.Rx.Eventing.Resubscribed? left, UPnP.Rx.Eventing.Resubscribed? right) -> bool
 static UPnP.Rx.Eventing.Subscribed.operator !=(UPnP.Rx.Eventing.Subscribed? left, UPnP.Rx.Eventing.Subscribed? right) -> bool
 static UPnP.Rx.Eventing.Subscribed.operator ==(UPnP.Rx.Eventing.Subscribed? left, UPnP.Rx.Eventing.Subscribed? right) -> bool
+static UPnP.Rx.Eventing.SubscriptionCancelled.operator !=(UPnP.Rx.Eventing.SubscriptionCancelled? left, UPnP.Rx.Eventing.SubscriptionCancelled? right) -> bool
+static UPnP.Rx.Eventing.SubscriptionCancelled.operator ==(UPnP.Rx.Eventing.SubscriptionCancelled? left, UPnP.Rx.Eventing.SubscriptionCancelled? right) -> bool
 static UPnP.Rx.Eventing.SubscriptionRefused.operator !=(UPnP.Rx.Eventing.SubscriptionRefused? left, UPnP.Rx.Eventing.SubscriptionRefused? right) -> bool
 static UPnP.Rx.Eventing.SubscriptionRefused.operator ==(UPnP.Rx.Eventing.SubscriptionRefused? left, UPnP.Rx.Eventing.SubscriptionRefused? right) -> bool
 static UPnP.Rx.Eventing.UpnpEvent.operator !=(UPnP.Rx.Eventing.UpnpEvent? left, UPnP.Rx.Eventing.UpnpEvent? right) -> bool

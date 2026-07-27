@@ -64,7 +64,17 @@ internal sealed class GenaSubscriptionSource : EngineSource<UpnpEvent>
     }
 
     /// <summary>A fresh run: anything remembered predates the stop and is superseded by the new SEQ 0 state.</summary>
-    protected override void ClearStateLocked() => _lastKnown.Clear();
+    protected override void ClearStateLocked()
+    {
+        _lastKnown.Clear();
+
+        // A presence notice can be banked by an attempt that then dies on another
+        // error, and the paths that end the stream do not consume it. Left standing it
+        // would be applied to the NEXT run - suppressing that run's UNSUBSCRIBE and
+        // ending a healthy subscription with a stale reason.
+        Volatile.Write(ref _cancelled, null);
+        Volatile.Write(ref _attempt, null);
+    }
 
     /// <summary>Q5: late subscribers get the last-known state first, flagged as replay.</summary>
     protected override void ReplayLocked(IObserver<UpnpEvent> observer)
@@ -136,6 +146,15 @@ internal sealed class GenaSubscriptionSource : EngineSource<UpnpEvent>
             });
 
             Volatile.Write(ref _attempt, resubscribe);
+
+            // Publish, then look again: a notice that arrived while no attempt was
+            // published had nothing to cancel, and without this re-check the engine
+            // would go on to SUBSCRIBE at a device that has already departed and then
+            // sit in the renewal loop for half the granted timeout before noticing.
+            if (Volatile.Read(ref _cancelled) is not null)
+            {
+                resubscribe.Cancel();
+            }
 
             try
             {

@@ -413,13 +413,19 @@ net start SSDPSRV</pre>
             }
 
             _refreshed.Add(key);
-            _checkmarkTimers.Add(Observable
+
+            // Same self-removing shape as the reboot marker's timer: without the
+            // Remove, a long-lived page accumulates one dead handle per refresh.
+            var handle = new SerialDisposable();
+            _checkmarkTimers.Add(handle);
+            handle.Disposable = Observable
                 .Timer(TimeSpan.FromSeconds(1.5), DefaultScheduler.Instance)
                 .Subscribe(tick =>
                 {
                     _refreshed.Remove(key);
                     _ = InvokeAsync(StateHasChanged);
-                }));
+                    _checkmarkTimers.Remove(handle);
+                });
         }
         finally
         {
@@ -457,24 +463,23 @@ net start SSDPSRV</pre>
             _ = InvokeAsync(StateHasChanged);
 
             // The handle removes itself once it has fired: a long-lived page watching a
-            // flapping device would otherwise accumulate one per restart.
-            SerialDisposable? handle = null;
-            handle = new SerialDisposable
-            {
-                Disposable = Observable
-                    .Timer(TimeSpan.FromSeconds(8), DefaultScheduler.Instance)
-                    .Subscribe(tick =>
-                    {
-                        _rebooted.Remove(key);
-                        _ = InvokeAsync(StateHasChanged);
-                        _checkmarkTimers.Remove(handle!);
-                    })
-            };
-
+            // flapping device would otherwise accumulate one per restart. Registered
+            // BEFORE the timer is attached - the callback runs on a scheduler thread,
+            // and reading a handle assigned after subscription is a race on hosts with
+            // real threads (Blazor Server), however unreachable at an 8 s delay.
+            var handle = new SerialDisposable();
             _checkmarkTimers.Add(handle);
+            handle.Disposable = Observable
+                .Timer(TimeSpan.FromSeconds(8), DefaultScheduler.Instance)
+                .Subscribe(tick =>
+                {
+                    _rebooted.Remove(key);
+                    _ = InvokeAsync(StateHasChanged);
+                    _checkmarkTimers.Remove(handle);
+                });
         });
 
-        _departureSubscription = Stream.Departures.Subscribe(key => InvokeAsync(StateHasChanged));
+        _departureSubscription = Stream.Departures.Subscribe(key => _ = InvokeAsync(StateHasChanged));
 
         // Re-render when activity arrives for a card the user has open.
         _activitySubscription = Stream.SsdpActivity.Subscribe(row =>

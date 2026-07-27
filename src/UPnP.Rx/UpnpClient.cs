@@ -437,7 +437,10 @@ public sealed class UpnpClient : IUpnpClient
     {
         if (location is null)
         {
-            _options.Logger.AnnouncementWithoutLocation(usn);
+            // ToUsnString rather than the record itself: the synthesized ToString dumps
+            // every member, and the wire form is the useful spelling. Formatting eagerly
+            // here is fine - this line only runs on the already-degraded drop path.
+            _options.Logger.AnnouncementWithoutLocation(usn?.ToUsnString());
             return null;
         }
 

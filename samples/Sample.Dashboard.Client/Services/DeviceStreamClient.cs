@@ -70,8 +70,11 @@ public sealed class DeviceStreamClient : IAsyncDisposable
                 EndRescan();
             }
 
-            // Back from the dead: a returning device is live again, not history.
+            // Back from the dead: a returning device is live again, not history. Any
+            // arrival also sweeps the age bound - departures alone would never age
+            // anything out on a page where nothing else departs.
             _departed.Remove(dto.Key);
+            TrimDeparted();
             _cache.AddOrUpdate(dto);
             _departures.OnNext(dto.Key);
         });

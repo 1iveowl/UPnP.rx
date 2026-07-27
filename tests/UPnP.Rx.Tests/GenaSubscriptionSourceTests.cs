@@ -18,18 +18,41 @@ public class GenaSubscriptionSourceTests
         public bool FailRenewals;
         public Exception? FailSubscribe;
 
+
+
         /// <summary>When set, SUBSCRIBE blocks on this until completed or the attempt is cancelled.</summary>
         public TaskCompletionSource? HoldSubscribe;
+
+        /// <summary>
+        /// Whether a held SUBSCRIBE aborts when its attempt is cancelled. True models a
+        /// request torn down promptly; false models a response already on the wire when
+        /// the cancellation lands - the race the stale-cancellation test needs.
+        /// </summary>
+        public bool HoldObservesCancellation = true;
         public TimeSpan GrantedTimeout { get; set; } = TimeSpan.FromMinutes(10);
 
         public async Task<(string Sid, TimeSpan? Timeout)> SubscribeAsync(
             Uri eventSubUrl, Uri callback, TimeSpan requestedTimeout, CancellationToken ct)
         {
-            SubscribeCount++;
-
             if (HoldSubscribe is { } hold)
             {
-                await hold.Task.WaitAsync(ct);
+                SubscribeCount++;
+
+                if (HoldObservesCancellation)
+                {
+                    await hold.Task.WaitAsync(ct);
+                }
+                else
+                {
+                    await hold.Task;
+                }
+            }
+            else
+            {
+                // A cancelled attempt never puts a request on the wire, so it does not
+                // count as one.
+                ct.ThrowIfCancellationRequested();
+                SubscribeCount++;
             }
 
             return FailSubscribe is { } failure
@@ -55,6 +78,7 @@ public class GenaSubscriptionSourceTests
     private readonly FakeTransport _transport = new();
     private readonly FakeTimeProvider _time = new();
     private Func<NotifyRequest, CancellationToken, Task>? _route;
+    private Action? _onRouteRegistered;
 
     /// <summary>Drives the presence notices UDA 2.0 clause 4.1.1 says cancel a subscription.</summary>
     private readonly Subject<UPnP.Rx.Presence.RosterChange> _roster = new();
@@ -78,6 +102,7 @@ public class GenaSubscriptionSourceTests
         (_, handler) =>
         {
             _route = handler;
+            _onRouteRegistered?.Invoke();
             return System.Reactive.Disposables.Disposable.Create(() => _route = null);
         },
         new UpnpClientOptions { TimeProvider = _time, AutoResubscribe = autoResubscribe },
@@ -215,6 +240,81 @@ public class GenaSubscriptionSourceTests
 
         Assert.Empty(events.OfType<Resubscribed>());
         Assert.Equal(TimeSpan.FromMinutes(10), Assert.Single(events.OfType<Subscribed>()).Timeout);
+    }
+
+    [Fact]
+    public async Task ACancellationBankedByADyingAttempt_DoesNotPoisonTheNextRun()
+    {
+        // The interleaving: a byebye lands while a SUBSCRIBE is in flight, and the
+        // device's answer - already on the wire - is a permanent 501. The refusal path
+        // ends the stream without consuming the banked notice, which must not then be
+        // applied to a later, healthy run: it would suppress that run's UNSUBSCRIBE and
+        // kill it with a stale "withdrew its advertisements" reason.
+        _transport.HoldSubscribe = new TaskCompletionSource();
+        _transport.HoldObservesCancellation = false;
+        _transport.FailSubscribe = new GenaHttpException("refused", 501);
+
+        var source = CreateSource();
+        Exception? firstError = null;
+        using (source.Subscribe(_ => { }, e => firstError = e))
+        {
+            await WaitForAsync(() => _transport.SubscribeCount == 1);
+            await PresenceReadyAsync();
+            _roster.OnNext(new DeviceLeft(Device()));      // banked; the attempt is held
+            _transport.HoldSubscribe.SetResult();          // now the 501 lands
+            await WaitForAsync(() => firstError is not null);
+        }
+
+        // A fresh run against a healthy device; an ordinary renewal failure must
+        // resubscribe, not surface last run's departure.
+        _transport.HoldSubscribe = null;
+        _transport.FailSubscribe = null;
+        var events = new List<UpnpEvent>();
+        Exception? secondError = null;
+        using var second = source.Subscribe(events.Add, e => secondError = e);
+        await WaitForAsync(() => events.OfType<Subscribed>().Any());
+
+        _transport.FailRenewals = true;
+        _time.Advance(TimeSpan.FromMinutes(5));
+        await WaitForAsync(() => events.OfType<RenewalFailed>().Any());
+        _transport.FailRenewals = false;
+        await WaitForAsync(() => events.OfType<Resubscribed>().Any());
+
+        Assert.Null(secondError);
+        Assert.Empty(events.OfType<SubscriptionCancelled>());
+    }
+
+    [Fact]
+    public async Task ANoticeArrivingBetweenAttempts_IsActedOnByTheNextAttempt()
+    {
+        // Between attempts no CancellationTokenSource is published, so a notice has
+        // nothing to cancel. Route registration is the one deterministic moment inside
+        // that gap, so the byebye is injected exactly there - without the publish-then-
+        // recheck, the engine would SUBSCRIBE afresh at the departed device and park in
+        // its renewal loop for half the granted timeout.
+        var registrations = 0;
+        _onRouteRegistered = () =>
+        {
+            if (Interlocked.Increment(ref registrations) == 2)
+            {
+                _roster.OnNext(new DeviceLeft(Device()));
+            }
+        };
+
+        var source = CreateSource();
+        var events = new List<UpnpEvent>();
+        Exception? error = null;
+        using var subscription = source.Subscribe(events.Add, e => error = e);
+        await WaitForAsync(() => events.OfType<Subscribed>().Any());
+        await PresenceReadyAsync();
+
+        // End attempt 1; attempt 2's route registration fires the injection.
+        _transport.FailRenewals = true;
+        _time.Advance(TimeSpan.FromMinutes(5));
+        await WaitForAsync(() => error is not null);
+
+        Assert.False(Assert.Single(events.OfType<SubscriptionCancelled>()).WillResubscribe);
+        Assert.Equal(1, _transport.SubscribeCount);      // no fresh SUBSCRIBE at a departed device
     }
 
     [Fact]

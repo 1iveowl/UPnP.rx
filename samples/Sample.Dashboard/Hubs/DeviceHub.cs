@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Logging;
 using Sample.Dashboard.Client.Models;
 using Sample.Dashboard.Services;
 using UPnP.Rx;
@@ -15,7 +16,8 @@ public sealed class DeviceHub(
     DeviceRoster roster,
     GatewayService gatewayService,
     Services.NetworkClientProvider network,
-    Services.UpnpDiscoveryService discovery) : Hub
+    Services.UpnpDiscoveryService discovery,
+    ILogger<DeviceHub> logger) : Hub
 {
     /// <summary>
     /// Clears the projection and swaps in a fresh library-roster subscription
@@ -184,7 +186,7 @@ public sealed class DeviceHub(
     /// instance surfaced) - the quick controls and the live feed both ride
     /// these. Unparsable payloads fall back to the raw row (leniency).
     /// </summary>
-    private static IEnumerable<ServiceEventDto> ToDtos(UPnP.Rx.Eventing.UpnpEvent e)
+    private IEnumerable<ServiceEventDto> ToDtos(UPnP.Rx.Eventing.UpnpEvent e)
     {
         if (e is UPnP.Rx.Eventing.PropertyChange change
             && string.Equals(change.Name, "LastChange", StringComparison.OrdinalIgnoreCase))
@@ -208,7 +210,7 @@ public sealed class DeviceHub(
         yield return ToDto(e);
     }
 
-    private static ServiceEventDto ToDto(UPnP.Rx.Eventing.UpnpEvent e) => e switch
+    private ServiceEventDto ToDto(UPnP.Rx.Eventing.UpnpEvent e) => e switch
     {
         UPnP.Rx.Eventing.PropertyChange c =>
             new ServiceEventDto("PropertyChange", c.Name, c.Value, c.Seq, c.IsInitialState, c.IsReplay, null),
@@ -228,8 +230,20 @@ public sealed class DeviceHub(
                 cancelled.WillResubscribe
                     ? $"{cancelled.Reason} Resubscribing."
                     : cancelled.Reason),
-        _ => new ServiceEventDto(e.GetType().Name, null, null, 0, false, false, null)
+        // Never silently drop an event the library grew after this mapping was
+        // written: records synthesise a full property dump, so the row still carries
+        // everything, and the log names what needs mapping.
+        _ => Unmapped(e)
     };
+
+    private ServiceEventDto Unmapped(UPnP.Rx.Eventing.UpnpEvent e)
+    {
+        logger.LogWarning(
+            "No dashboard mapping for the event type {EventType}; showing it raw. Add it to DeviceHub.ToDto.",
+            e.GetType().Name);
+
+        return new ServiceEventDto(e.GetType().Name, null, null, 0, false, false, e.ToString());
+    }
 
     /// <summary>The input metadata the SCPD holds for an in-argument, via its related state variable.</summary>
     private static ArgumentDto ToArgumentDto(UPnP.Rx.Model.ArgumentDescription argument, UPnP.Rx.Model.Scpd scpd)

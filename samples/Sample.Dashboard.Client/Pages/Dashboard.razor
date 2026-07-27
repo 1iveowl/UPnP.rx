@@ -299,12 +299,16 @@ net start SSDPSRV</pre>
         }
     }
 
+    // The fallback echoes the kind rather than guessing one. A default of "alive"
+    // reads as a fact and was wrong the moment the library grew ssdp:update - an
+    // unstyled but truthful label is the better failure.
     private static string ActivityLabel(string kind) => kind switch
     {
         "SearchResponse" => "search response",
+        "Alive" => "alive",
         "ByeBye" => "byebye",
         "Update" => "update",
-        _ => "alive"
+        _ => kind.ToLowerInvariant()
     };
 
     private void Toggle(string key)

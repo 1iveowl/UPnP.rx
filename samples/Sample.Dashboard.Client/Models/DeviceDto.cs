@@ -48,3 +48,16 @@ public sealed record DeviceNodeDto(
 /// </param>
 /// <param name="At">When the dashboard noticed.</param>
 public sealed record DepartureDto(string Reason, DateTimeOffset At);
+
+/// <summary>
+/// The two ways a device leaves the roster, as they travel over the hub. Shared so
+/// the server that produces one and the browser that reads it cannot drift apart.
+/// </summary>
+public static class DepartureReasons
+{
+    /// <summary>The device sent <c>ssdp:byebye</c> - it announced that it was going.</summary>
+    public const string Left = "left";
+
+    /// <summary>Its advertisement lapsed without a goodbye; off, asleep or out of range are all consistent.</summary>
+    public const string Expired = "expired";
+}

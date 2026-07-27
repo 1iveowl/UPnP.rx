@@ -6,8 +6,10 @@ public static class HubEvents
     /// <summary>A device appeared or its description changed; payload: <see cref="DeviceDto"/>.</summary>
     public const string DeviceUp = "DeviceUp";
 
-    /// <summary>A device said byebye; payload: the device key.</summary>
-    /// <summary>A device left the roster; carries the key and why (see <c>DeparturePhrasing</c>).</summary>
+    /// <summary>
+    /// A device left the roster; payload: the device key and a
+    /// <see cref="DepartureReasons"/> value saying which kind of departure it was.
+    /// </summary>
     public const string DeviceGone = "DeviceGone";
 
     /// <summary>A known device restarted: everything held about it is void (UDA 2.0 clause 1.2.4).</summary>

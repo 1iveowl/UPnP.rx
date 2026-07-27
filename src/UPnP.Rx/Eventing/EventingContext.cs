@@ -5,8 +5,11 @@ namespace UPnP.Rx.Eventing;
 
 /// <summary>
 /// The client-wide eventing infrastructure: one lazily-started callback
-/// listener, one transport, and one shared <see cref="GenaSubscriptionSource"/>
-/// per event endpoint. Owned and disposed by <see cref="UpnpClient"/>.
+/// listener, one transport, and one shared <see cref="GenaSubscriptionSource"/> per
+/// event endpoint <i>and</i> device configuration - a device re-described under a new
+/// CONFIGID gets its own, because the old one's cancellation logic reasons about the
+/// CONFIGID it was built with. Bounded by endpoints times configurations observed,
+/// which in practice is one each. Owned and disposed by <see cref="UpnpClient"/>.
 /// </summary>
 internal sealed class EventingContext(
     HttpClient httpClient,
@@ -21,7 +24,8 @@ internal sealed class EventingContext(
     private bool _disposed;
 
     /// <summary>
-    /// The shared event stream for one service endpoint; created on first use.
+    /// The shared event stream for one service endpoint at one device configuration;
+    /// created on first use.
     /// </summary>
     /// <param name="eventSubUrl">The service's absolute event subscription URL.</param>
     /// <param name="localAddress">

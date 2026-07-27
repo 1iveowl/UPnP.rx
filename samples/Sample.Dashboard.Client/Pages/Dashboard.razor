@@ -183,10 +183,7 @@ net start SSDPSRV</pre>
 
                         <div class="svc-section">
                             SSDP activity (log)
-                            <span class="muted"
-                                                  title="The log keeps only the most recent messages per device, and drops anything older than an hour - long retention belongs in a file log, not a browser tab.">
-                                                @ActivityCounts(device.Key)
-                                            </span>
+                            <span class="muted" title="@_activityRetentionHint">@ActivityCounts(device.Key)</span>
                         </div>
                         @if (Stream.ActivityFor(device.Key) is { Count: > 0 } activity)
                         {
@@ -268,10 +265,10 @@ net start SSDPSRV</pre>
     // know about a device that stopped answering - it may be off, asleep, or simply
     // out of range - so it gets the weaker word.
     private static string DepartureLabel(DepartureDto departure) =>
-        departure.Reason == "left" ? "off" : "not responding";
+        departure.Reason == DepartureReasons.Left ? "off" : "not responding";
 
     private static string DepartureTitle(DepartureDto departure) =>
-        (departure.Reason == "left"
+        (departure.Reason == DepartureReasons.Left
             ? "This device sent ssdp:byebye - it announced that it was going. "
             : "This device stopped announcing and its advertisement lapsed; it never said goodbye, "
               + "which is what a device dropping to standby looks like. ")

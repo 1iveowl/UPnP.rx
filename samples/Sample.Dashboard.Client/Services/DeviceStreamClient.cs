@@ -67,9 +67,7 @@ public sealed class DeviceStreamClient : IAsyncDisposable
             // grayed stale list goes, the new one starts building.
             if (_rescanning.Value)
             {
-                _rescanFallback?.Dispose();
-                _cache.Clear();
-                _rescanning.OnNext(false);
+                EndRescan();
             }
 
             // Back from the dead: a returning device is live again, not history.
@@ -131,8 +129,7 @@ public sealed class DeviceStreamClient : IAsyncDisposable
                     // mislead - clear anyway and fall back to the empty state.
                     if (_rescanning.Value)
                     {
-                        _cache.Clear();
-                        _rescanning.OnNext(false);
+                        EndRescan();
                     }
                 });
         });
@@ -144,7 +141,7 @@ public sealed class DeviceStreamClient : IAsyncDisposable
         };
         _connection.Reconnected += _ =>
         {
-            _cache.Clear();                     // the hub replays the roster on reconnect
+            ResetRoster();                      // the hub replays the roster on reconnect
             _state.OnNext("live");
             return Task.CompletedTask;
         };
@@ -185,7 +182,12 @@ public sealed class DeviceStreamClient : IAsyncDisposable
     /// <param name="key">The device's roster key.</param>
     public DepartureDto? DepartureOf(string key) => _departed.GetValueOrDefault(key);
 
-    /// <summary>Keys whose presence changed between here and gone; re-render on these.</summary>
+    /// <summary>
+    /// Fires on every arrival and every departure - not only on a change of presence.
+    /// That is deliberate: <see cref="LiveCount"/> and <see cref="DepartedCount"/> are
+    /// plain properties with no change notification of their own, so the header badges
+    /// re-render off this. Narrowing it to actual transitions would silently freeze them.
+    /// </summary>
     public IObservable<string> Departures => _departures.AsObservable();
 
     /// <summary>Devices currently present - the cache also holds departed ones.</summary>
@@ -193,6 +195,25 @@ public sealed class DeviceStreamClient : IAsyncDisposable
 
     /// <summary>Devices being kept only as history.</summary>
     public int DepartedCount => _departed.Count;
+
+    /// <summary>
+    /// Drops everything the roster held. Both halves go together: the departed map is
+    /// a view over cache entries, so clearing one without the other strands keys that
+    /// have no card - which shows up immediately as a negative live count, since that
+    /// is the cache size minus the departed size.
+    /// </summary>
+    private void ResetRoster()
+    {
+        _cache.Clear();
+        _departed.Clear();
+    }
+
+    private void EndRescan()
+    {
+        _rescanFallback?.Dispose();
+        ResetRoster();
+        _rescanning.OnNext(false);
+    }
 
     private void TrimDeparted()
     {

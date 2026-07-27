@@ -203,13 +203,12 @@ internal sealed class GenaSubscriptionSource : EngineSource<UpnpEvent>
 
                     // Clause 4.1.1 ends the stream for a departed device rather than
                     // retrying at it every 10 s forever.
-                    switch (ConsumeCancellation())
+                    if (ConsumeCancellation() is CancellationOutcome.Ended)
                     {
-                        case CancellationOutcome.Ended:
-                            return;
-                        default:
-                            continue;
+                        return;
                     }
+
+                    continue;
                 }
 
                 // Subscribed marks the first successful establishment - a retried
@@ -273,14 +272,9 @@ internal sealed class GenaSubscriptionSource : EngineSource<UpnpEvent>
                 }
             }
 
-            switch (ConsumeCancellation())
+            if (ConsumeCancellation() is CancellationOutcome.Ended)
             {
-                case CancellationOutcome.Ended:
-                    return;
-                case CancellationOutcome.Resubscribe:
-                    continue;
-                default:
-                    break;
+                return;
             }
         }
     }

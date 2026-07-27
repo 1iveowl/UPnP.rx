@@ -195,3 +195,43 @@ many to model.
 Raw SSDP wire log (upstream, `SimpleHttpListener.Rx`); multicast eventing; the Q7 upstream
 filings (dotnet/reactive WASM scheduler, ReactiveUI `WithBlazorWasm` default, SSDP
 candidates 1/2), which remain independent of this release.
+
+## 12. The 5.1 shelf
+
+### 12a. GENA subscriptions die silently when a device reboots
+
+**Ours to fix, in this repo** - it was briefly misfiled under the project plan's
+upstream-candidate list, which is for the sibling libraries only.
+
+UDA 2.0 clause 4.1.1: *"if the value of the BOOTID.UPNP.ORG is increased without a
+prior ssdp:update message with a matching NEXTBOOTID.UPNP.ORG field value,
+subscribers shall assume that their subscriptions have been cancelled."* Nothing in
+`Eventing/` observes discovery, so today a rebooted device's dead subscription is
+noticed only when a renewal eventually fails - the consumer sees a gap of silence
+first, and on a device whose granted timeout is long that gap can be many minutes.
+
+5.0.0 supplied both missing prerequisites: `DeviceRebooted` distinguishes an
+unannounced boot change from an announced `ssdp:update`, and the roster records the
+boot identity it expects next. What remains is wiring, across four seams:
+
+1. **Identity.** `GenaSubscriptionSource` is keyed by `eventSubUrl` alone and does
+   not know which device owns it; `ServiceDescription` carries `ServiceId` but not
+   the owning device's UDN. The UDN is known at `DescribedDevice` construction, so
+   it can be threaded `DescribedDevice` → `UpnpService` → `GetOrCreateSource`.
+2. **The signal, without coupling to the roster.** The obvious source is
+   `RosterSource`, but `RosterSource` only runs while someone subscribes to
+   `Roster()`. Eventing must not silently depend on that, so `UpnpClient` should
+   expose an internal boot-change observable derived from the same raw announcement
+   stream the roster uses, and both consume it independently.
+3. **The reaction.** The engine already has the machinery - cancelling the current
+   attempt's `resubscribe` token triggers a fresh SUBSCRIBE and a fresh SEQ 0 state.
+   Clause 4.1.1 makes that the correct response.
+4. **Telling the consumer.** A new `UpnpEvent` case alongside `GapDetected` /
+   `Resubscribed`. Note adding a case to a public union is source-breaking for
+   exhaustive switches, so either it rides a major or the union documents itself as
+   non-exhaustive.
+
+Testable end to end against the existing fakes: announce, subscribe, announce with a
+changed boot identity, assert a fresh SUBSCRIBE without waiting for a renewal - and
+the contrast case, that an `ssdp:update` followed by the promised re-advertisement
+does **not** resubscribe.

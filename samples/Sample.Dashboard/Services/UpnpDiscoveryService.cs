@@ -209,6 +209,10 @@ public sealed class UpnpDiscoveryService(
             }
             case UPnP.Rx.Presence.DeviceExpired or UPnP.Rx.Presence.DeviceLeft:
             {
+                // Which of the two it was is the whole difference between "it told us
+                // it was going" and "it just stopped answering", so it travels.
+                var departure = change is UPnP.Rx.Presence.DeviceLeft ? "left" : "expired";
+
                 if (change.Device.Usn?.DeviceUUID is not { Length: > 0 } uuid)
                 {
                     break;
@@ -220,7 +224,7 @@ public sealed class UpnpDiscoveryService(
 
                 if (roster.Devices.TryRemove(key, out _))
                 {
-                    await hub.Clients.All.SendAsync(HubEvents.DeviceGone, key, ct);
+                    await hub.Clients.All.SendAsync(HubEvents.DeviceGone, key, departure, ct);
                 }
 
                 break;

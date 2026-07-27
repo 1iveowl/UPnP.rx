@@ -430,3 +430,15 @@ a {
     font-size: 0.85em;
     margin-left: 0.25rem;
 }
+
+/* A departed device stays listed as history. It reads - you can still unfold it to
+   see what it was - but it cannot be operated: its live objects are gone from the
+   server, so invoking or watching would only produce a confusing error. */
+.device-card.departed {
+    opacity: 0.55;
+    filter: grayscale(0.85);
+}
+
+.device-card.departed .device-body {
+    pointer-events: none;
+}

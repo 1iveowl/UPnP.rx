@@ -34,3 +34,17 @@ public sealed record DeviceNodeDto(
     string? Udn,
     string[] Services,
     DeviceNodeDto[] Children);
+
+/// <summary>
+/// Why a device is no longer on the network, and when the dashboard noticed. The
+/// timestamp is the browser's own clock at the moment the departure arrived - no
+/// device reports when it left, and its last announcement can be a whole max-age
+/// older than the departure itself.
+/// </summary>
+/// <param name="Reason">
+/// <c>left</c> when the device sent <c>ssdp:byebye</c> - it announced its departure,
+/// so "off" is honest. <c>expired</c> when its advertisement simply lapsed, which is
+/// all a device dropping to standby without a goodbye tells us.
+/// </param>
+/// <param name="At">When the dashboard noticed.</param>
+public sealed record DepartureDto(string Reason, DateTimeOffset At);

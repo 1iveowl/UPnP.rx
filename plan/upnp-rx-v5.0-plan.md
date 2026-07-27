@@ -304,9 +304,9 @@ Implemented in 5.0.0 rather than deferred. Notes worth keeping:
   not cancelling, and other devices' presence ignored. One integration test asserts
   the client wires the real roster in, which the engine-level tests cannot see.
 
-## 13. The 5.1 shelf
+## 13. Departed devices stay on the dashboard (SHIPPED in 5.0.0)
 
-### 13a. Keep departed devices on the dashboard, grayed, instead of removing them
+### 13a. Keep departed devices, grayed, instead of removing them
 
 Over a long run the list currently answers "what is powered on this second" rather
 than "what is on this network", which is the question the sample exists to answer.
@@ -351,3 +351,26 @@ not a device-reported time - no device tells us when it left, and the last
 **Interaction is already safe.** Live watches on a departing device now terminate
 themselves: a byebye raises `SubscriptionCancelled` and ends the stream with a
 reason (clause 4.1.1 work in §12). Nothing hangs silently.
+
+### 13b. How it landed
+
+Brought into 5.0.0 rather than deferred, once it was clear the whole change is
+sample-side: both `DeviceLeft` and `DeviceExpired` were already public and the hub
+already received them distinctly - it was only collapsing them at the wire.
+
+- **Retention is the client's**, matching the activity log's existing stance
+  ("a fresh page starts empty - retention is deliberately live-only"). The server
+  still drops `Described`, `Discovered` and `Devices` on departure exactly as before,
+  so a newly-connected browser sees only what is present; each open page keeps its
+  own history. Capped at 50 departed cards with a 24 h age bound, and a returning
+  device is removed from the history rather than duplicated.
+- **The badge does not guess.** `left` (byebye) reads "off" because the device said
+  so; `expired` reads "not responding", because a lapsed advertisement is all we
+  know - it may be off, asleep, or out of range.
+- **Readable but not operable.** A departed card uses its own `.departed` class
+  rather than `.stale`: grayed, still unfoldable so the user can see what it was, but
+  its body is `pointer-events: none`. Operating it would fail anyway, since the live
+  objects behind it are gone from the server - better to make that visible than to
+  produce "Service not found on the roster."
+- **The header count stopped lying**: departed devices are no longer counted as
+  present, and appear as a separate "N gone" badge.

@@ -21,7 +21,13 @@
         <DashNav Active="network" />
 
         <div class="dash-header">
-            <FluentBadge Appearance="Appearance.Accent">@ViewModel!.Count device(s)</FluentBadge>
+            <FluentBadge Appearance="Appearance.Accent">@Stream.LiveCount device(s)</FluentBadge>
+            @if (Stream.DepartedCount > 0)
+            {
+                <FluentBadge Title="Devices seen earlier that are no longer announcing. They stay listed, grayed, so the page answers what is on this network rather than what is powered on right now.">
+                    @Stream.DepartedCount gone
+                </FluentBadge>
+            }
             <FluentBadge>@ViewModel!.Status</FluentBadge>
             <div class="dash-tools">
                 <FluentButton Appearance="Appearance.Outline"
@@ -92,7 +98,7 @@ net start SSDPSRV</pre>
         {
             @* Grayed + inert while rescanning: the cards are yesterday's list,
                kept on screen only until the first fresh device replaces them. *@
-            <div class="device-card @(_rescanning ? "stale" : "")">
+            <div class="device-card @(_rescanning ? "stale" : "") @(Stream.DepartureOf(device.Key) is not null ? "departed" : "")">
                 <div class="device-head" @onclick="() => Toggle(device.Key)">
                     <span class="chev">@(_open.Contains(device.Key) ? "▾" : "▸")</span>
                     <div>
@@ -110,6 +116,12 @@ net start SSDPSRV</pre>
                             <FluentBadge Appearance="Appearance.Neutral"
                                          Title="@($"UPnP {claim.Version} - claimed by {SourceLabel(claim.Source)}{(claim.Detail is null ? "" : $" ({claim.Detail})")}")">
                                 UPnP @claim.Version <span class="claim-src">@SourceLabel(claim.Source)</span>
+                            </FluentBadge>
+                        }
+                        @if (Stream.DepartureOf(device.Key) is { } departure)
+                        {
+                            <FluentBadge Appearance="Appearance.Neutral" Title="@DepartureTitle(departure)">
+                                @DepartureLabel(departure)
                             </FluentBadge>
                         }
                         @if (_rebooted.Contains(device.Key))
@@ -252,6 +264,19 @@ net start SSDPSRV</pre>
         : !string.IsNullOrEmpty(row.Nls) ? $"NLS {row.Nls}"
         : "no boot id";
 
+    // "off" is only honest when the device said so. A lapsed advertisement is all we
+    // know about a device that stopped answering - it may be off, asleep, or simply
+    // out of range - so it gets the weaker word.
+    private static string DepartureLabel(DepartureDto departure) =>
+        departure.Reason == "left" ? "off" : "not responding";
+
+    private static string DepartureTitle(DepartureDto departure) =>
+        (departure.Reason == "left"
+            ? "This device sent ssdp:byebye - it announced that it was going. "
+            : "This device stopped announcing and its advertisement lapsed; it never said goodbye, "
+              + "which is what a device dropping to standby looks like. ")
+        + $"Last seen {departure.At.ToLocalTime():HH:mm} on {departure.At.ToLocalTime():d MMM}.";
+
     private static string SourceLabel(string source) => source switch
     {
         "Server" => "SERVER",
@@ -368,6 +393,7 @@ net start SSDPSRV</pre>
     private readonly HashSet<string> _rebooted = [];
     private readonly CompositeDisposable _checkmarkTimers = new();
     private IDisposable? _rebootSubscription;
+    private IDisposable? _departureSubscription;
 
     private async Task RefreshDeviceAsync(string key)
     {
@@ -448,6 +474,8 @@ net start SSDPSRV</pre>
             _checkmarkTimers.Add(handle);
         });
 
+        _departureSubscription = Stream.Departures.Subscribe(key => InvokeAsync(StateHasChanged));
+
         // Re-render when activity arrives for a card the user has open.
         _activitySubscription = Stream.SsdpActivity.Subscribe(row =>
         {
@@ -468,6 +496,7 @@ net start SSDPSRV</pre>
         _rescanSubscription?.Dispose();
         _activitySubscription?.Dispose();
         _rebootSubscription?.Dispose();
+        _departureSubscription?.Dispose();
         _checkmarkTimers.Dispose();
         ViewModel?.Dispose();
     }

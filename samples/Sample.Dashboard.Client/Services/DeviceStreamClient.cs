@@ -28,8 +28,15 @@ public sealed class DeviceStreamClient : IAsyncDisposable
     private readonly Subject<LeaseEventDto> _leaseEvents = new();
     private readonly Subject<SsdpActivityDto> _ssdpActivity = new();
     private readonly Subject<string> _reboots = new();
+    private readonly Subject<string> _departures = new();
     private readonly Dictionary<string, List<SsdpActivityDto>> _activity = [];
     private readonly Dictionary<string, int> _activityCount = [];
+
+    /// <summary>Devices that have gone, newest departure last: why, and when we noticed.</summary>
+    private readonly Dictionary<string, DepartureDto> _departed = [];
+
+    /// <summary>The one clock, per the house time model - the browser's, since no device reports its own departure.</summary>
+    private readonly TimeProvider _time = TimeProvider.System;
 
     // The sample's retention config. Rows cap hard per device; the age bound
     // (relative to the newest row, so no client clock involved) keeps a
@@ -38,6 +45,11 @@ public sealed class DeviceStreamClient : IAsyncDisposable
     // feature of this sample.
     private const int _maxActivityRows = 20;
     private static readonly TimeSpan _activityMaxAge = TimeSpan.FromHours(1);
+
+    // Departed cards are cheap - a wire DTO each, bounded by distinct devices ever
+    // seen - but key churn is not, so they are capped and aged out all the same.
+    private const int _maxDepartedDevices = 50;
+    private static readonly TimeSpan _departedMaxAge = TimeSpan.FromHours(24);
     private IDisposable? _rescanFallback;
 
     public DeviceStreamClient(NavigationManager navigation)
@@ -60,15 +72,27 @@ public sealed class DeviceStreamClient : IAsyncDisposable
                 _rescanning.OnNext(false);
             }
 
+            // Back from the dead: a returning device is live again, not history.
+            _departed.Remove(dto.Key);
             _cache.AddOrUpdate(dto);
+            _departures.OnNext(dto.Key);
         });
-        _connection.On<string>(HubEvents.DeviceGone, key =>
+        _connection.On<string, string>(HubEvents.DeviceGone, (key, departure) =>
         {
-            _cache.RemoveKey(key);
-            // A departed device's log leaves with it - rings for devices that
-            // never return must not accumulate on a long-running page.
+            // The card stays, grayed - over a long run the list should answer "what is
+            // on this network", not "what is powered on this second". Only the ring
+            // goes: rings for devices that never return must not accumulate on a
+            // long-running page (the 4.1 memory audit's rule, which is about the ring
+            // and not about the card).
             _activity.Remove(key);
             _activityCount.Remove(key);
+
+            if (_cache.Lookup(key).HasValue)
+            {
+                _departed[key] = new DepartureDto(departure, _time.GetUtcNow());
+                TrimDeparted();
+                _departures.OnNext(key);
+            }
         });
         _connection.On<string>(HubEvents.DeviceRebooted, key => _reboots.OnNext(key));
         _connection.On<LeaseEventDto>(HubEvents.LeaseEvent, e => _leaseEvents.OnNext(e));
@@ -156,6 +180,43 @@ public sealed class DeviceStreamClient : IAsyncDisposable
     /// showing rather than folding into an ordinary refresh.
     /// </summary>
     public IObservable<string> Reboots => _reboots.AsObservable();
+
+    /// <summary>Why and when a device left, or null while it is present.</summary>
+    /// <param name="key">The device's roster key.</param>
+    public DepartureDto? DepartureOf(string key) => _departed.GetValueOrDefault(key);
+
+    /// <summary>Keys whose presence changed between here and gone; re-render on these.</summary>
+    public IObservable<string> Departures => _departures.AsObservable();
+
+    /// <summary>Devices currently present - the cache also holds departed ones.</summary>
+    public int LiveCount => _cache.Count - _departed.Count;
+
+    /// <summary>Devices being kept only as history.</summary>
+    public int DepartedCount => _departed.Count;
+
+    private void TrimDeparted()
+    {
+        var cutoff = _time.GetUtcNow() - _departedMaxAge;
+
+        foreach (var stale in _departed
+            .Where(pair => pair.Value.At < cutoff)
+            .Select(pair => pair.Key)
+            .ToList())
+        {
+            Forget(stale);
+        }
+
+        while (_departed.Count > _maxDepartedDevices)
+        {
+            Forget(_departed.OrderBy(pair => pair.Value.At).First().Key);
+        }
+    }
+
+    private void Forget(string key)
+    {
+        _departed.Remove(key);
+        _cache.RemoveKey(key);
+    }
 
     /// <summary>The capped, newest-first activity log for one device.</summary>
     public IReadOnlyList<SsdpActivityDto> ActivityFor(string deviceKey) =>
@@ -330,6 +391,7 @@ public sealed class DeviceStreamClient : IAsyncDisposable
         _rescanFallback?.Dispose();
         _ssdpActivity.Dispose();
         _reboots.Dispose();
+        _departures.Dispose();
         _rescanning.Dispose();
         _state.Dispose();
         _leaseEvents.Dispose();

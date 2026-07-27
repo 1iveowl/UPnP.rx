@@ -290,7 +290,7 @@ public sealed class DeviceHub(
             return new InvokeResultDto(
                 [.. result.Out.Select(pair => new OutValueDto(pair.Key, pair.Value))],
                 null,
-                result.VersionClaims.Claims.FirstOrDefault()?.Version.ToString(2));
+                Services.DtoMapper.SoleVersion(result.VersionClaims));
         }
         catch (UpnpActionException e)
         {
@@ -342,7 +342,7 @@ public sealed class DeviceHub(
                 Error: null,
                 // Available only now: the SCPD is what carries a service's own
                 // specVersion (UDA 2.0 clause 2.5), and it can contradict its device.
-                UpnpVersion: service.VersionClaims.Claims.FirstOrDefault()?.Version.ToString(2));
+                UpnpVersion: Services.DtoMapper.SoleVersion(service.VersionClaims));
         }
         catch (UpnpException e)
         {

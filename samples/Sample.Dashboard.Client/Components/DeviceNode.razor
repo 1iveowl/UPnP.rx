@@ -98,8 +98,8 @@
                     @if (detail.UpnpVersion is not null)
                     {
                         <div class="svc-section">
-                            <FluentBadge Appearance="@(ServiceVersionDiffers(detail) ? Appearance.Accent : Appearance.Neutral)"
-                                         Title="@(ServiceVersionDiffers(detail)
+                            <FluentBadge Appearance="@(DiffersFromDevice(detail.UpnpVersion) ? Appearance.Accent : Appearance.Neutral)"
+                                         Title="@(DiffersFromDevice(detail.UpnpVersion)
                                              ? $"This service's SCPD claims UPnP {detail.UpnpVersion}, which differs from what its device claims. UDA 2.0 requires both to be accurate."
                                              : $"This service's SCPD claims UPnP {detail.UpnpVersion}.")">
                                 UPnP @detail.UpnpVersion <span class="claim-src">service</span>
@@ -165,7 +165,7 @@
                                            independent version witness (clause 3.2.2).
                                            Agreement is unremarkable; a contradiction
                                            is the device disagreeing with itself. *@
-                                        @if (ControlVersionDiffers(invokeResult))
+                                        @if (DiffersFromDevice(invokeResult.UpnpVersion))
                                         {
                                             <div class="svc-row">
                                                 <FluentBadge Appearance="Appearance.Accent"
@@ -251,15 +251,13 @@
 
     private const int _maxLiveRows = 8;
 
-    private bool ControlVersionDiffers(InvokeResultDto result) =>
-        DeviceUpnpVersion is not null
-        && result.UpnpVersion is not null
-        && result.UpnpVersion != DeviceUpnpVersion;
-
-    private bool ServiceVersionDiffers(ServiceDetailDto detail) =>
-        DeviceUpnpVersion is not null
-        && detail.UpnpVersion is not null
-        && detail.UpnpVersion != DeviceUpnpVersion;
+    /// <summary>
+    /// Whether a claim contradicts the device's own. One rule for every witness: if it
+    /// ever changes - compare only the major, say, or treat a silent device as a
+    /// difference - it must change once, not once per caller.
+    /// </summary>
+    private bool DiffersFromDevice(string? claimed) =>
+        DeviceUpnpVersion is not null && claimed is not null && claimed != DeviceUpnpVersion;
 
     private readonly HashSet<string> _open = [];
     private readonly HashSet<string> _openServices = [];

@@ -76,6 +76,14 @@ internal static class DtoMapper
         Services: [.. device.Services.Select(s => s.ServiceType).OfType<string>()],
         Children: [.. device.EmbeddedDevices.Select(ToNode)]);
 
+    /// <summary>
+    /// A lone witness's version as the browser shows it. Two digits: UDA versions are
+    /// major.minor, and a trailing ".0.0" would read as precision the device never
+    /// offered.
+    /// </summary>
+    internal static string? SoleVersion(UpnpVersionClaims claims) =>
+        claims.Claims.FirstOrDefault()?.Version.ToString(2);
+
     internal static string NormalizeKey(string raw) =>
         raw.Trim().ToLowerInvariant() is var lower && lower.StartsWith("uuid:", StringComparison.Ordinal)
             ? lower[5..]

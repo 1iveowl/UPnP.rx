@@ -1,5 +1,3 @@
-
-
 using UPnP.Rx.PortMapping;
 using UPnP.Rx;
 

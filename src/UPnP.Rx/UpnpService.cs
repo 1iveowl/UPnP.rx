@@ -161,7 +161,9 @@ public sealed class UpnpService : IUpnpService
                 // HttpResponseHeaders parses SERVER into its individual product
                 // tokens, so the spec-mandated "unix/5.1 UPnP/2.0 MyProduct/1.0"
                 // arrives as three values and taking the first yields the OS token.
-                // Rejoining reconstructs the header verbatim.
+                // Rejoining puts the UPnP/x.y token back within reach; separators are
+                // normalised in the process (a comma-separated SERVER comes back
+                // space-separated), which the version lookup does not care about.
                 var serverHeader = response.Headers.TryGetValues("SERVER", out var values)
                     ? string.Join(' ', values)
                     : null;

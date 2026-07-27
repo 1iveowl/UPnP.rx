@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Net;
-using Microsoft.Extensions.Logging;
 
 namespace UPnP.Rx.Eventing;
 
@@ -15,7 +14,7 @@ internal sealed class EventingContext(
     Func<IObservable<UPnP.Rx.Presence.RosterChange>> presence,
     CancellationToken clientLifetime) : IDisposable, IAsyncDisposable
 {
-    private readonly ConcurrentDictionary<Uri, GenaSubscriptionSource> _sources = new();
+    private readonly ConcurrentDictionary<(Uri EventSubUrl, DeviceIdentity Identity), GenaSubscriptionSource> _sources = new();
     private readonly Lock _listenerLock = new();
     private HttpGenaTransport? _transport;
     private EventCallbackListener? _listener;
@@ -38,8 +37,13 @@ internal sealed class EventingContext(
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        return _sources.GetOrAdd(eventSubUrl, url =>
+        // Keyed by endpoint AND identity: the same eventSubURL can be re-described
+        // under a new CONFIGID, and the cached source's MayResubscribe decision is
+        // evaluated against the CONFIGID it was built with. A stale one would answer
+        // the "has the description moved" question with the wrong evidence.
+        return _sources.GetOrAdd((eventSubUrl, identity), key =>
         {
+            var url = key.EventSubUrl;
             var listener = EnsureListener();
             var callbackHost = (LocalRoute.IsUsable(localAddress) ? localAddress : LocalRoute.Resolve(url))
                 ?? throw new UpnpException(

@@ -1,6 +1,5 @@
 using System.Net;
 using System.Runtime.CompilerServices;
-using Microsoft.Extensions.Logging;
 using UPnP.Rx.Model;
 
 namespace UPnP.Rx.PortMapping;

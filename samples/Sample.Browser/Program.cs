@@ -1,5 +1,3 @@
-
-
 using System.Text;
 using UPnP.Rx;
 using UPnP.Rx.Model;

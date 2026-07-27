@@ -11,7 +11,7 @@
 
 A modern, functional, Rx-based **UPnP control point** for .NET 10: discover devices, browse their services, call their actions - as observables and immutable records. Includes an **IGD port-mapping client** with auto-renewing leases.
 
-> *Discover a device, browse its services, call its actions, watch its state, change it's state.*
+> *Discover a device, browse its services, call its actions, watch its state, change its state.*
 
 *Please star this project if you find it useful. Thank you.*
 
@@ -24,7 +24,7 @@ UPnP.Rx covers the full control-point chain of the [UPnP Device Architecture 2.0
 - **Control** (clause 3) - SOAP 1.1 action calls with typed results and typed UPnP faults.
 - **Port mapping** - the flagship: find the internet gateway and map ports in one call, with automatic lease renewal.
 - **Eventing** (clause 4, GENA) - subscribe to a service's evented state as an observable: `service.Events()` handles SUBSCRIBE/renewal/UNSUBSCRIBE, replays last-known state to late subscribers, and recovers from failures and SEQ gaps automatically. AV services' `LastChange` payloads decode via `UPnP.Rx.Eventing.Av` (`events.SelectAvChanges()`).
-- **Roster** - `client.Roster()` (in `UPnP.Rx.Presence`) streams device presence as changes: arrivals, updates (reboots and healed descriptions - including UPnP 1.0 devices, which signal a restart with `NLS` rather than `BOOTID`), `CACHE-CONTROL`-driven expiry for devices that vanish silently, and byebye departures - with the current roster replayed to late subscribers. Bounded state, built for long-lived apps. Alongside it: `Announcements()` streams every parsed SSDP envelope undeduplicated (the activity-log feed), and `SearchAsync()` sends one M-SEARCH burst to solicit fresh responses without resetting anything.
+- **Roster** - `client.Roster()` (in `UPnP.Rx.Presence`) streams device presence as changes: arrivals, restarts (`DeviceRebooted`, including UPnP 1.0 devices, which signal one with `NLS` rather than `BOOTID`), description changes under a device that stayed up, `CACHE-CONTROL`-driven expiry for devices that vanish silently, and byebye departures - with the current roster replayed to late subscribers. Bounded state, built for long-lived apps. Alongside it: `Announcements()` streams every parsed SSDP envelope undeduplicated (the activity-log feed), and `SearchAsync()` sends one M-SEARCH burst to solicit fresh responses without resetting anything.
 - **Version claims** - `UpnpVersionClaims` reports what a device says about the UDA version it implements in each of the four places UDA 2.0 makes normative (the `SERVER` header, the device description, each SCPD, and control responses). The spec names no authority between them, so the claims are kept with their provenance rather than reconciled away, and a device that contradicts itself is visible as exactly that.
 
 ## Installing

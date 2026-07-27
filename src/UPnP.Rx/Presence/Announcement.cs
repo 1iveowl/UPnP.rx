@@ -25,7 +25,7 @@ public enum AnnouncementKind
 /// currency (<see cref="UpnpClient.Announcements"/>). Undeduplicated: every
 /// periodic re-advertisement is one of these.
 /// </summary>
-/// <param name="Kind">Search response, alive, or byebye.</param>
+/// <param name="Kind">Search response, alive, byebye, or update.</param>
 /// <param name="Device">The parsed discovery envelope (byebyes carry no location).</param>
 /// <param name="MaxAge">
 /// Exactly what the device advertised in <c>CACHE-CONTROL: max-age</c>:

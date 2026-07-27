@@ -126,6 +126,7 @@ UPnP.Rx.IUpnpService.Description.get -> UPnP.Rx.Model.ServiceDescription!
 UPnP.Rx.IUpnpService.Events() -> System.IObservable<UPnP.Rx.Eventing.UpnpEvent!>!
 UPnP.Rx.IUpnpService.GetScpdAsync(System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<UPnP.Rx.Model.Scpd!>!
 UPnP.Rx.IUpnpService.InvokeAsync(string! action, System.Collections.Generic.IReadOnlyDictionary<string!, string!>? arguments = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<UPnP.Rx.Model.ActionResult!>!
+UPnP.Rx.IUpnpService.VersionClaims.get -> UPnP.Rx.UpnpVersionClaims!
 UPnP.Rx.LocalNetwork
 UPnP.Rx.Model.ActionDescription
 UPnP.Rx.Model.ActionDescription.<Clone>$() -> UPnP.Rx.Model.ActionDescription!

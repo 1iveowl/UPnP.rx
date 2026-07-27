@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
 using System.Reactive.Linq;
-using Microsoft.Extensions.Logging;
 using SSDP.UPnP.PCL;
 using SSDP.UPnP.PCL.Model;
 using UPnP.Rx.Eventing;
@@ -237,6 +236,15 @@ public sealed class UpnpClient : IUpnpClient
 
         await _eventing.DisposeAsync().ConfigureAwait(false);
 
+        // After the event engines, so their presence subscriptions have unwound first.
+        // EngineSource.ShutdownAsync completes remaining observers - without it a live
+        // Roster() subscriber just goes silent, which is what its own contract says
+        // must not happen.
+        if (_roster is { } roster)
+        {
+            await roster.ShutdownAsync().ConfigureAwait(false);
+        }
+
         _lifetime.Cancel();
         _lifetime.Dispose();
 
@@ -429,7 +437,7 @@ public sealed class UpnpClient : IUpnpClient
     {
         if (location is null)
         {
-            _options.Logger.AnnouncementWithoutLocation(usn?.ToUsnString());
+            _options.Logger.AnnouncementWithoutLocation(usn);
             return null;
         }
 

@@ -1,6 +1,5 @@
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using Microsoft.Extensions.Logging;
 
 namespace UPnP.Rx.PortMapping;
 
@@ -77,8 +76,7 @@ public sealed class PortMappingLease : IPortMappingLease
         }
         catch (Exception e) when (e is UpnpException or OperationCanceledException)
         {
-            _options.Logger.PortMappingDeleteOnDisposeFailed(
-                e, Mapping.ExternalPort, Mapping.Protocol.ToString());
+            _options.Logger.PortMappingDeleteOnDisposeFailed(e, Mapping.ExternalPort, Mapping.Protocol);
         }
 
         _events.OnCompleted();

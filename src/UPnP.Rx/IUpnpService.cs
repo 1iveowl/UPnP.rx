@@ -10,6 +10,12 @@ namespace UPnP.Rx;
 /// </summary>
 public interface IUpnpService
 {
+    /// <summary>
+    /// What this service's SCPD claims about the UDA version it implements. Empty
+    /// until the SCPD has been fetched.
+    /// </summary>
+    UpnpVersionClaims VersionClaims { get; }
+
     /// <summary>The service entry from the device description document.</summary>
     ServiceDescription Description { get; }
 

@@ -18,7 +18,7 @@ internal static partial class Log
     internal static partial void SearchFailedOnInterface(this ILogger logger, Exception e, IPAddress address);
 
     [LoggerMessage(3, LogLevel.Debug, "Dropped an announcement without a usable LOCATION (USN: {Usn}).")]
-    internal static partial void AnnouncementWithoutLocation(this ILogger logger, string? usn);
+    internal static partial void AnnouncementWithoutLocation(this ILogger logger, SSDP.UPnP.PCL.Model.USN? usn);
 
     [LoggerMessage(4, LogLevel.Debug, "Port mapping enumeration ended at index {Index} with UPnP error {Code}.")]
     internal static partial void PortMappingEnumerationEnded(this ILogger logger, int index, int code);
@@ -26,7 +26,7 @@ internal static partial class Log
     [LoggerMessage(5, LogLevel.Debug,
         "Deleting port mapping {Port}/{Protocol} on dispose failed; the lease will expire on its own.")]
     internal static partial void PortMappingDeleteOnDisposeFailed(
-        this ILogger logger, Exception e, int port, string protocol);
+        this ILogger logger, Exception e, int port, PortMapping.Protocol protocol);
 
     [LoggerMessage(6, LogLevel.Debug, "Handling an announcement for the roster failed.")]
     internal static partial void RosterAnnouncementFailed(this ILogger logger, Exception e);

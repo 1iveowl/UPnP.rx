@@ -324,6 +324,10 @@ net start SSDPSRV</pre>
     private Task RescanAsync() => Stream.RescanAsync();
 
     private readonly HashSet<string> _refreshing = [];
+    private const string _activityRetentionHint =
+        "The log keeps only the most recent messages per device, and drops anything "
+        + "older than an hour - long retention belongs in a file log, not a browser tab.";
+
     private readonly HashSet<string> _refreshed = [];
 
     /// <summary>Devices that restarted recently; cleared on a timer like the refresh tick.</summary>
@@ -392,13 +396,22 @@ net start SSDPSRV</pre>
             _rebooted.Add(key);
             _ = InvokeAsync(StateHasChanged);
 
-            _checkmarkTimers.Add(Observable
-                .Timer(TimeSpan.FromSeconds(8), DefaultScheduler.Instance)
-                .Subscribe(tick =>
-                {
-                    _rebooted.Remove(key);
-                    _ = InvokeAsync(StateHasChanged);
-                }));
+            // The handle removes itself once it has fired: a long-lived page watching a
+            // flapping device would otherwise accumulate one per restart.
+            SerialDisposable? handle = null;
+            handle = new SerialDisposable
+            {
+                Disposable = Observable
+                    .Timer(TimeSpan.FromSeconds(8), DefaultScheduler.Instance)
+                    .Subscribe(tick =>
+                    {
+                        _rebooted.Remove(key);
+                        _ = InvokeAsync(StateHasChanged);
+                        _checkmarkTimers.Remove(handle!);
+                    })
+            };
+
+            _checkmarkTimers.Add(handle);
         });
 
         // Re-render when activity arrives for a card the user has open.

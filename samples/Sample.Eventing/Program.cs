@@ -1,5 +1,3 @@
-
-
 using System.Reactive.Linq;
 using UPnP.Rx;
 using UPnP.Rx.Eventing;

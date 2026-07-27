@@ -27,6 +27,7 @@ public sealed class DeviceStreamClient : IAsyncDisposable
     private readonly BehaviorSubject<bool> _rescanning = new(false);
     private readonly Subject<LeaseEventDto> _leaseEvents = new();
     private readonly Subject<SsdpActivityDto> _ssdpActivity = new();
+    private readonly Subject<string> _reboots = new();
     private readonly Dictionary<string, List<SsdpActivityDto>> _activity = [];
     private readonly Dictionary<string, int> _activityCount = [];
 
@@ -37,8 +38,6 @@ public sealed class DeviceStreamClient : IAsyncDisposable
     // feature of this sample.
     private const int _maxActivityRows = 20;
     private static readonly TimeSpan _activityMaxAge = TimeSpan.FromHours(1);
-
-    private readonly System.Reactive.Subjects.Subject<string> _reboots = new();
     private IDisposable? _rescanFallback;
 
     public DeviceStreamClient(NavigationManager navigation)
@@ -156,7 +155,7 @@ public sealed class DeviceStreamClient : IAsyncDisposable
     /// (UDA 2.0 clause 1.2.4), including any live event subscription, so it is worth
     /// showing rather than folding into an ordinary refresh.
     /// </summary>
-    public IObservable<string> Reboots => _reboots;
+    public IObservable<string> Reboots => _reboots.AsObservable();
 
     /// <summary>The capped, newest-first activity log for one device.</summary>
     public IReadOnlyList<SsdpActivityDto> ActivityFor(string deviceKey) =>
@@ -329,6 +328,7 @@ public sealed class DeviceStreamClient : IAsyncDisposable
         await _connection.DisposeAsync();
         _rescanFallback?.Dispose();
         _ssdpActivity.Dispose();
+        _reboots.Dispose();
         _rescanning.Dispose();
         _state.Dispose();
         _leaseEvents.Dispose();

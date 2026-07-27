@@ -290,6 +290,21 @@ public class RosterTests
     }
 
     [Fact]
+    public async Task DisposeAsync_CompletesRosterSubscribers_RatherThanLeavingThemSilent()
+    {
+        // EngineSource's contract is that a subscriber is completed rather than going
+        // quiet; nothing used to call ShutdownAsync on the roster, so it went quiet.
+        var client = CreateClient();
+        var completed = false;
+        using var subscription = client.Roster().Subscribe(_changes.Add, () => completed = true);
+        await WaitForAsync(() => _controlPoint.SentSearches.Count > 0);
+
+        await client.DisposeAsync();
+
+        Assert.True(completed);
+    }
+
+    [Fact]
     public async Task SilentVanish_ExpiresOnTheClock()
     {
         using var client = CreateClient();

@@ -193,7 +193,8 @@ public sealed class DeviceStreamClient : IAsyncDisposable
         InvokeAsync<string?>(HubEvents.RefreshDevice, "Not connected to the server.", key);
 
     /// <summary>Sends one M-SEARCH burst - populates activity logs and refreshes presence without resetting anything.</summary>
-    public async Task ProbeAsync()
+    /// <param name="deep">Search <c>ssdp:all</c> instead of root devices only; finds hardware that ignores the narrower search.</param>
+    public async Task ProbeAsync(bool deep = false)
     {
         if (_connection.State is not HubConnectionState.Connected)
         {
@@ -202,7 +203,7 @@ public sealed class DeviceStreamClient : IAsyncDisposable
 
         try
         {
-            await _connection.InvokeAsync(HubEvents.Probe);
+            await _connection.InvokeAsync(HubEvents.Probe, deep);
         }
         catch (Exception)
         {

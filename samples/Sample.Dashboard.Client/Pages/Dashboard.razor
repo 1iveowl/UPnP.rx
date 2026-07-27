@@ -31,6 +31,20 @@
                     <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.ArrowClockwise())" Slot="start" />
                     Rescan
                 </FluentButton>
+                <FluentButton Appearance="Appearance.Outline"
+                              Title="Ask every device and service to answer (ssdp:all), not just root devices - finds hardware that ignores the ordinary search. Nothing is reset. Noisier: a single device answers this many times over."
+                              Disabled="@(_rescanning || _deepSearching)"
+                              OnClick="@DeepSearchAsync">
+                    @if (_deepSearching)
+                    {
+                        <FluentProgressRing Style="width: 14px; height: 14px;" Slot="start" />
+                    }
+                    else
+                    {
+                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Search())" Slot="start" />
+                    }
+                    Deep search
+                </FluentButton>
                 <FluentSearch Placeholder="Filter by name, maker or type…"
                               Immediate="true"
                               ImmediateDelay="200"
@@ -279,6 +293,7 @@ net start SSDPSRV</pre>
 
     private readonly HashSet<string> _open = [];
     private bool _rescanning;
+    private bool _deepSearching;
     private IDisposable? _rescanSubscription;
     private IDisposable? _activitySubscription;
 
@@ -322,6 +337,25 @@ net start SSDPSRV</pre>
     // Open-state survives the rescan on purpose: a device that answers the new
     // search keeps its key, so its card comes back the way the user left it.
     private Task RescanAsync() => Stream.RescanAsync();
+
+    // Deliberately not a rescan: answers arrive over MX seconds and nothing is
+    // cleared, so a device the ordinary search misses simply joins the list. The
+    // spinner runs for MX rather than until a result - a search that finds nothing
+    // new is the common case and must still visibly finish.
+    private async Task DeepSearchAsync()
+    {
+        _deepSearching = true;
+
+        try
+        {
+            await Stream.ProbeAsync(deep: true);
+            await Task.Delay(TimeSpan.FromSeconds(4), TimeProvider.System);
+        }
+        finally
+        {
+            _deepSearching = false;
+        }
+    }
 
     private readonly HashSet<string> _refreshing = [];
     private const string _activityRetentionHint =

@@ -303,3 +303,44 @@ Implemented in 5.0.0 rather than deferred. Notes worth keeping:
   than a renewal, *zero* UNSUBSCRIBEs on a cancelled SID, `DeviceUpdated` explicitly
   not cancelling, and other devices' presence ignored. One integration test asserts
   the client wires the real roster in, which the engine-level tests cannot see.
+
+## 13. The 5.1 shelf
+
+### 13a. Keep departed devices on the dashboard, grayed, instead of removing them
+
+Over a long run the list currently answers "what is powered on this second" rather
+than "what is on this network", which is the question the sample exists to answer.
+Proposal: a departed device keeps its card, grayed, with a badge and a last-seen
+stamp.
+
+**What to retain, and what not to.** These are three separate lifetimes, and an
+earlier draft of this note wrongly treated them as one:
+
+- `DeviceRoster.Described` and `.Discovered` hold live library objects - a
+  `DescribedDevice` with a `UpnpService` per service, each holding a cached SCPD.
+  **Keep dropping these on departure.** A grayed card is non-interactive
+  (`.device-card.stale` is already `pointer-events: none`), so nothing needs them,
+  and a device that returns re-describes anyway.
+- The per-device SSDP **activity ring** stays bounded exactly as it is today; the
+  4.1 memory audit's rule - "rings for devices that never return must not accumulate
+  on a long-running page" - is about the ring, and is unaffected by keeping a card.
+- `DeviceRoster.Devices` holds only the wire DTO. **This is the one to keep.** It is
+  small and bounded by the number of distinct devices ever seen, which on a real
+  network is tens, not thousands. A cap plus an age bound is still worth having
+  against key churn, but it is a modest concern rather than a reversal of the audit.
+
+**Say which kind of departure it was.** 5.0.0 distinguishes them and the hub
+currently collapses both into one `DeviceGone`:
+
+- `DeviceLeft` - the device sent `ssdp:byebye`; it announced its departure, so
+  "off" is honest.
+- `DeviceExpired` - its advertisement simply lapsed; "not responding" is honest and
+  "off" is a guess. (A Samsung TV dropping to standby is this kind - verified on the
+  author's network: in standby it answers neither `upnp:rootdevice` nor `ssdp:all`,
+  and every port is closed.)
+
+`HubEvents.DeviceGone` would carry the reason, and the badge would follow it.
+
+**Interaction is already safe.** Live watches on a departing device now terminate
+themselves: a byebye raises `SubscriptionCancelled` and ends the stream with a
+reason (clause 4.1.1 work in §12). Nothing hangs silently.

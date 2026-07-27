@@ -33,7 +33,19 @@ public sealed class DeviceHub(
     /// the responses flow into the roster and the activity logs. The light
     /// sibling of <see cref="Rescan"/>.
     /// </summary>
-    public Task Probe() => network.Client?.SearchAsync(ct: Context.ConnectionAborted) ?? Task.CompletedTask;
+    /// <param name="deep">
+    /// Search <c>ssdp:all</c> rather than the default <c>upnp:rootdevice</c>. UDA 2.0
+    /// clause 1.3.3 obliges a device to answer either, but plenty of consumer hardware
+    /// answers only the broader one - so this finds devices the ordinary search cannot.
+    /// It is markedly noisier: the same clause has a root device answer <c>ssdp:all</c>
+    /// 3+2d+k times (once per device and distinct service) against once for
+    /// <c>upnp:rootdevice</c>.
+    /// </param>
+    public Task Probe(bool deep = false) =>
+        network.Client?.SearchAsync(
+            deep ? UPnP.Rx.SearchTargets.All : null,
+            ct: Context.ConnectionAborted)
+        ?? Task.CompletedTask;
 
     /// <summary>
     /// Drops the cached description and re-reads the device on demand - the

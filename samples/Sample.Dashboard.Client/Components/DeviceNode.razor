@@ -260,10 +260,11 @@
 
                     var list = _liveEvents[serviceKey];
 
-                    // A permanent refusal ends the stream right after its
-                    // SubscriptionRefused event; the trailing StreamError echo
-                    // carries the same reason - one row on screen is enough.
-                    if (e.Kind == "StreamError" && list.FirstOrDefault()?.Kind == "SubscriptionRefused")
+                    // A refusal, and a cancellation that will not resubscribe, each end
+                    // the stream right after their own event; the trailing StreamError
+                    // echo carries the same reason - one row on screen is enough.
+                    if (e.Kind == "StreamError"
+                        && list.FirstOrDefault()?.Kind is "SubscriptionRefused" or "SubscriptionCancelled")
                     {
                         return;
                     }

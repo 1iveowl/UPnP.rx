@@ -223,6 +223,11 @@ public sealed class DeviceHub(
                 $"expected {g.ExpectedSeq}"),
         UPnP.Rx.Eventing.SubscriptionRefused refused =>
             new ServiceEventDto("SubscriptionRefused", null, null, 0, false, false, refused.Reason),
+        UPnP.Rx.Eventing.SubscriptionCancelled cancelled =>
+            new ServiceEventDto("SubscriptionCancelled", null, null, 0, false, false,
+                cancelled.WillResubscribe
+                    ? $"{cancelled.Reason} Resubscribing."
+                    : cancelled.Reason),
         _ => new ServiceEventDto(e.GetType().Name, null, null, 0, false, false, null)
     };
 

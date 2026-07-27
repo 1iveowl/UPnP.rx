@@ -341,6 +341,13 @@ currently collapses both into one `DeviceGone`:
 
 `HubEvents.DeviceGone` would carry the reason, and the badge would follow it.
 
+**A last-seen stamp, confirmed as wanted.** "off" alone ages badly over a day; "off
+since 14:32" turns the grayed card into a timeline rather than a tombstone, and it is
+the difference between "this is gone" and "this went at the same moment three other
+things went". The stamp is the client's own clock at the moment `DeviceGone` arrives,
+not a device-reported time - no device tells us when it left, and the last
+`Announcement.Seen` would be up to a full max-age earlier than the departure.
+
 **Interaction is already safe.** Live watches on a departing device now terminate
 themselves: a byebye raises `SubscriptionCancelled` and ends the stream with a
 reason (clause 4.1.1 work in §12). Nothing hangs silently.

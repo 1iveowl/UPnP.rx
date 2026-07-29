@@ -50,7 +50,7 @@ public class SoakTests
         {
             for (var device = 0; device < devices; device++)
             {
-                controlPoint.Notifies.OnNext(new Notify
+                controlPoint.Notifies.OnNext(new ReceivedNotify
                 {
                     NTS = NTS.Alive,
                     Location = new Uri($"http://192.168.2.{device % 250}:1400/d{device}.xml"),
@@ -154,7 +154,7 @@ public class SoakTests
 
         for (uint boot = 1; boot <= 30; boot++)
         {
-            controlPoint.Notifies.OnNext(new Notify
+            controlPoint.Notifies.OnNext(new ReceivedNotify
             {
                 NTS = NTS.Alive,
                 Location = new Uri(Location),

@@ -126,7 +126,7 @@ public sealed class UpnpClient : IUpnpClient
                 .Merge(NotifiesOf(NTS.Alive).Select(ToDiscovered))
                 .Where(device => device is not null)
                 .Select(device => device!)
-                .Distinct(device => $"{device.Usn?.ToUsnString() ?? device.Location!.ToString()}#{device.BootSignature}");
+                .Distinct(device => $"{UsnText(device.Usn) ?? device.Location!.ToString()}#{device.BootSignature}");
 
             return Observable.Create<DiscoveredDevice>(async (observer, ct) =>
             {
@@ -266,11 +266,10 @@ public sealed class UpnpClient : IUpnpClient
             return;
         }
 
-        var request = new MSearchRequest
+        var request = new MulticastMSearch
         {
             ST = searchTarget,
-            MX = mx,
-            TransportType = TransportType.Multicast,
+            MX = ToMxSeconds(mx),
             CPFN = _options.ControlPointFriendlyName
         };
 
@@ -295,6 +294,15 @@ public sealed class UpnpClient : IUpnpClient
             throw new UpnpException("Sending M-SEARCH failed on every interface.");
         }
     }
+
+    /// <summary>
+    /// MX is whole seconds on the wire and UDA 2.0 clause 1.3.2 floors it at 1, which
+    /// <see cref="MxSeconds"/> now enforces as a type invariant. A sub-second
+    /// <see cref="TimeSpan"/> used to truncate to <c>MX: 0</c> - a value no device is
+    /// allowed to honour - so it is raised to the floor rather than sent.
+    /// </summary>
+    private static MxSeconds ToMxSeconds(TimeSpan mx) =>
+        new(Math.Max(MxSeconds.MinimumSeconds, (int)mx.TotalSeconds));
 
     internal UpnpClientOptions Options => _options;
 
@@ -385,7 +393,7 @@ public sealed class UpnpClient : IUpnpClient
 
     // The upstream notify stream is parse-once and shared, so filtering it per NTS
     // costs nothing beyond the subscription.
-    private IObservable<Notify> NotifiesOf(NTS nts) =>
+    private IObservable<ReceivedNotify> NotifiesOf(NTS nts) =>
         _controlPoint.NotifyObservable().Where(notify => notify.NTS == nts);
 
     /// <summary>
@@ -423,11 +431,31 @@ public sealed class UpnpClient : IUpnpClient
         _descriptions.Invalidate(location);
     }
 
-    private DiscoveredDevice? ToDiscovered(MSearchResponse response) => ToDiscovered(
+    /// <summary>
+    /// How a received <see cref="USN"/> is spelled, without ever throwing.
+    /// <see cref="USN.ToUsnString"/> <em>recomposes</em> the USN from its parsed parts and
+    /// throws <c>SSDPException</c> when the entity part could not be parsed - and since
+    /// SSDP.UPnP.PCL 10.0.0 those messages are delivered (<see cref="EntityType.Unknown"/>)
+    /// rather than dropped, so recomposing is no longer total. A real device provokes it:
+    /// a Vera controller advertises a description-document <c>serviceId</c> URN as a search
+    /// target. Reporting what the device actually sent is both safe and more honest than a
+    /// recomposition, so <see cref="USN.USNString"/> comes first; the fallbacks only matter
+    /// for a hand-built USN, which nothing on this path produces.
+    /// </summary>
+    private static string? UsnText(USN? usn) => usn switch
+    {
+        null => null,
+        { USNString: { Length: > 0 } wire } => wire,
+        { EntityType: not EntityType.Unknown } parsed => parsed.ToUsnString(),
+        { DeviceUUID: { Length: > 0 } uuid } => $"uuid:{uuid}",
+        _ => null
+    };
+
+    private DiscoveredDevice? ToDiscovered(ReceivedMSearchResponse response) => ToDiscovered(
         response.USN, response.Location, response.Server, new BootSignature(response.BOOTID, response.NLS),
         response.CONFIGID, response.HasParsingError, response.LocalIpEndPoint, response.MaxAge);
 
-    private DiscoveredDevice? ToDiscovered(Notify notify) => ToDiscovered(
+    private DiscoveredDevice? ToDiscovered(ReceivedNotify notify) => ToDiscovered(
         notify.USN, notify.Location, notify.Server, new BootSignature(notify.BOOTID, notify.NLS),
         notify.CONFIGID, notify.HasParsingError, notify.LocalIpEndPoint, notify.MaxAge);
 
@@ -437,10 +465,10 @@ public sealed class UpnpClient : IUpnpClient
     {
         if (location is null)
         {
-            // ToUsnString rather than the record itself: the synthesized ToString dumps
-            // every member, and the wire form is the useful spelling. Formatting eagerly
-            // here is fine - this line only runs on the already-degraded drop path.
-            _options.Logger.AnnouncementWithoutLocation(usn?.ToUsnString());
+            // The wire spelling rather than the record itself: the synthesized ToString
+            // dumps every member. Formatting eagerly here is fine - this line only runs
+            // on the already-degraded drop path.
+            _options.Logger.AnnouncementWithoutLocation(UsnText(usn));
             return null;
         }
 

@@ -237,7 +237,11 @@ public sealed class UpnpDiscoveryService(
     private SsdpActivityDto ToActivityDto(Announcement announcement) => new(
         announcement.Kind.ToString(),
         ResolveCardKey(announcement.Device),
-        announcement.Device.Usn?.ToUsnString(),
+        // USNString, not ToUsnString(): the latter recomposes from the parsed parts and
+        // throws when the entity part was unparsable, which since SSDP.UPnP.PCL 10.0.0
+        // arrives here rather than being dropped. The activity log wants what the device
+        // actually sent anyway.
+        announcement.Device.Usn?.USNString,
         announcement.Device.Server?.FullString,
         announcement.Device.Location?.ToString(),
         announcement.Device.BootSignature.BootId,

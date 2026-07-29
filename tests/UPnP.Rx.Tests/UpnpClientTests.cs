@@ -22,7 +22,7 @@ public class UpnpClientTests
         </s:Envelope>
         """;
 
-    private static MSearchResponse Response(
+    private static ReceivedMSearchResponse Response(
         string usn = "uuid:device-1::upnp:rootdevice", uint bootId = 1, TimeSpan cacheControl = default) => new()
     {
         Location = new Uri(Location),
@@ -83,7 +83,7 @@ public class UpnpClientTests
         var seen = new List<DiscoveredDevice>();
         using var subscription = client.DiscoverDevices().Subscribe(seen.Add);
 
-        controlPoint.Notifies.OnNext(new Notify
+        controlPoint.Notifies.OnNext(new ReceivedNotify
         {
             NTS = NTS.Alive,
             Location = new Uri(Location),
@@ -108,7 +108,7 @@ public class UpnpClientTests
         // reports 0.0.0.0:1900 as the receiving endpoint. That must never
         // surface as "our address" - it once became CALLBACK: <http://0.0.0.0:…>
         // and devices refused the SUBSCRIBE with HTTP 412.
-        controlPoint.Notifies.OnNext(new Notify
+        controlPoint.Notifies.OnNext(new ReceivedNotify
         {
             NTS = NTS.Alive,
             Location = new Uri(Location),
@@ -130,7 +130,7 @@ public class UpnpClientTests
         var seen = new List<DiscoveredDevice>();
         using var subscription = client.DiscoverDevices().Subscribe(seen.Add);
 
-        controlPoint.Responses.OnNext(new MSearchResponse { USN = USN.Parse("uuid:x::upnp:rootdevice").Value });
+        controlPoint.Responses.OnNext(new ReceivedMSearchResponse { USN = USN.Parse("uuid:x::upnp:rootdevice").Value });
 
         Assert.Empty(seen);
     }
@@ -147,9 +147,13 @@ public class UpnpClientTests
 
         var (request, address) = controlPoint.SentSearches[0];
         Assert.Equal(IPAddress.Parse("10.0.0.2"), address);
-        Assert.Equal("UPnP.Rx", request.CPFN);                                   // UDA 2.0 requires CPFN
-        Assert.Equal("upnp:rootdevice", request.ST.ToSearchTargetString());       // decision 6 default
-        Assert.Equal(TimeSpan.FromSeconds(3), request.MX);
+
+        // Discovery is a multicast search, and since 10.0.0 that is the type rather
+        // than a flag on it - so asserting the type is asserting the transport.
+        var multicast = Assert.IsType<MulticastMSearch>(request);
+        Assert.Equal("UPnP.Rx", multicast.CPFN);                                  // UDA 2.0 requires CPFN
+        Assert.Equal("upnp:rootdevice", multicast.ST.ToSearchTargetString());     // decision 6 default
+        Assert.Equal(3, multicast.MX.Seconds);
     }
 
     [Fact]
@@ -163,8 +167,27 @@ public class UpnpClientTests
             .Subscribe(_ => { });
 
         var (request, _) = Assert.Single(controlPoint.SentSearches);
-        Assert.Equal("urn:schemas-upnp-org:service:WANIPConnection:2", request.ST.ToSearchTargetString());
-        Assert.Equal(TimeSpan.FromSeconds(5), request.MX);
+        var multicast = Assert.IsType<MulticastMSearch>(request);
+        Assert.Equal("urn:schemas-upnp-org:service:WANIPConnection:2", multicast.ST.ToSearchTargetString());
+        Assert.Equal(5, multicast.MX.Seconds);
+    }
+
+    [Fact]
+    public void DiscoverDevices_SubSecondMx_IsRaisedToTheUdaFloorRatherThanSentAsZero()
+    {
+        // MX is whole seconds on the wire and UDA 2.0 clause 1.3.2 floors it at 1.
+        // A sub-second TimeSpan used to truncate to "MX: 0" - a value no device is
+        // allowed to honour, sent silently. MxSeconds makes 0 unrepresentable, so
+        // the floor is now applied deliberately and visibly.
+        var (client, controlPoint, _) = CreateClient(IPAddress.Loopback);
+        using var _1 = client;
+
+        using var subscription = client
+            .DiscoverDevices(mx: TimeSpan.FromMilliseconds(500))
+            .Subscribe(_ => { });
+
+        var (request, _) = Assert.Single(controlPoint.SentSearches);
+        Assert.Equal(MxSeconds.MinimumSeconds, Assert.IsType<MulticastMSearch>(request).MX.Seconds);
     }
 
     [Fact]
@@ -176,7 +199,7 @@ public class UpnpClientTests
         var lost = new List<DiscoveredDevice>();
         using var subscription = client.DeviceLost().Subscribe(lost.Add);
 
-        controlPoint.Notifies.OnNext(new Notify
+        controlPoint.Notifies.OnNext(new ReceivedNotify
         {
             NTS = NTS.ByeBye,
             USN = USN.Parse("uuid:device-1::upnp:rootdevice").Value
@@ -185,6 +208,85 @@ public class UpnpClientTests
         var device = Assert.Single(lost);
         Assert.Null(device.Location);
         Assert.Equal("uuid:device-1", device.Usn?.ToUsnString().Split("::")[0]);
+    }
+
+    // ---- USNs whose entity part is unparsable (EntityType.Unknown) ----
+    //
+    // SSDP.UPnP.PCL 10.0.0 delivers these instead of dropping them, so they reach the
+    // discovery pipeline for the first time. USN.ToUsnString() recomposes from the parsed
+    // parts and THROWS on them - and it used to sit inside the Distinct key selector,
+    // where a throw is OnError: one such device would have killed the whole stream.
+    // Provoked by a real device (a Vera controller advertising a serviceId URN as a
+    // search target), which is how the leniency policy learned about this shape.
+
+    [Fact]
+    public void DiscoverDevices_UnparsableUsnEntity_IsDeliveredRatherThanKillingTheStream()
+    {
+        var (client, controlPoint, _) = CreateClient();
+        using var _1 = client;
+
+        var seen = new List<DiscoveredDevice>();
+        Exception? died = null;
+        using var subscription = client.DiscoverDevices().Subscribe(seen.Add, e => died = e);
+
+        controlPoint.Responses.OnNext(new ReceivedMSearchResponse
+        {
+            Location = new Uri(Location),
+            USN = USN.Parse("uuid:vera-1::urn:Vera:serviceId:SceneController1").Value
+        });
+        controlPoint.Responses.OnNext(Response());                     // the stream must still be live
+
+        Assert.Null(died);
+        Assert.Equal(2, seen.Count);
+        Assert.Equal(EntityType.Unknown, seen[0].Usn?.EntityType);
+    }
+
+    [Fact]
+    public void DiscoverDevices_UnparsableUsnEntity_StillDedupsOnWhatTheDeviceSent()
+    {
+        var (client, controlPoint, _) = CreateClient();
+        using var _1 = client;
+
+        var seen = new List<DiscoveredDevice>();
+        using var subscription = client.DiscoverDevices().Subscribe(seen.Add);
+
+        // Same unparsable tail, two different devices: these must NOT collapse into one.
+        // Falling back to the device UUID alone would lose the tail and merge the third
+        // announcement into the first.
+        controlPoint.Responses.OnNext(Unknown("uuid:vera-1::urn:Vera:serviceId:SceneController1"));
+        controlPoint.Responses.OnNext(Unknown("uuid:vera-2::urn:Vera:serviceId:SceneController1"));
+        controlPoint.Responses.OnNext(Unknown("uuid:vera-1::urn:Vera:serviceId:DimmableLight1"));
+        controlPoint.Responses.OnNext(Unknown("uuid:vera-1::urn:Vera:serviceId:SceneController1"));  // repeat → deduped
+
+        Assert.Equal(3, seen.Count);
+
+        static ReceivedMSearchResponse Unknown(string usn) => new()
+        {
+            Location = new Uri(Location),
+            USN = USN.Parse(usn).Value
+        };
+    }
+
+    [Fact]
+    public void DiscoverDevices_UnparsableUsnEntity_WithoutLocation_IsLoggedNotThrown()
+    {
+        // The drop path formats the USN for its log note. That call is eager, so an
+        // unparsable entity part threw there too - while reporting an already-degraded
+        // message, which is the worst place to fail.
+        var (client, controlPoint, _) = CreateClient();
+        using var _1 = client;
+
+        var seen = new List<DiscoveredDevice>();
+        Exception? died = null;
+        using var subscription = client.DiscoverDevices().Subscribe(seen.Add, e => died = e);
+
+        controlPoint.Responses.OnNext(new ReceivedMSearchResponse
+        {
+            USN = USN.Parse("uuid:vera-1::urn:Vera:serviceId:SceneController1").Value
+        });
+
+        Assert.Null(died);
+        Assert.Empty(seen);
     }
 
     [Fact]
@@ -199,7 +301,7 @@ public class UpnpClientTests
 
         controlPoint.Responses.OnNext(Response());
         controlPoint.Responses.OnNext(Response(bootId: 2));            // same device, rebooted → dedup by UDN
-        controlPoint.Responses.OnNext(new MSearchResponse               // unfetchable → skipped, stream lives
+        controlPoint.Responses.OnNext(new ReceivedMSearchResponse               // unfetchable → skipped, stream lives
         {
             Location = new Uri("http://192.168.1.99/nope.xml"),
             USN = USN.Parse("uuid:broken::upnp:rootdevice").Value

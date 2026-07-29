@@ -44,7 +44,7 @@ public class PortMappingTests
 
         var task = PortMapper.DiscoverGatewayAsync(client, TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
-        controlPoint.Responses.OnNext(new MSearchResponse
+        controlPoint.Responses.OnNext(new ReceivedMSearchResponse
         {
             Location = new Uri(Location),
             USN = USN.Parse("uuid:gateway::urn:schemas-upnp-org:device:InternetGatewayDevice:1").Value,
@@ -70,7 +70,7 @@ public class PortMappingTests
         var gateways = new List<InternetGateway>();
         using var subscription = PortMapper.DiscoverGateways(client).Subscribe(gateways.Add);
 
-        static MSearchResponse Announce() => new()
+        static ReceivedMSearchResponse Announce() => new()
         {
             Location = new Uri(Location),
             USN = USN.Parse("uuid:gateway::urn:schemas-upnp-org:device:InternetGatewayDevice:1").Value,
@@ -196,7 +196,7 @@ public class PortMappingTests
 
         var task = PortMapper.DiscoverGatewayAsync(client, TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
-        controlPoint.Responses.OnNext(new MSearchResponse
+        controlPoint.Responses.OnNext(new ReceivedMSearchResponse
         {
             Location = new Uri(Location),
             USN = USN.Parse("uuid:gateway::urn:schemas-upnp-org:device:InternetGatewayDevice:1").Value,
@@ -417,7 +417,7 @@ public class PortMappingTests
             "AddAnyPortMapping", igd2Service, "<NewReservedPort>18099</NewReservedPort>")));
 
         var task = PortMapper.DiscoverGatewayAsync(client, TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
-        controlPoint.Responses.OnNext(new MSearchResponse
+        controlPoint.Responses.OnNext(new ReceivedMSearchResponse
         {
             Location = new Uri(igd2Location),
             USN = USN.Parse("uuid:igd2::urn:schemas-upnp-org:device:InternetGatewayDevice:2").Value,

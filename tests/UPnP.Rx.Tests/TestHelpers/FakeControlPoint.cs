@@ -12,9 +12,9 @@ namespace UPnP.Rx.Tests.TestHelpers;
 /// </summary>
 internal sealed class FakeControlPoint : IControlPoint
 {
-    public Subject<MSearchResponse> Responses { get; } = new();
+    public Subject<ReceivedMSearchResponse> Responses { get; } = new();
 
-    public Subject<Notify> Notifies { get; } = new();
+    public Subject<ReceivedNotify> Notifies { get; } = new();
 
     public Subject<SsdpParseFailure> Failures { get; } = new();
 
@@ -25,9 +25,9 @@ internal sealed class FakeControlPoint : IControlPoint
         // The seam under test is the subjects below; a hot-started stream is unused.
     }
 
-    public IObservable<Notify> NotifyObservable() => Notifies;
+    public IObservable<ReceivedNotify> NotifyObservable() => Notifies;
 
-    public IObservable<MSearchResponse> MSearchResponseObservable() => Responses;
+    public IObservable<ReceivedMSearchResponse> MSearchResponseObservable() => Responses;
 
     public IObservable<SsdpParseFailure> ParseFailures() => Failures;
 

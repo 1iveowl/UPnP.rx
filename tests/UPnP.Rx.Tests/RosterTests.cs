@@ -27,7 +27,7 @@ public class RosterTests
     private void Announce(
         string usn = "uuid:roster-1::upnp:rootdevice", uint? bootId = 1, int? maxAgeSeconds = 100,
         string? nls = null) =>
-        _controlPoint.Notifies.OnNext(new Notify
+        _controlPoint.Notifies.OnNext(new ReceivedNotify
         {
             NTS = NTS.Alive,
             Location = new Uri(Location),
@@ -39,7 +39,7 @@ public class RosterTests
 
     private void Update(
         string usn = "uuid:roster-1::upnp:rootdevice", uint bootId = 1, uint nextBootId = 2) =>
-        _controlPoint.Notifies.OnNext(new Notify
+        _controlPoint.Notifies.OnNext(new ReceivedNotify
         {
             NTS = NTS.Update,
             Location = new Uri(Location),
@@ -50,7 +50,7 @@ public class RosterTests
         });
 
     private void ByeBye(string usn = "uuid:roster-1::upnp:rootdevice") =>
-        _controlPoint.Notifies.OnNext(new Notify
+        _controlPoint.Notifies.OnNext(new ReceivedNotify
         {
             NTS = NTS.ByeBye,
             USN = USN.Parse(usn).Value,
@@ -403,7 +403,7 @@ public class RosterTests
         Announce();                                     // alive
         _time.Advance(TimeSpan.FromSeconds(30));
         Announce();                                     // periodic repeat - NOT deduplicated
-        _controlPoint.Responses.OnNext(new MSearchResponse
+        _controlPoint.Responses.OnNext(new ReceivedMSearchResponse
         {
             Location = new Uri(Location),
             USN = USN.Parse("uuid:roster-1::upnp:rootdevice").Value,

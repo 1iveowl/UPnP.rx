@@ -60,12 +60,16 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 │   ├── UpnpClientOptions.cs   # decision 6: search target/MX; TimeProvider (init-only); CPFN
 │   ├── SearchTargets.cs       # RootDevice/All/DeviceType/ServiceType/Uuid over STType
 │   ├── UpnpException.cs       # + UpnpActionException carrying UpnpError
+│   ├── Scpd/                  # checked-in service descriptions the generator reads
+│   │   └── WANIPConnection1.scpd.xml   # AdditionalFiles input; also packed at scpd/ for consumers
 │   ├── Model/                 # UPnP.Rx.Model — immutable records
 │   │   ├── ParseResult.cs     # copied from SSDP.UPnP.PCL (decision 5)
 │   │   ├── DeviceDescription.cs   # DDD tree; Location + BaseUrl; SelfAndDescendants()
 │   │   ├── ServiceDescription.cs, IconDescription.cs, SpecVersion.cs
 │   │   ├── Scpd.cs, ActionDescription.cs, ArgumentDescription.cs, StateVariable.cs
 │   │   ├── ScpdExtensions.cs  # ValidateAndOrderArguments — SCPD-driven marshalling
+│   │   ├── ScpdServiceAttribute.cs     # marks a partial class for generation (public API,
+│   │   │                               #   declared here rather than generated, by design)
 │   │   └── ActionResult.cs, UpnpError.cs
 │   ├── PortMapping/           # UPnP.Rx.PortMapping — the flagship (IGD client)
 │   │   ├── PortMapper.cs      # DiscoverGatewayAsync (IGD:2+:1 merge) + one-liner AddPortMappingAsync
@@ -74,6 +78,8 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 │   │   ├── PortMappingLease.cs    # auto-renew at half-life on TimeProvider; Events observable;
 │   │   │                          #   DisposeAsync=delete, Dispose=abrupt (lease expires on router)
 │   │   ├── PortMappingEntry.cs, Protocol.cs   # (Entry avoids namespace/type collision)
+│   │   ├── WanIpConnection.cs # a partial class + [ScpdService]; every member is GENERATED
+│   │   │                      #   from Scpd/WANIPConnection1.scpd.xml at build time
 │   │   └── IInternetGateway.cs, IPortMappingLease.cs, ConnectionStatusInfo.cs
 │   ├── Roster/                # UPnP.Rx.Roster (4.1): RosterChange union + RosterSource engine
 │   │                          #   (presence, max-age expiry, replay, lazy self-heal)
@@ -91,6 +97,23 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 │       ├── SoapComposer.cs        # action envelope + SOAPACTION header (strict-out)
 │       ├── SoapParser.cs          # response out-args + UPnPError fault parsing
 │       └── XmlLeniency.cs         # internal: local-name/case-tolerant lookups, token cleanup
+├── src/UPnP.Rx.Analyzers/     # THE ANALYZERS **AND** THE SOURCE GENERATOR (netstandard2.0,
+│   │                          #   Roslyn 4.8; packed into UPnP.Rx.nupkg under analyzers/dotnet/cs -
+│   │                          #   deliberately one assembly, not a separate generator project)
+│   ├── DiagnosticIds.cs       # every ID + help-anchor helper; linked into the CodeFixes project
+│   ├── UpnpApi.cs             # what the rules bind on (namespaces, method/parameter names) - one copy
+│   ├── TimeSpanValue.cs       # reads a TimeSpan out of source; the whole false-positive budget
+│   ├── LeaseDurationAnalyzer.cs      # UPNPRX001
+│   ├── OptionRangeAnalyzer.cs        # UPNPRX002
+│   ├── DiscardedLeaseAnalyzer.cs     # UPNPRX003
+│   ├── ScpdServiceGenerator.cs       # ← the Roslyn source generator (IIncrementalGenerator)
+│   ├── ScpdModel.cs                  #   its equatable pipeline model + the SCPD reader
+│   ├── IsExternalInit.cs             # netstandard2.0 shim so records/init compile
+│   └── AnalyzerReleases.{Shipped,Unshipped}.md   # RS2008 release tracking
+├── src/UPnP.Rx.Analyzers.CodeFixes/  # fixes for UPNPRX001/003 (Workspaces layer; RS1038 forbids
+│                                     #   an analyzer assembly referencing it, hence a 2nd project)
+├── tests/UPnP.Rx.Analyzers.Tests/    # verifier-based rule tests, generator snapshots + cacheability,
+│   └── Snapshots/                    #   and StubGuardTests holding the source stub to the real API
 └── tests/UPnP.Rx.Tests/       # xUnit v3 + FakeTimeProvider
     ├── UPnP.Rx.Tests.csproj
     ├── DescriptionParserTests.cs, ScpdParserTests.cs, SoapTests.cs, ParseResultTests.cs

@@ -510,6 +510,67 @@ If there is one lesson from building this way, it is that **getting specs right 
 the quality of what AI produces tracks the quality of the plan and the rules
 set up front. This code wasn't "vibe-coded" it was managed and directed, with the AI as a tool.
 
+## Upgrading from 5.x
+
+Every break is the same idea: a value the type could not express honestly now has a type
+that can. Each fix is one line, and the compiler finds all of them.
+
+**`mx` is `MxSeconds`, not `TimeSpan`.** MX is whole seconds on the wire and UDA 2.0 floors
+it at 1, so `TimeSpan` could express values the protocol cannot carry - `TimeSpan.FromMilliseconds(500)`
+used to truncate to `MX: 0` and go out silently.
+
+```csharp
+// 5.x
+client.DiscoverDevices(mx: TimeSpan.FromSeconds(3));
+var options = new UpnpClientOptions { DefaultMx = TimeSpan.FromSeconds(3) };
+
+// 6.0
+client.DiscoverDevices(mx: new MxSeconds(3));
+var options = new UpnpClientOptions { DefaultMx = new MxSeconds(3) };
+```
+
+The type enforces the floor; the ceiling UDA merely *recommends* is reported by `SSDP001` on
+your own literal, at your own call site. Same for `SearchAsync` and `DiscoverDescribedDevices`.
+
+**`EventCallbackPort` is a `ushort`.** `0` still means "bind an ephemeral port".
+
+```csharp
+var options = new UpnpClientOptions { EventCallbackPort = 49152 };   // int literal still fine
+```
+
+**A port mapping's lease and internal port are nullable.** A gateway that reports nothing used
+to read as `TimeSpan.Zero`, which is IGD's encoding for *never expires* - so silence looked
+like a promise of permanence.
+
+```csharp
+// 5.x - "0" meant both "indefinite" and "the gateway told us nothing"
+TimeSpan lease = mapping.LeaseDuration;
+
+// 6.0 - three states
+mapping.LeaseDuration switch
+{
+    null => "the gateway did not say",
+    { Ticks: 0 } => "never expires",
+    { } finite => $"expires in {finite}"
+};
+```
+
+**Out-of-range values now throw instead of being sent.** A negative lease used to saturate to
+`0` on the wire and ask the router for a *permanent* port forward. `AddPortMappingAsync` and
+the `UpnpClientOptions` durations now reject what they cannot honestly carry, and the
+`UPNPRX001`/`UPNPRX002` analyzers report the literal ones before you run anything. If you were
+passing a computed duration that could go negative, clamp it - see
+[Build-time checks](#build-time-checks).
+
+**`GenaHeaders.ComposeTimeout` refuses anything under a second**, rather than composing
+`Second-0` or `Second--5`. Only relevant if you call it directly.
+
+**SSDP.UPnP.PCL moves to 10.0**, which splits its message types into what you send and what
+you receive (`Notify`/`ReceivedNotify`, `MSearchResponse`/`ReceivedMSearchResponse`) and makes
+an M-SEARCH a `MulticastMSearch`. UPnP.Rx surfaces `USN`, `ST` and `Server` from that package,
+which are unchanged - you only touch this if you use its API directly or fake `IControlPoint`
+in your own tests.
+
 ## Upgrading from 4.x
 
 One breaking change, and it is the point of the release: a device's boot identity is

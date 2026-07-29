@@ -223,10 +223,16 @@ public class PortMappingTests
         using var _1 = client;
         http.Map(ControlUrl, _ => (HttpStatusCode.OK, ResponseEnvelope("AddPortMapping", PppServiceType)));
 
+        // UPNPRX001 reports this literal, which is the rule working - the run-time guard
+        // is the backstop for values it cannot see, and this test is the backstop's.
+        // (Note the Theory above goes unreported: its values arrive as a parameter, so
+        // source cannot see them. That is the accepted false-negative half of the budget.)
+#pragma warning disable UPNPRX001 // Deliberate: asserting the run-time guard rejects it.
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
             gateway.AddPortMappingAsync(
                 18080, 18081, Protocol.Tcp, "negative", TimeSpan.FromSeconds(-5),
                 ct: TestContext.Current.CancellationToken));
+#pragma warning restore UPNPRX001
 
         Assert.DoesNotContain(http.Requests, r => r.Request.RequestUri!.ToString() == ControlUrl);
     }

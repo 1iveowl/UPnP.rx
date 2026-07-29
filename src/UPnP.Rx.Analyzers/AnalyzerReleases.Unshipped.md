@@ -1,3 +1,9 @@
 ; Unshipped analyzer releases
 ; Entries move to AnalyzerReleases.Shipped.md under a "## Release X.Y" heading as part of
 ; the release commit. https://github.com/dotnet/roslyn-analyzers/blob/main/src/Microsoft.CodeAnalysis.Analyzers/ReleaseTrackingAnalyzers.Help.md
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|------
+UPNPRX001 | Usage | Warning | LeaseDurationAnalyzer, [Documentation](https://github.com/1iveowl/UPnP.rx#upnprx001)

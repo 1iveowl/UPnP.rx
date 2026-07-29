@@ -10,3 +10,22 @@ M:System.Threading.Tasks.Task.Delay(System.TimeSpan);Use Task.Delay(TimeSpan, Ti
 M:System.Threading.Tasks.Task.Delay(System.TimeSpan,System.Threading.CancellationToken);Use Task.Delay(TimeSpan, TimeProvider, CancellationToken) — see "The time model" in the project plan
 M:System.Threading.CancellationTokenSource.#ctor(System.Int32);Use CancellationTokenSource(TimeSpan, TimeProvider) — see "The time model" in the project plan
 M:System.Threading.CancellationTokenSource.#ctor(System.TimeSpan);Use CancellationTokenSource(TimeSpan, TimeProvider) — see "The time model" in the project plan
+
+# Time model rule 3: a time-based Rx operator must take an explicit IScheduler over the
+# component's own TimeProvider, never the implicit wall-clock Scheduler.Default — two clocks
+# a test cannot advance together is the classic hanging/flaky time test. Only the
+# scheduler-less overloads are banned; the scheduler-taking ones are the supported form.
+# Repo-local on purpose: a consumer's own Throttle is not our mistake, so this is not a
+# shipped analyzer. Nothing in src/ uses these today (6.0.0 P3) — this is a drift guard,
+# and the day one is genuinely wanted it also means building TimeProviderScheduler
+# (project plan §5 rule 4).
+M:System.Reactive.Linq.Observable.Throttle``1(System.IObservable{``0},System.TimeSpan);Time model rule 3: pass an explicit scheduler over the component's TimeProvider
+M:System.Reactive.Linq.Observable.Timeout``1(System.IObservable{``0},System.TimeSpan);Time model rule 3: pass an explicit scheduler over the component's TimeProvider
+M:System.Reactive.Linq.Observable.Delay``1(System.IObservable{``0},System.TimeSpan);Time model rule 3: pass an explicit scheduler over the component's TimeProvider
+M:System.Reactive.Linq.Observable.DelaySubscription``1(System.IObservable{``0},System.TimeSpan);Time model rule 3: pass an explicit scheduler over the component's TimeProvider
+M:System.Reactive.Linq.Observable.Buffer``1(System.IObservable{``0},System.TimeSpan);Time model rule 3: pass an explicit scheduler over the component's TimeProvider
+M:System.Reactive.Linq.Observable.Sample``1(System.IObservable{``0},System.TimeSpan);Time model rule 3: pass an explicit scheduler over the component's TimeProvider
+M:System.Reactive.Linq.Observable.Window``1(System.IObservable{``0},System.TimeSpan);Time model rule 3: pass an explicit scheduler over the component's TimeProvider
+M:System.Reactive.Linq.Observable.Timer(System.TimeSpan);Time model rule 3: pass an explicit scheduler over the component's TimeProvider
+M:System.Reactive.Linq.Observable.Timer(System.TimeSpan,System.TimeSpan);Time model rule 3: pass an explicit scheduler over the component's TimeProvider
+M:System.Reactive.Linq.Observable.Interval(System.TimeSpan);Time model rule 3: pass an explicit scheduler over the component's TimeProvider

@@ -163,7 +163,7 @@ public class UpnpClientTests
         using var _1 = client;
 
         using var subscription = client
-            .DiscoverDevices(SearchTargets.ServiceType("WANIPConnection", 2), TimeSpan.FromSeconds(5))
+            .DiscoverDevices(SearchTargets.ServiceType("WANIPConnection", 2), new MxSeconds(5))
             .Subscribe(_ => { });
 
         var (request, _) = Assert.Single(controlPoint.SentSearches);
@@ -173,21 +173,32 @@ public class UpnpClientTests
     }
 
     [Fact]
-    public void DiscoverDevices_SubSecondMx_IsRaisedToTheUdaFloorRatherThanSentAsZero()
+    public void MxFloor_IsAnInvariantOfTheType_NotSomethingWeCheck()
     {
-        // MX is whole seconds on the wire and UDA 2.0 clause 1.3.2 floors it at 1.
-        // A sub-second TimeSpan used to truncate to "MX: 0" - a value no device is
-        // allowed to honour, sent silently. MxSeconds makes 0 unrepresentable, so
-        // the floor is now applied deliberately and visibly.
-        var (client, controlPoint, _) = CreateClient(IPAddress.Loopback);
-        using var _1 = client;
+        // The reason DiscoverDevices takes MxSeconds rather than TimeSpan. A sub-second
+        // TimeSpan used to truncate to "MX: 0" on the wire - a value UDA 2.0 clause 1.3.2
+        // forbids - and it went out silently. That input is now a COMPILE error, so there
+        // is no run-time path left to test.
+        //
+        // What remains testable is our reliance on the floor: the docs on DefaultMx say
+        // the type enforces "at least 1" and leaves the ceiling to SSDP001. If upstream
+        // ever relaxed either half, this test says so rather than letting the claim rot.
+        // On the message, not just the type: a test that only names the type passes for
+        // the wrong reason the day a different guard starts throwing first.
+        Assert.Contains("at least 1 second", Assert.Throws<ArgumentOutOfRangeException>(
+            () => new MxSeconds(0)).Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Throws<ArgumentOutOfRangeException>(() => new MxSeconds(-1));
+        Assert.Equal(1, MxSeconds.MinimumSeconds);
+        Assert.Equal(5, MxSeconds.RecommendedMaximumSeconds);
 
-        using var subscription = client
-            .DiscoverDevices(mx: TimeSpan.FromMilliseconds(500))
-            .Subscribe(_ => { });
-
-        var (request, _) = Assert.Single(controlPoint.SentSearches);
-        Assert.Equal(MxSeconds.MinimumSeconds, Assert.IsType<MulticastMSearch>(request).MX.Seconds);
+        // The ceiling is advisory by design - the clause permits raising it when many
+        // devices are expected to answer - so the type must accept it. SSDP001 reports
+        // the literal below, which is the division of labour working: the type refuses
+        // what the spec forbids, the analyzer flags what the spec discourages. Suppressed
+        // here precisely because asserting the type accepts it is the point.
+#pragma warning disable SSDP001 // Deliberate: asserting MxSeconds does not enforce the advisory ceiling.
+        Assert.Equal(30, new MxSeconds(30).Seconds);
+#pragma warning restore SSDP001
     }
 
     [Fact]

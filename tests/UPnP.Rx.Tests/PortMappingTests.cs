@@ -181,6 +181,100 @@ public class PortMappingTests
         Assert.Contains("<NewLeaseDuration>0</NewLeaseDuration>", body);
     }
 
+    // ---- Lease duration: the range, and the sentinel that used to swallow it ----
+
+    [Theory]
+    [InlineData(-5)]                 // saturates through (uint) to 0 == "permanent"
+    [InlineData(-1)]
+    [InlineData(604_801)]            // one second over the IGD template's maximum
+    [InlineData(2_592_000)]          // 30 days
+    public async Task AddPortMapping_LeaseOutsideIgdRange_IsRefusedRatherThanComposed(int seconds)
+    {
+        var (gateway, _, http, client) = await DiscoverGatewayAsync();
+        using var _1 = client;
+
+        http.Map(ControlUrl, _ => (HttpStatusCode.OK, ResponseEnvelope("AddPortMapping", PppServiceType)));
+
+        var thrown = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            gateway.AddPortMappingAsync(
+                18080, 18081, Protocol.Tcp, "out of range", TimeSpan.FromSeconds(seconds),
+                ct: TestContext.Current.CancellationToken));
+
+        // On the message: a test naming only the type would pass the day some other
+        // argument guard starts throwing first.
+        Assert.Contains("604800", thrown.Message, StringComparison.Ordinal);
+
+        // And nothing reached the gateway - the point is that no AddPortMapping is
+        // composed at all, rather than one composed with a mangled value.
+        Assert.DoesNotContain(http.Requests, r => r.Request.RequestUri!.ToString() == ControlUrl);
+    }
+
+    [Fact]
+    public async Task AddPortMapping_NegativeLease_WouldOtherwiseHaveAskedForAPermanentMapping()
+    {
+        // The specific reason the guard exists. .NET saturates floating-point to integer
+        // conversions, so (uint)(-5.0) is 0 - and 0 is IGD's encoding for "never expires".
+        // Asking for a five-second-ago lease used to compose <NewLeaseDuration>0</...>
+        // and leave a permanent hole in the firewall, silently.
+        Assert.Equal(0u, (uint)TimeSpan.FromSeconds(-5).TotalSeconds);
+        Assert.False(LeaseDurations.IsValid(TimeSpan.FromSeconds(-5)));
+
+        var (gateway, _, http, client) = await DiscoverGatewayAsync();
+        using var _1 = client;
+        http.Map(ControlUrl, _ => (HttpStatusCode.OK, ResponseEnvelope("AddPortMapping", PppServiceType)));
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            gateway.AddPortMappingAsync(
+                18080, 18081, Protocol.Tcp, "negative", TimeSpan.FromSeconds(-5),
+                ct: TestContext.Current.CancellationToken));
+
+        Assert.DoesNotContain(http.Requests, r => r.Request.RequestUri!.ToString() == ControlUrl);
+    }
+
+    [Fact]
+    public async Task AddPortMapping_LeaseAtTheBoundaries_IsAccepted()
+    {
+        var (gateway, _, http, client) = await DiscoverGatewayAsync();
+        using var _1 = client;
+
+        http.Map(ControlUrl, _ => (HttpStatusCode.OK, ResponseEnvelope("AddPortMapping", PppServiceType)));
+
+        await using var maximum = await gateway.AddPortMappingAsync(
+            18080, 18081, Protocol.Tcp, "max", LeaseDurations.Maximum,
+            ct: TestContext.Current.CancellationToken);
+
+        Assert.Equal(LeaseDurations.Maximum, maximum.Mapping.LeaseDuration);
+        Assert.Contains(
+            "<NewLeaseDuration>604800</NewLeaseDuration>",
+            http.Requests.Last(r => r.Request.RequestUri!.ToString() == ControlUrl).Body);
+    }
+
+    [Fact]
+    public async Task GetSpecificPortMappingEntry_UnreportedLease_IsUnknownRatherThanIndefinite()
+    {
+        // TimeSpan.Zero means "never expires" in IGD, so using it as the parse-failure
+        // sentinel made a gateway that omitted the field look like one promising a
+        // permanent mapping. Null says what actually happened: it did not tell us.
+        var (gateway, _, http, client) = await DiscoverGatewayAsync();
+        using var _1 = client;
+
+        http.Map(ControlUrl, _ => (HttpStatusCode.OK, ResponseEnvelope(
+            "GetSpecificPortMappingEntry", PppServiceType,
+            """
+            <NewInternalPort>not-a-number</NewInternalPort>
+            <NewInternalClient>192.168.1.50</NewInternalClient>
+            <NewEnabled>1</NewEnabled>
+            <NewPortMappingDescription>silent</NewPortMappingDescription>
+            """)));
+
+        var mapping = await gateway.GetSpecificPortMappingEntryAsync(
+            8080, Protocol.Tcp, ct: TestContext.Current.CancellationToken);
+
+        Assert.NotNull(mapping);
+        Assert.Null(mapping.LeaseDuration);      // not TimeSpan.Zero
+        Assert.Null(mapping.InternalPort);       // not (ushort)0
+    }
+
     [Fact]
     public async Task AddPortMapping_WildcardDiscoveryAddress_ResolvesInternalClientFromRoute()
     {
@@ -256,7 +350,7 @@ public class PortMappingTests
             8080, Protocol.Tcp, ct: TestContext.Current.CancellationToken);
 
         Assert.NotNull(mapping);
-        Assert.Equal(9090, mapping.InternalPort);
+        Assert.Equal((ushort)9090, mapping.InternalPort);
         Assert.Equal("192.168.1.50", mapping.InternalClient);
 
         exists = false;

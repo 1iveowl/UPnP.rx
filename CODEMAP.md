@@ -27,6 +27,7 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 | 5.0 | Honest optionals: SSDP.UPnP.PCL 9.1 adoption, `BootSignature`, nullable `MaxAge`, `UpnpVersionClaims` (4 witnesses), clause 4.1.1 subscription cancellation + `ssdp:update`, `UPnP.Rx.Presence`, `LocalNetwork` + `[LoggerMessage]`, dashboard version badges / restart markers / retained departed devices / deep search; three-way review (deadlock, two cancellation bugs) | ✅ released |
 | 6.0 P1 | Adopt SSDP.UPnP.PCL 10.0.0 + SimpleHttpListener.Rx 7.6.0 (on `dev/6.0.0`): `Received*` message split, `MulticastMSearch`, `MxSeconds`; `EntityType.Unknown` no longer kills discovery; M-SEARCH composition proved byte-identical across the upgrade | ✅ done |
 | 6.0 P2 | Inherited analyzers verified live: SHLRX001/002 + SSDP001/003/005 seeded and fired in library, sample **and** test projects (package analyzers cross a ProjectReference edge); corpus clean at zero hits; CI tests the solution, not one project | ✅ done |
+| 6.0 P3 | The API changes that delete rules: `mx` → `MxSeconds?` (floor becomes a type invariant, ceiling handed to SSDP001), `EventCallbackPort` → `ushort`, `UpnpClientOptions` range guards, IGD lease range enforced (`LeaseDurations`) so a negative lease stops meaning "permanent", nullable read-back on `PortMappingEntry`; `BannedSymbols` covers scheduler-less Rx time operators, CA2000 on in src+samples | ✅ done |
 
 ## Tree (current)
 

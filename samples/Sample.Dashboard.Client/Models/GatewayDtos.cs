@@ -15,11 +15,11 @@ public sealed record GatewayDto(
 public sealed record PortMappingDto(
     string Protocol,
     ushort ExternalPort,
-    ushort InternalPort,
+    ushort? InternalPort,
     string? InternalClient,
     bool Enabled,
     string? Description,
-    double LeaseSeconds,
+    double? LeaseSeconds,
     bool HeldByServer);
 
 /// <summary>One SSDP envelope for the device activity log, broadcast to all browsers.</summary>

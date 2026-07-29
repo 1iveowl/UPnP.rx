@@ -11,10 +11,10 @@ namespace UPnP.Rx;
 public interface IUpnpClient : IAsyncDisposable, IDisposable
 {
     /// <summary>Devices announcing themselves, deduplicated per subscription; an M-SEARCH is sent on subscribe. See <see cref="UpnpClient.DiscoverDevices"/>.</summary>
-    IObservable<DiscoveredDevice> DiscoverDevices(ST? searchTarget = null, TimeSpan? mx = null);
+    IObservable<DiscoveredDevice> DiscoverDevices(ST? searchTarget = null, MxSeconds? mx = null);
 
     /// <summary>Discovery composed with the (cached) description fetch, deduplicated by UDN. See <see cref="UpnpClient.DiscoverDescribedDevices"/>.</summary>
-    IObservable<DescribedDevice> DiscoverDescribedDevices(ST? searchTarget = null, TimeSpan? mx = null);
+    IObservable<DescribedDevice> DiscoverDescribedDevices(ST? searchTarget = null, MxSeconds? mx = null);
 
     /// <summary>Devices leaving the network (<c>ssdp:byebye</c>). See <see cref="UpnpClient.DeviceLost"/>.</summary>
     IObservable<DiscoveredDevice> DeviceLost();
@@ -26,7 +26,7 @@ public interface IUpnpClient : IAsyncDisposable, IDisposable
     IObservable<Announcement> Announcements();
 
     /// <summary>One M-SEARCH burst on every interface, soliciting without subscribing or resetting anything. See <see cref="UpnpClient.SearchAsync"/>.</summary>
-    Task SearchAsync(ST? searchTarget = null, TimeSpan? mx = null, CancellationToken ct = default);
+    Task SearchAsync(ST? searchTarget = null, MxSeconds? mx = null, CancellationToken ct = default);
 
     /// <summary>Drops every cached description for the location, forcing a re-fetch. See <see cref="UpnpClient.InvalidateDescriptions"/>.</summary>
     void InvalidateDescriptions(Uri location);

@@ -109,7 +109,7 @@ public sealed class GatewayService(
                 m.InternalClient,
                 m.Enabled,
                 m.Description,
-                m.LeaseDuration.TotalSeconds,
+                m.LeaseDuration?.TotalSeconds,
                 HeldByServer: _held.ContainsKey((m.ExternalPort, m.Protocol.ToWireString()))));
         }
 

@@ -188,15 +188,30 @@ public sealed class InternetGateway : IInternetGateway
             RemoteHost = remoteHost,
             ExternalPort = externalPort,
             Protocol = protocol,
-            InternalPort = ushort.TryParse(entry["NewInternalPort"], out var internalPort) ? internalPort : (ushort)0,
+            InternalPort = ParsePort(entry["NewInternalPort"]),
             InternalClient = entry["NewInternalClient"],
             Enabled = entry["NewEnabled"] is "1" or "true",
             Description = entry["NewPortMappingDescription"],
-            LeaseDuration = uint.TryParse(entry["NewLeaseDuration"], out var seconds)
-                ? TimeSpan.FromSeconds(seconds)
-                : TimeSpan.Zero
+            LeaseDuration = ParseLease(entry["NewLeaseDuration"])
         };
     }
+
+    /// <summary>A port the gateway reported, or null when it reported none we can use.</summary>
+    private static ushort? ParsePort(string? value) =>
+        ushort.TryParse(value, out var port) ? port : null;
+
+    /// <summary>
+    /// A lease the gateway reported, or null when it reported none we can use. Emphatically
+    /// not <see cref="TimeSpan.Zero"/> on failure: zero is IGD's encoding for "this mapping
+    /// never expires", so a gateway that simply omitted the field would have been read as
+    /// promising a permanent mapping. Out-of-range values are clamped rather than refused -
+    /// leniency applies to what we accept, and a gateway is entitled to report a lease
+    /// longer than the template allows even though we may not ask for one.
+    /// </summary>
+    private static TimeSpan? ParseLease(string? value) =>
+        uint.TryParse(value, out var seconds)
+            ? TimeSpan.FromSeconds(Math.Min(seconds, LeaseDurations.Maximum.TotalSeconds))
+            : null;
 
     /// <summary>Removes a port mapping from the gateway.</summary>
     /// <exception cref="UpnpActionException">The gateway answered with a UPnP error (e.g. 714 NoSuchEntryInArray).</exception>
@@ -240,17 +255,15 @@ public sealed class InternetGateway : IInternetGateway
             yield return new PortMappingEntry
             {
                 RemoteHost = entry["NewRemoteHost"],
-                ExternalPort = ushort.TryParse(entry["NewExternalPort"], out var external) ? external : (ushort)0,
-                InternalPort = ushort.TryParse(entry["NewInternalPort"], out var internalPort) ? internalPort : (ushort)0,
+                ExternalPort = ParsePort(entry["NewExternalPort"]) ?? 0,
+                InternalPort = ParsePort(entry["NewInternalPort"]),
                 Protocol = string.Equals(entry["NewProtocol"], "UDP", StringComparison.OrdinalIgnoreCase)
                     ? Protocol.Udp
                     : Protocol.Tcp,
                 InternalClient = entry["NewInternalClient"],
                 Enabled = entry["NewEnabled"] is "1" or "true",
                 Description = entry["NewPortMappingDescription"],
-                LeaseDuration = uint.TryParse(entry["NewLeaseDuration"], out var seconds)
-                    ? TimeSpan.FromSeconds(seconds)
-                    : TimeSpan.Zero
+                LeaseDuration = ParseLease(entry["NewLeaseDuration"])
             };
         }
     }
@@ -339,16 +352,27 @@ public sealed class InternetGateway : IInternetGateway
     private Task<ActionResult> InvokeAddPortMappingAsync(PortMappingEntry mapping, CancellationToken ct) =>
         WanConnectionService.InvokeAsync("AddPortMapping", AddArguments(mapping), ct);
 
-    /// <summary>In-arguments in SCPD declaration order (strict in what we send).</summary>
+    /// <summary>
+    /// In-arguments in SCPD declaration order (strict in what we send).
+    /// </summary>
+    /// <remarks>
+    /// The lease cast is why <see cref="PortMappingEntry.LeaseDuration"/> validates at its
+    /// initializer. Conversion from floating point to integer saturates in .NET, so
+    /// <c>(uint)(-5.0)</c> is <c>0</c> - and <c>0</c> is IGD's encoding for a permanent
+    /// mapping. Without the guard upstream of here, asking for a negative lease quietly
+    /// asked for the longest-lived mapping the gateway can make.
+    /// </remarks>
     private static Dictionary<string, string> AddArguments(PortMappingEntry mapping) => new()
     {
         ["NewRemoteHost"] = mapping.RemoteHost ?? string.Empty,
         ["NewExternalPort"] = mapping.ExternalPort.ToString(),
         ["NewProtocol"] = mapping.Protocol.ToWireString(),
-        ["NewInternalPort"] = mapping.InternalPort.ToString(),
+        ["NewInternalPort"] = (mapping.InternalPort ?? 0).ToString(),
         ["NewInternalClient"] = mapping.InternalClient ?? string.Empty,
         ["NewEnabled"] = mapping.Enabled ? "1" : "0",
         ["NewPortMappingDescription"] = mapping.Description ?? string.Empty,
-        ["NewLeaseDuration"] = ((uint)mapping.LeaseDuration.TotalSeconds).ToString()
+        // Null (the gateway told us nothing) is not a lease we can ask for; an explicit
+        // indefinite mapping is zero, and that is what an unknown collapses to here.
+        ["NewLeaseDuration"] = ((uint)(mapping.LeaseDuration ?? TimeSpan.Zero).TotalSeconds).ToString()
     };
 }

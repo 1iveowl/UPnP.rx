@@ -115,7 +115,7 @@ public sealed class UpnpClient : IUpnpClient
     /// identities seen — for long-lived presence tracking prefer
     /// <see cref="Roster"/>, whose state is bounded and expiring.
     /// </remarks>
-    public IObservable<DiscoveredDevice> DiscoverDevices(ST? searchTarget = null, TimeSpan? mx = null) =>
+    public IObservable<DiscoveredDevice> DiscoverDevices(ST? searchTarget = null, MxSeconds? mx = null) =>
         Observable.Defer(() =>
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
@@ -167,7 +167,7 @@ public sealed class UpnpClient : IUpnpClient
     /// Temperature: cold — see <see cref="DiscoverDevices"/>. In-flight
     /// description fetches are cancelled when the subscription is disposed.
     /// </remarks>
-    public IObservable<DescribedDevice> DiscoverDescribedDevices(ST? searchTarget = null, TimeSpan? mx = null) =>
+    public IObservable<DescribedDevice> DiscoverDescribedDevices(ST? searchTarget = null, MxSeconds? mx = null) =>
         DiscoverDevices(searchTarget, mx)
             .SelectMany(device => Observable
                 .FromAsync(device.GetDescriptionAsync)
@@ -259,7 +259,7 @@ public sealed class UpnpClient : IUpnpClient
         }
     }
 
-    private async Task SendSearchesAsync(ST searchTarget, TimeSpan mx, CancellationToken ct)
+    private async Task SendSearchesAsync(ST searchTarget, MxSeconds mx, CancellationToken ct)
     {
         if (_addresses.Count == 0)
         {
@@ -269,7 +269,7 @@ public sealed class UpnpClient : IUpnpClient
         var request = new MulticastMSearch
         {
             ST = searchTarget,
-            MX = ToMxSeconds(mx),
+            MX = mx,
             CPFN = _options.ControlPointFriendlyName
         };
 
@@ -294,15 +294,6 @@ public sealed class UpnpClient : IUpnpClient
             throw new UpnpException("Sending M-SEARCH failed on every interface.");
         }
     }
-
-    /// <summary>
-    /// MX is whole seconds on the wire and UDA 2.0 clause 1.3.2 floors it at 1, which
-    /// <see cref="MxSeconds"/> now enforces as a type invariant. A sub-second
-    /// <see cref="TimeSpan"/> used to truncate to <c>MX: 0</c> - a value no device is
-    /// allowed to honour - so it is raised to the floor rather than sent.
-    /// </summary>
-    private static MxSeconds ToMxSeconds(TimeSpan mx) =>
-        new(Math.Max(MxSeconds.MinimumSeconds, (int)mx.TotalSeconds));
 
     internal UpnpClientOptions Options => _options;
 
@@ -409,7 +400,7 @@ public sealed class UpnpClient : IUpnpClient
     /// <param name="mx">Maximum device response delay; the options' default when null.</param>
     /// <param name="ct">Cancels the sends.</param>
     /// <exception cref="UpnpException">Sending failed on every interface.</exception>
-    public Task SearchAsync(ST? searchTarget = null, TimeSpan? mx = null, CancellationToken ct = default)
+    public Task SearchAsync(ST? searchTarget = null, MxSeconds? mx = null, CancellationToken ct = default)
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
         return SendSearchesAsync(searchTarget ?? _options.DefaultSearchTarget, mx ?? _options.DefaultMx, ct);

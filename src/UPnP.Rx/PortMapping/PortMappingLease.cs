@@ -44,8 +44,12 @@ public sealed class PortMappingLease : IPortMappingLease
         Mapping = mapping;
         _options = options;
         _events = Subject.Synchronize(_subject);
-        _renewalLoop = mapping.LeaseDuration > TimeSpan.Zero
-            ? RunRenewalLoopAsync()
+        // A finite lease is the only one worth renewing. Indefinite (zero) needs no
+        // renewal by definition, and an unknown lease (null - only reachable for a
+        // mapping read back from a gateway that reported none) gives no half-life to
+        // renew at, so both opt out.
+        _renewalLoop = mapping.LeaseDuration is { } finite && finite > TimeSpan.Zero
+            ? RunRenewalLoopAsync(finite)
             : Task.CompletedTask;
     }
 
@@ -110,11 +114,10 @@ public sealed class PortMappingLease : IPortMappingLease
         _ownedGateway?.Dispose();
     }
 
-    private async Task RunRenewalLoopAsync()
+    private async Task RunRenewalLoopAsync(TimeSpan lease)
     {
         // Renew at half-life; never spin faster than once per second.
-        var period = TimeSpan.FromTicks(Math.Max(
-            Mapping.LeaseDuration.Ticks / 2, TimeSpan.TicksPerSecond));
+        var period = TimeSpan.FromTicks(Math.Max(lease.Ticks / 2, TimeSpan.TicksPerSecond));
 
         var timeProvider = _options.TimeProvider;
         using var timer = new PeriodicTimer(period, timeProvider);
@@ -151,7 +154,7 @@ public sealed class PortMappingLease : IPortMappingLease
                     });
 
                     if (!expiredEmitted
-                        && timeProvider.GetElapsedTime(lastSuccess) > Mapping.LeaseDuration)
+                        && timeProvider.GetElapsedTime(lastSuccess) > lease)
                     {
                         expiredEmitted = true;
                         _events.OnNext(new PortMappingEvent { Kind = PortMappingEventKind.Expired });

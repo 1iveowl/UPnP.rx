@@ -1,1 +1,25 @@
-#nullable enable
+*REMOVED*UPnP.Rx.IUpnpClient.DiscoverDescribedDevices(SSDP.UPnP.PCL.Model.ST? searchTarget = null, System.TimeSpan? mx = null) -> System.IObservable<UPnP.Rx.DescribedDevice!>!
+*REMOVED*UPnP.Rx.IUpnpClient.DiscoverDevices(SSDP.UPnP.PCL.Model.ST? searchTarget = null, System.TimeSpan? mx = null) -> System.IObservable<UPnP.Rx.DiscoveredDevice!>!
+*REMOVED*UPnP.Rx.IUpnpClient.SearchAsync(SSDP.UPnP.PCL.Model.ST? searchTarget = null, System.TimeSpan? mx = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+*REMOVED*UPnP.Rx.PortMapping.PortMappingEntry.InternalPort.get -> ushort
+*REMOVED*UPnP.Rx.PortMapping.PortMappingEntry.LeaseDuration.get -> System.TimeSpan
+*REMOVED*UPnP.Rx.UpnpClient.DiscoverDescribedDevices(SSDP.UPnP.PCL.Model.ST? searchTarget = null, System.TimeSpan? mx = null) -> System.IObservable<UPnP.Rx.DescribedDevice!>!
+*REMOVED*UPnP.Rx.UpnpClient.DiscoverDevices(SSDP.UPnP.PCL.Model.ST? searchTarget = null, System.TimeSpan? mx = null) -> System.IObservable<UPnP.Rx.DiscoveredDevice!>!
+*REMOVED*UPnP.Rx.UpnpClient.SearchAsync(SSDP.UPnP.PCL.Model.ST? searchTarget = null, System.TimeSpan? mx = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+*REMOVED*UPnP.Rx.UpnpClientOptions.DefaultMx.get -> System.TimeSpan
+*REMOVED*UPnP.Rx.UpnpClientOptions.EventCallbackPort.get -> int
+UPnP.Rx.IUpnpClient.DiscoverDescribedDevices(SSDP.UPnP.PCL.Model.ST? searchTarget = null, SSDP.UPnP.PCL.Model.MxSeconds? mx = null) -> System.IObservable<UPnP.Rx.DescribedDevice!>!
+UPnP.Rx.IUpnpClient.DiscoverDevices(SSDP.UPnP.PCL.Model.ST? searchTarget = null, SSDP.UPnP.PCL.Model.MxSeconds? mx = null) -> System.IObservable<UPnP.Rx.DiscoveredDevice!>!
+UPnP.Rx.IUpnpClient.SearchAsync(SSDP.UPnP.PCL.Model.ST? searchTarget = null, SSDP.UPnP.PCL.Model.MxSeconds? mx = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+UPnP.Rx.PortMapping.LeaseDurations
+UPnP.Rx.PortMapping.PortMappingEntry.InternalPort.get -> ushort?
+UPnP.Rx.PortMapping.PortMappingEntry.LeaseDuration.get -> System.TimeSpan?
+UPnP.Rx.UpnpClient.DiscoverDescribedDevices(SSDP.UPnP.PCL.Model.ST? searchTarget = null, SSDP.UPnP.PCL.Model.MxSeconds? mx = null) -> System.IObservable<UPnP.Rx.DescribedDevice!>!
+UPnP.Rx.UpnpClient.DiscoverDevices(SSDP.UPnP.PCL.Model.ST? searchTarget = null, SSDP.UPnP.PCL.Model.MxSeconds? mx = null) -> System.IObservable<UPnP.Rx.DiscoveredDevice!>!
+UPnP.Rx.UpnpClient.SearchAsync(SSDP.UPnP.PCL.Model.ST? searchTarget = null, SSDP.UPnP.PCL.Model.MxSeconds? mx = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+UPnP.Rx.UpnpClientOptions.DefaultMx.get -> SSDP.UPnP.PCL.Model.MxSeconds
+UPnP.Rx.UpnpClientOptions.EventCallbackPort.get -> ushort
+static UPnP.Rx.PortMapping.LeaseDurations.Indefinite.get -> System.TimeSpan
+static UPnP.Rx.PortMapping.LeaseDurations.IsValid(System.TimeSpan? lease) -> bool
+static UPnP.Rx.PortMapping.LeaseDurations.Maximum.get -> System.TimeSpan
+static UPnP.Rx.PortMapping.LeaseDurations.Validated(System.TimeSpan? lease, string? name = null) -> System.TimeSpan?

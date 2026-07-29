@@ -50,6 +50,13 @@ csharp_prefer_static_local_function = true:warning
 # Warning severity becomes a build error via TreatWarningsAsErrors.
 dotnet_diagnostic.CA2007.severity = warning
 
+# Disposables must be disposed before they go out of scope. Not on by default in the
+# SDK's analysis set, and measured clean over src/ and samples/ before enabling - it
+# costs nothing here and covers the ground next to UPNPRX003. It does NOT catch a
+# discarded IPortMappingLease (its analysis tracks object creations, not an arbitrary
+# method's return value), which is why that rule exists.
+dotnet_diagnostic.CA2000.severity = warning
+
 # Naming: interfaces IPascalCase, private fields _camelCase, everything else PascalCase
 # Private fields - including const and static readonly - are _camelCase
 # (house style, sibling-aligned; the general .NET convention PascalCases
@@ -80,3 +87,9 @@ dotnet_naming_style.underscore_camel_case.required_prefix = _
 # Tests and samples run without a SynchronizationContext — ConfigureAwait(false) is noise there.
 [{tests,samples}/**.cs]
 dotnet_diagnostic.CA2007.severity = none
+
+# Test setup hands ownership of its fakes to the object under test, which CA2000 cannot
+# see - 28 such reports, all of them noise. Measured before switching it off rather than
+# assumed, and deliberately left ON for samples, which are consumer-shaped code.
+[tests/**.cs]
+dotnet_diagnostic.CA2000.severity = none

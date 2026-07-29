@@ -117,3 +117,66 @@ static void WriteLine(ConsoleColor color, string text)
     Write(color, text);
     Console.WriteLine();
 }
+
+// ===========================================================================
+// ANALYZER DEMO - the options rule (UPNPRX002) and the rules UPnP.Rx inherits
+// from its upstream packages (SSDP001, SSDP003, SHLRX001).
+//
+// Commented out on purpose: this repo builds with TreatWarningsAsErrors.
+// To try one: select a numbered block - the code only - and uncomment it
+// (Ctrl+K Ctrl+U), then `dotnet build samples/Sample.Browser`.
+//
+// The port-mapping rules (UPNPRX001, UPNPRX003) are demonstrated in
+// samples/Sample.PortMapper/Program.cs, where the API they guard lives.
+// ===========================================================================
+
+#pragma warning disable IDE0051, CS8321 // demo helpers are deliberately unused
+
+// --- (1) UPNPRX002: a UpnpClientOptions duration outside its range ---------
+
+// static UpnpClientOptions Upnprx002_Reported() => new()
+// {
+//     ActionTimeout = TimeSpan.Zero,
+//     DescriptionTimeout = TimeSpan.FromSeconds(-1),
+//     RosterExpiryFallback = TimeSpan.Zero,
+//     EventSubscriptionTimeout = TimeSpan.FromMilliseconds(500)
+// };
+
+// The same rule staying quiet. Short-but-positive may be exactly right on a
+// fast LAN, and a rule that argues with a legitimate choice is one you learn to
+// suppress - taking the quiet rules with it. EventCallbackPort needs no rule at
+// all: it is a ushort, so there is no out-of-range value to write.
+
+// static UpnpClientOptions Upnprx002_Silent() => new()
+// {
+//     ActionTimeout = TimeSpan.FromMilliseconds(100),
+//     EventCallbackPort = 49152
+// };
+
+// --- (2) SSDP001 / SSDP003: inherited from SSDP.UPnP.PCL -------------------
+// Nothing extra is referenced to get these. A package's analyzers reach you
+// through the package that depends on it - here, through UPnP.Rx.
+
+// static void Inherited_Reported()
+// {
+//     var mx = new SSDP.UPnP.PCL.Model.MxSeconds(30);
+//     var port = new SSDP.UPnP.PCL.Model.DynamicPort(80);
+// }
+
+// That MX ceiling reaching YOUR call site is exactly why DiscoverDevices takes
+// MxSeconds rather than TimeSpan: the ">= 1" the spec mandates is a type
+// invariant, and the "<= 5" it merely recommends is SSDP001's job, on your
+// literal, at your call site. One rule this library never had to write.
+
+// static void Inherited_ViaOurApi(IUpnpClient client) =>
+//     client.DiscoverDevices(mx: new SSDP.UPnP.PCL.Model.MxSeconds(30)).Subscribe(_ => { });
+
+// --- (3) SHLRX001: from SimpleHttpListener.Rx, three package hops away -----
+// Subscribe(async …) compiles to async void: exceptions bypass OnError,
+// ordering is not preserved, nothing applies backpressure. House Rx rule 1,
+// enforced by somebody else's analyzer, and it still arrives.
+
+// static IDisposable Shlrx001_Reported(IObservable<DiscoveredDevice> devices) =>
+//     devices.Subscribe(async device => await device.GetDescriptionAsync());
+
+#pragma warning restore IDE0051, CS8321

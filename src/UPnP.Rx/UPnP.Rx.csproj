@@ -27,17 +27,18 @@
        exact document their wrapper came from. -->
   <ItemGroup>
     <AdditionalFiles Include="Scpd/WANIPConnection1.scpd.xml" />
-    <None Include="Scpd/WANIPConnection1.scpd.xml" Pack="true" PackagePath="scpd/" />
+    <None Include="Scpd/WANIPConnection1.scpd.xml" Pack="true" PackagePath="scpd" />
   </ItemGroup>
 
   <PropertyGroup>
-    <!-- No reflection, no serialization, no dynamic code: say so and let the
-         trim/AOT analyzers hold us to it (4.1 plan, ergonomics batch). -->
     <!-- Generated sources on disk, so they are greppable when a generated member turns up
          in the public-API ledger. Left at the default path under obj/: anywhere inside the
          project directory gets globbed back in as compile input, and every generated file
          is then compiled twice. -->
     <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+
+    <!-- No reflection, no serialization, no dynamic code: say so and let the
+         trim/AOT analyzers hold us to it (4.1 plan, ergonomics batch). -->
     <IsTrimmable>true</IsTrimmable>
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>

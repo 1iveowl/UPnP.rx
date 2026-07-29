@@ -8,6 +8,8 @@
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 [![System.Reactive](https://img.shields.io/badge/Rx-7.0-ff69b4.svg)](https://reactivex.io/)
 [![UPnP](https://img.shields.io/badge/UPnP%20Device%20Architecture-2.0-2563EB.svg)](http://upnp.org/specs/arch/UPnP-arch-DeviceArchitecture-v2.0.pdf)
+[![Analyzers](https://img.shields.io/badge/analyzers-3%20rules%20%2B%20generator-8A2BE2.svg)](#build-time-checks)
+[![Trim / AOT](https://img.shields.io/badge/trim%20%2F%20native%20AOT-verified-success.svg)](#trimming-and-native-aot)
 
 A modern, functional, Rx-based **UPnP control point** for .NET 10: discover devices, browse their services, call their actions - as observables and immutable records. Includes an **IGD port-mapping client** with auto-renewing leases.
 
@@ -266,6 +268,179 @@ var args = scpd.ValidateAndOrderArguments("AddPortMapping", myArguments);
 // args.IsSuccess ? await wan.InvokeAsync("AddPortMapping", args.Value) : report args.Error
 ```
 
+## Build-time checks
+
+UPnP.Rx ships analyzers inside the package - no extra reference, nothing to install. They
+report mistakes this library can see at build time instead of letting a router, or a silent
+default, answer for them.
+
+The design rule is that a **rule is the last resort**. Most of what an analyzer could have
+checked here is instead unrepresentable: ports are `ushort`, `Protocol` is an `enum`, MX is
+`MxSeconds`, so the compiler refuses the bad value without anyone writing a diagnostic. What
+remains are range and resource mistakes the type system cannot express.
+
+Each rule reports **literals and compile-time constants only**. A computed value is left
+alone deliberately - the budget is zero false positives, and a run-time guard covers the rest.
+A rule you learn to suppress takes the quiet ones with it.
+
+**Turning one off** - `.editorconfig`, `<NoWarn>` and `#pragma warning disable` all work:
+
+```ini
+dotnet_diagnostic.UPNPRX001.severity = none
+```
+
+`ExcludeAssets="analyzers"` does **not** work; it has been measured three times, in three
+repositories, and never suppressed anything.
+
+<a id="upnprx001"></a>
+### UPNPRX001 - a port-mapping lease outside the range IGD allows
+
+**What it catches.** A `lease` argument to `AddPortMappingAsync`, `AddAnyPortMappingAsync` or
+`PortMapper.AddPortMappingAsync`, or a `PortMappingEntry.LeaseDuration`, that is negative or
+above 604 800 seconds (7 days).
+
+**Why it matters.** IGD carries the lease as a `ui4` of seconds, ranged 0-604800 by the
+standardized service template, where **zero means indefinite**. That makes the negative case
+genuinely dangerous rather than merely wrong: .NET's floating-point to integer conversion
+saturates, so `(uint)(-5.0)` is `0` - and asking for a lease five seconds in the past used to
+ask the router for a **permanent** port forward, with no exception and no log line.
+
+```csharp
+// Reported: silently became a permanent mapping before 6.0.0.
+await using var lease = await gateway.AddPortMappingAsync(
+    8080, 8080, Protocol.Tcp, "my app", TimeSpan.FromSeconds(-5));
+```
+
+**How to fix it.** Pass a lease inside the range, or say what you meant:
+`LeaseDurations.Maximum` for the longest IGD allows, `LeaseDurations.Indefinite` for a mapping
+that never expires. Two code fixes offer exactly those - and "indefinite" is offered *only*
+for a negative lease, because someone who wrote 30 days meant "a long time", not "forever".
+
+<a id="upnprx002"></a>
+### UPNPRX002 - a `UpnpClientOptions` value outside its documented range
+
+**What it catches.** A non-positive `DescriptionTimeout`, `ActionTimeout` or
+`RosterExpiryFallback`, or an `EventSubscriptionTimeout` under one second - in an object
+initializer or a `with` expression.
+
+**Why it matters.** A non-positive timeout cancels immediately, so every description fetch or
+SOAP call fails before it starts. A sub-second `EventSubscriptionTimeout` composes
+`TIMEOUT: Second-0`, which is malformed GENA (UDA 2.0 clause 4.1.2); a negative one composes
+`Second--5`.
+
+```csharp
+// Reported: every SOAP call would fail before it started.
+var options = new UpnpClientOptions { ActionTimeout = TimeSpan.Zero };
+```
+
+**How to fix it.** Use a positive duration. Note what is *not* reported: a short but positive
+timeout. `ActionTimeout = TimeSpan.FromMilliseconds(100)` may be exactly right on a fast LAN,
+and this rule does not second-guess it.
+
+No code fix - there is no defensible value to substitute for your intent.
+
+<a id="upnprx003"></a>
+### UPNPRX003 - the port mapping's lease is discarded
+
+**What it catches.** Awaiting a port-mapping call as a bare statement, or assigning it to `_`,
+so the returned lease goes nowhere.
+
+**Why it matters.** The lease owns three things: the mapping on the router, a renewal loop
+that runs for the life of the process, and - for the `PortMapper` one-liner - the discovery
+client and its sockets. Dropping it leaks all three and leaves an open port with nothing left
+to close it. `CA2000` does not cover this: its analysis tracks object creations, not a
+method's return value.
+
+```csharp
+// Reported: the mapping is never removed.
+await gateway.AddPortMappingAsync(8080, 8080, Protocol.Tcp, "my app", TimeSpan.FromHours(1));
+```
+
+**How to fix it.** Hold the lease, and dispose it asynchronously - the code fix does this:
+
+```csharp
+await using var lease = await gateway.AddPortMappingAsync(
+    8080, 8080, Protocol.Tcp, "my app", TimeSpan.FromHours(1));
+```
+
+`await using`, not `using`: the async path deletes the mapping from the gateway, while the
+sync path only stops renewing and lets it lapse. Both are legitimate - `Dispose` is the
+documented abrupt path - which is why a sync `using` is *not* reported.
+
+<a id="upnprxgen001"></a>
+### UPNPRXGEN001 - the SCPD document a generated wrapper names was not supplied
+
+Reported by the source generator below when `[ScpdService("X.scpd.xml")]` names a document
+that is not among the compiler's `AdditionalFiles`. Without it you would get no generated
+members and a pile of "no such method" errors at every call site instead of the actual cause.
+
+## Trimming and native AOT
+
+The library declares `IsTrimmable` and `IsAotCompatible`, and CI holds it to the claim rather
+than taking its word: every build publishes a sample as a **native AOT binary and runs it**.
+ILC staying quiet only proves the managed side is clean; it does not prove the result starts.
+
+That is affordable because nothing here is discovered at run time - no reflection, no
+serializers, no DI scanning. XML is LINQ to XML throughout (`XDocument`/`XElement`), regexes
+are `[GeneratedRegex]`, log messages are `[LoggerMessage]`. Publishing your own app is the
+ordinary command:
+
+```bash
+dotnet publish -c Release -r linux-x64 --self-contained -p:PublishAot=true
+```
+
+One thing worth knowing, because its failure looks like something else entirely: **publish for
+the architecture you are on.** Asking for `-r linux-x64` on an arm64 machine is a cross-compile,
+and the native linker rejects flags meant for another target with an error that reads exactly
+like a missing toolchain. On Linux you also want `clang` and `zlib1g-dev` installed, which is
+what Microsoft documents as the prerequisite.
+
+
+## Typed service wrappers from an SCPD (source generator)
+
+Every action name, argument name and out-argument name in UPnP is a string that a device
+validates by returning a SOAP fault. An SCPD document already describes all of them, so the
+package generates the typed wrapper instead:
+
+```csharp
+[ScpdService("WANIPConnection1.scpd.xml")]
+public sealed partial class WanIpConnection;
+```
+
+with the document handed to the compiler:
+
+```xml
+<ItemGroup>
+  <AdditionalFiles Include="Scpd/WANIPConnection1.scpd.xml" />
+</ItemGroup>
+```
+
+**What it emits**, over the same `IUpnpService.InvokeAsync` everything else uses: a
+constructor taking the service, one `…Async` method per action with typed parameters, a nested
+`record` per action that has out-arguments, and the document's own `allowedValueRange` and
+`allowedValueList` checked before anything reaches the network.
+
+```csharp
+var wan = new WanIpConnection(service);
+var status = await wan.GetStatusInfoAsync();          // typed result record
+await wan.AddPortMappingAsync("", 8080, "TCP", 8080, "192.168.1.42", true, "my app", 3600);
+```
+
+**What it does not promise.** The wrapper describes the **document**, not the device. A
+checked-in SCPD is the standardized service template, and real devices deviate from it - which
+is why this library's parsers are lenient. A generated method compiling proves the *template*
+declares that action; it proves nothing about the box on your network, which can still answer
+with a `UpnpActionException`.
+
+**Seeing the output.** Set `<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>` and
+look under `obj/`. Keep the path inside `obj/` - anywhere else in the project directory gets
+globbed back in as compile input and every generated file is compiled twice.
+
+**Generated members are public API with no deprecation path.** Renaming an action in the
+document renames a method for everyone who called it. UPnP.Rx holds its own generated surface
+to the public-API ledger for exactly that reason.
+
+
 ## Samples
 
 - [`samples/Sample.PortMapper`](samples/Sample.PortMapper) - discover the gateway, print the external IP and mapping table; `--map` holds an auto-renewing mapping.
@@ -362,6 +537,7 @@ moved to `UPnP.Rx.Presence` - `RosterChange`, `Announcement` and friends need th
 
 | Version | Notes |
 |---|---|
+| 6.0.0 | **Breaking.** *Build time instead of run time.* The package now ships analyzers and a source generator - no extra reference. Three rules: **UPNPRX001** (a port-mapping lease outside IGD's 0-604800 s; a negative lease used to saturate to zero and silently ask the router for a *permanent* forward), **UPNPRX002** (a `UpnpClientOptions` duration outside its documented range), **UPNPRX003** (the lease from a port-mapping call discarded, so nothing ever removes the mapping - `CA2000` does not catch it). Most candidate rules were deleted instead of written, by making the state unrepresentable: `mx` becomes `MxSeconds` (the UDA floor is now a type invariant and the ceiling is reported by SSDP.UPnP.PCL's own SSDP001 at your call site), `EventCallbackPort` becomes `ushort`. A new SCPD source generator turns a checked-in service description plus `[ScpdService]` into typed action methods with the document's own range checks. `PortMappingEntry.LeaseDuration` and its ports become nullable, so a gateway that reports nothing stops reading as "this mapping never expires". Rides SSDP.UPnP.PCL 10.0 (send/receive message split, `MulticastMSearch`, `MxSeconds`) and SimpleHttpListener.Rx 7.6 - and fixes a bug that upgrade exposed: a USN whose entity part cannot be parsed is now delivered rather than killing the discovery stream. |
 | 5.0.0 | **Breaking.** *Absence is now representable* - an optional field a device did not send is no longer reported as a value it did not send. `DiscoveredDevice.BootId` (`uint`) becomes `BootSignature`, carrying `BOOTID.UPNP.ORG`, the UPnP 1.0 `NLS` signature, or neither, so a UPnP 1.0 device that reboots is finally detected and one that announces no boot identity is never mistaken for a value of 0; `Announcement.MaxAge` becomes `TimeSpan?`. Event subscriptions now follow their device's presence: a byebye or an unannounced `BOOTID` change abandons the subscription with `SubscriptionCancelled` and a reason, rather than leaving it silently dead until a renewal fails minutes later (UDA 2.0 clause 4.1.1). `ssdp:update` is honoured, so a multi-homed device changing address is no longer mistaken for a restart. New `UpnpVersionClaims` records what a device claims about its UDA version in each of the four places the spec makes normative, keeping the provenance rather than reconciling silently. Presence types move to `UPnP.Rx.Presence`; `IUpnpService` gains `VersionClaims`; new `LocalNetwork.IPv4Addresses()`; all logging source-generated. Dashboard: version badges with a disagreement flag, restart markers, departed devices retained and grayed, a deep `ssdp:all` search. Rides SSDP.UPnP.PCL 9.1 (nullable `BOOTID` and advertisement lifetime, `NLS`, corrected `SERVER` version parsing, `IAsyncDisposable`) and SimpleHttpListener.Rx 7.4. |
 | 4.2.0 | Structural release: `IUpnpClient` (mock/decorate the client), public-API ledger (PublicApiAnalyzers - surface changes now fail the build), the description cache extracted and directly unit-tested, engine/HTTP-exchange/test-helper dedups (`EngineSource`, `TimedExchange`, `TestKit`), decision ledger (`plan/DECISIONS.md`), CI trimmed-publish smoke and symbol packages on GitHub releases. No behavioral changes. |
 | 4.1.0 | Device roster (`Roster()`: presence changes with replay, max-age expiry, reboot detection and lazy description self-healing), `Announcements()` + `SearchAsync()` (activity feed and solicitation), typed AV `LastChange` decoding (`UPnP.Rx.Eventing.Av`), `TryService`, trim/AOT-clean, memory audit with soak tests; dashboard: generic SCPD-driven action invocation with confirm-step, volume/mute/transport quick controls that follow the device live, and a per-device SSDP activity log. |

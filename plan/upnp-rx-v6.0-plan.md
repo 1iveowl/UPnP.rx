@@ -576,7 +576,7 @@ Three notes for whoever picks this up later:
 | **P6** | **UPNPRX002** + verifier tests + mutation battery. |
 | **P7** | **UPNPRX003** + code fix + verifier tests + mutation battery. |
 | **P8** | **Generator** (Q1: in): pipeline, snapshot tests, cacheability check, byte-identity harness (§8b), adoption decision recorded either way. |
-| **P9** | **Docs + release verification.** README per-rule docs under stable anchors; packed-`.nupkg`-off-a-local-feed consumer verification; AOT publish + run; ledger roll to `Shipped`; CODEMAP; version history. |
+| **P9** | **Docs + release verification.** README per-rule docs under stable anchors (explicit `<a id>` anchors - a GitHub heading slug is the whole heading text, so `### UPNPRX001 - title` would anchor as `#upnprx001---title`); packed-`.nupkg`-off-a-local-feed consumer verification; CI native-AOT publish **and run** on the runner's own RID; version bump; CODEMAP; version history. *Both ledger rolls (`PublicAPI` and `AnalyzerReleases` Unshipped → Shipped) move to P10: rolling freezes the surface, and P10 is allowed to change it.* |
 | **P10** | **Code review** (§11h): adversarial bug hunt, code smells, dedup — then the fixes, in the same phase. Last, because it reviews everything the release added. |
 
 ---

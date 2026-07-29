@@ -38,6 +38,24 @@ jobs:
       - name: Trimmed publish smoke
         run: dotnet publish samples/Sample.Browser -c Release -r linux-x64 --self-contained -p:PublishTrimmed=true -o artifacts-trim-smoke
 
+      # IsAotCompatible is a claim; this is the check. Publish natively AND RUN the binary -
+      # ILC staying quiet only proves the managed side is clean, not that the result starts.
+      #
+      # The RID comes from the runner rather than a literal. Hard-coding linux-x64 works here
+      # by luck and fails on any arm64 host, where it becomes a cross-compile and the native
+      # linker rejects flags meant for another architecture - a failure that reads exactly
+      # like a missing toolchain and is not one (see 6.0.0 plan §11e).
+      - name: Native AOT publish + run smoke
+        run: |
+          set -euo pipefail
+          rid="linux-$(dpkg --print-architecture | sed 's/amd64/x64/')"
+          echo "Publishing native AOT for $rid"
+          dotnet publish samples/Sample.PortMapper -c Release -r "$rid" --self-contained \
+            -p:PublishAot=true -o artifacts-aot-smoke
+          # No gateway on a CI runner, so it must exit 0 having said so - not crash on
+          # metadata a trimmer removed.
+          ./artifacts-aot-smoke/Sample.PortMapper
+
       - uses: actions/upload-artifact@v4
         with:
           name: packages

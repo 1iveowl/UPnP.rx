@@ -109,3 +109,73 @@ static void WriteLine(ConsoleColor color, string text)
     Write(color, text);
     Console.WriteLine();
 }
+
+// ===========================================================================
+// ANALYZER DEMO - the port-mapping rules (UPNPRX001, UPNPRX003)
+//
+// Commented out on purpose: this repo builds with TreatWarningsAsErrors, so a
+// live violation would fail the build for everyone.
+//
+// To try one: select a numbered block below - the code only, the whole block -
+// and uncomment it (VS/VS Code: Ctrl+K Ctrl+U), then
+//     dotnet build samples/Sample.PortMapper
+// Each block is a self-contained method with no prose inside it, so a block
+// uncomment always yields something that compiles.
+//
+// Turn a rule off with .editorconfig, e.g.
+//     dotnet_diagnostic.UPNPRX001.severity = none
+// ===========================================================================
+
+#pragma warning disable IDE0051, CS8321 // demo helpers are deliberately unused
+
+// --- (1) UPNPRX001: a lease outside the 0-604800 seconds IGD allows ---------
+// The negative case is the dangerous one: converting it for the wire saturates
+// to 0, and 0 is IGD's encoding for "never expires" - so before 6.0.0 this
+// asked the router for a PERMANENT port forward, silently. Two code fixes are
+// offered, and "make it indefinite" only for a negative lease.
+
+// static async Task Upnprx001_Reported(IInternetGateway gateway)
+// {
+//     await using var tooShort = await gateway.AddPortMappingAsync(
+//         8080, 8080, Protocol.Tcp, "demo", TimeSpan.FromSeconds(-5));
+//     await using var tooLong = await gateway.AddPortMappingAsync(
+//         8081, 8081, Protocol.Tcp, "demo", TimeSpan.FromDays(30));
+// }
+
+// The same rule staying quiet. Note the last one: the rule reads literals and
+// constants only, so a computed lease is left to the run-time guard. That is
+// the deliberate trade that keeps the false-positive count at zero.
+
+// static async Task Upnprx001_Silent(IInternetGateway gateway)
+// {
+//     await using var fine = await gateway.AddPortMappingAsync(
+//         8082, 8082, Protocol.Tcp, "demo", TimeSpan.FromHours(1));
+//     await using var forever = await gateway.AddPortMappingAsync(
+//         8083, 8083, Protocol.Tcp, "demo", LeaseDurations.Indefinite);
+//     var computed = TimeSpan.FromSeconds(-TimeProvider.System.GetUtcNow().Second);
+//     await using var unseen = await gateway.AddPortMappingAsync(
+//         8084, 8084, Protocol.Tcp, "demo", computed);
+// }
+
+// --- (2) UPNPRX003: the lease is discarded ---------------------------------
+// The lease owns the mapping on the router, a renewal loop that runs for the
+// life of the process, and - via the PortMapper one-liner - the discovery
+// client too. CA2000 does not catch this: it tracks object creations, not an
+// arbitrary method's return value. The code fix rewrites to `await using`.
+
+// static async Task Upnprx003_Reported(IInternetGateway gateway)
+// {
+//     await gateway.AddPortMappingAsync(
+//         8080, 8080, Protocol.Tcp, "demo", TimeSpan.FromHours(1));
+//     _ = await gateway.AddPortMappingAsync(
+//         8081, 8081, Protocol.Tcp, "demo", TimeSpan.FromHours(1));
+// }
+
+// Silent: the value went somewhere, so disposing it is the rest of the
+// method's business rather than this call's.
+
+// static async Task<IPortMappingLease> Upnprx003_Silent(IInternetGateway gateway) =>
+//     await gateway.AddPortMappingAsync(
+//         8082, 8082, Protocol.Tcp, "demo", TimeSpan.FromHours(1));
+
+#pragma warning restore IDE0051, CS8321

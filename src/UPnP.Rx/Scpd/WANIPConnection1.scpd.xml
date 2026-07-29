@@ -1,4 +1,51 @@
 <?xml version="1.0"?>
+
+<!--
+  ============================================================================
+  THIS DOCUMENT GENERATES CODE. It is not a test fixture and not documentation.
+
+  WHAT IT DRIVES
+    src/UPnP.Rx/PortMapping/WanIpConnection.cs is a ~20-line partial class
+    carrying [ScpdService("WANIPConnection1.scpd.xml")]. Every member it has -
+    one typed method per <action> below, a nested record per action with
+    out-arguments, and the argument range/allowed-value checks - is generated
+    from THIS FILE at build time by ScpdServiceGenerator.
+
+    Editing an <action> or <argument> name here renames a method or parameter
+    for every consumer of the package. Generated members are public API with no
+    deprecation path, so a change here is an API change: the public-API ledger
+    (PublicAPI.Shipped.txt) and the checked-in snapshot
+    (tests/UPnP.Rx.Analyzers.Tests/Snapshots/WanIpConnection.verified.cs) both
+    fail the build until they are updated deliberately. That is the point, and
+    it is verified - renaming one action here was tried, and both did fail.
+
+  WHAT IT IS
+    The standardized WANIPConnection:1 service template - a SUBSET of it. It
+    describes what the SPECIFICATION declares, not what any particular router
+    implements. A generated method compiling proves the template has that
+    action; it proves nothing about the device in front of you, which may still
+    answer with a SOAP fault. That asymmetry is why this library's parsers are
+    lenient and why the generated wrapper never claims otherwise.
+
+    Because it is a subset, it declares five of the seven actions
+    InternetGateway uses - GetSpecificPortMappingEntry is missing, and
+    AddAnyPortMapping is an IGD:2 action a ":1" document cannot contain. That is
+    the sole reason InternetGateway still has a hand-written body rather than
+    calling the generated wrapper. Completing this document is what unblocks it.
+
+  HOW IT IS WIRED
+    <AdditionalFiles Include="Scpd/WANIPConnection1.scpd.xml" /> in
+    UPnP.Rx.csproj hands it to the compiler; the same file is packed at scpd/
+    in the nupkg so consumers can read the exact document their wrapper came
+    from. To generate a wrapper for your OWN service, do the same two things:
+    check in an SCPD, add it as an AdditionalFiles item, and put
+    [ScpdService("YourFile.scpd.xml")] on a partial class.
+
+  Generated output (for reading, not editing) lands under
+  src/UPnP.Rx/obj/<config>/net10.0/generated/.
+  ============================================================================
+-->
+
 <scpd xmlns="urn:schemas-upnp-org:service-1-0">
 <specVersion>
 <major>1</major>

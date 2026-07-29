@@ -15,6 +15,14 @@ namespace UPnP.Rx.PortMapping;
 /// generated surface underneath it, and the byte-identity tests hold the two to the same
 /// wire output.
 /// </para>
+/// <para>
+/// <b>There is no more source than this.</b> If you are looking for the method bodies, they
+/// do not exist as a file you can edit - <c>Scpd/WANIPConnection1.scpd.xml</c> is the source
+/// of truth and its header explains what editing it does. To read the emitted code, build and
+/// look under <c>obj/&lt;config&gt;/net10.0/generated/</c>, or open the checked-in snapshot at
+/// <c>tests/UPnP.Rx.Analyzers.Tests/Snapshots/WanIpConnection.verified.cs</c>, which a test
+/// holds byte-identical to what the compiler actually sees.
+/// </para>
 /// </remarks>
 [ScpdService("WANIPConnection1.scpd.xml")]
 public sealed partial class WanIpConnection;

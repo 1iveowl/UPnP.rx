@@ -61,7 +61,8 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 │   ├── SearchTargets.cs       # RootDevice/All/DeviceType/ServiceType/Uuid over STType
 │   ├── UpnpException.cs       # + UpnpActionException carrying UpnpError
 │   ├── Scpd/                  # checked-in service descriptions the generator reads
-│   │   └── WANIPConnection1.scpd.xml   # AdditionalFiles input; also packed at scpd/ for consumers
+│   │   └── WANIPConnection1.scpd.xml   # THE generator input - its own header explains what
+│   │                                    #   editing it does; also packed at scpd/ for consumers
 │   ├── Model/                 # UPnP.Rx.Model — immutable records
 │   │   ├── ParseResult.cs     # copied from SSDP.UPnP.PCL (decision 5)
 │   │   ├── DeviceDescription.cs   # DDD tree; Location + BaseUrl; SelfAndDescendants()

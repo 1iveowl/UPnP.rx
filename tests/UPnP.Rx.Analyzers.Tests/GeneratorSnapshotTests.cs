@@ -90,6 +90,30 @@ public class GeneratorSnapshotTests
         """);
 
     [Fact]
+    public async Task TheShippedWanIpConnectionWrapper()
+    {
+        // The one snapshot taken from the REAL checked-in document rather than a synthetic
+        // one, so the wrapper this package actually ships shows up in a diff when it moves.
+        //
+        // This is the answer to "should generated code be checked in?": it effectively is,
+        // here, where a test verifies it still matches. Emitting it into a Generated/ folder
+        // in the project instead would either be compiled twice (the SDK globs it AND the
+        // generator emits it - CS0102 on every type) or excluded from compilation, in which
+        // case it is unverified documentation that drifts silently. A snapshot is the same
+        // artefact with a check attached.
+        //
+        // Signatures are separately guarded by the public-API ledger; what this adds is the
+        // BODIES - the range guards, the wire composition, the result construction.
+        var scpd = await File.ReadAllTextAsync(
+            Path.Combine(RepoRoot(), "src", "UPnP.Rx", "Scpd", "WANIPConnection1.scpd.xml"), Ct);
+
+        // The real document name and type name, so this snapshot is the shipped file rather
+        // than a lookalike - only the namespace differs, which the generator takes from the
+        // declaring class and the test cannot place in UPnP.Rx.PortMapping.
+        await VerifyAsync("WanIpConnection", scpd, "WANIPConnection1.scpd.xml", "WanIpConnection");
+    }
+
+    [Fact]
     public async Task ADuplicateActionNameIsTakenOnce()
     {
         // Found in the 6.0.0 review: the reader deduped state variables but not actions, so
@@ -126,9 +150,10 @@ public class GeneratorSnapshotTests
         Assert.Equal(DiagnosticIds.ScpdDocumentNotFound, Assert.Single(result.Diagnostics).Id);
     }
 
-    private static async Task VerifyAsync(string snapshotName, string scpd)
+    private static async Task VerifyAsync(
+        string snapshotName, string scpd, string documentName = "Snapshot.scpd.xml", string typeName = "SnapshotService")
     {
-        var result = await RunAsync(scpd);
+        var result = await RunAsync(scpd, documentName, typeName);
         var actual = Assert.Single(result.GeneratedTrees).ToString().Replace("\r\n", "\n");
 
         var directory = SnapshotDirectory();
@@ -157,7 +182,8 @@ public class GeneratorSnapshotTests
         Assert.Equal(expected, actual);
     }
 
-    private static async Task<GeneratorDriverRunResult> RunAsync(string scpd)
+    private static async Task<GeneratorDriverRunResult> RunAsync(
+        string scpd, string documentName = "Snapshot.scpd.xml", string typeName = "SnapshotService")
     {
         var references = await ReferenceAssemblies.Net.Net90.ResolveAsync(LanguageNames.CSharp, Ct);
 
@@ -165,13 +191,13 @@ public class GeneratorSnapshotTests
             "Consumer",
             [
                 CSharpSyntaxTree.ParseText(
-                    """
+                    $$"""
                     using UPnP.Rx.Model;
 
                     namespace Consumers
                     {
-                        [ScpdService("Snapshot.scpd.xml")]
-                        public sealed partial class SnapshotService { }
+                        [ScpdService("{{documentName}}")]
+                        public sealed partial class {{typeName}} { }
                     }
                     """,
                     cancellationToken: Ct),
@@ -183,13 +209,13 @@ public class GeneratorSnapshotTests
         return CSharpGeneratorDriver
             .Create(
                 generators: [new ScpdServiceGenerator().AsSourceGenerator()],
-                additionalTexts: [new SnapshotText("/fixtures/Snapshot.scpd.xml", scpd)])
+                additionalTexts: [new SnapshotText("/fixtures/" + documentName, scpd)])
             .RunGenerators(compilation, Ct)
             .GetRunResult();
     }
 
-    /// <summary>The snapshots live beside the tests, not beside the binaries.</summary>
-    private static string SnapshotDirectory()
+    /// <summary>The repository root, found by walking up from the test binaries.</summary>
+    private static string RepoRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
 
@@ -199,8 +225,13 @@ public class GeneratorSnapshotTests
         }
 
         Assert.NotNull(directory);
+        return directory.FullName;
+    }
 
-        var snapshots = Path.Combine(directory.FullName, "tests", "UPnP.Rx.Analyzers.Tests", "Snapshots");
+    /// <summary>The snapshots live beside the tests, not beside the binaries.</summary>
+    private static string SnapshotDirectory()
+    {
+        var snapshots = Path.Combine(RepoRoot(), "tests", "UPnP.Rx.Analyzers.Tests", "Snapshots");
         Directory.CreateDirectory(snapshots);
 
         return snapshots;

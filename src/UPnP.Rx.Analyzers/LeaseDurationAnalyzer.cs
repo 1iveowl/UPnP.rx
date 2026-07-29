@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Globalization;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
@@ -31,10 +30,6 @@ namespace UPnP.Rx.Analyzers;
 public sealed class LeaseDurationAnalyzer : DiagnosticAnalyzer
 {
     private const string _id = DiagnosticIds.LeaseDurationOutOfRange;
-
-    /// <summary>The methods whose <c>lease</c> argument this rule reads.</summary>
-    private static readonly HashSet<string> _leaseMethods =
-        new(StringComparer.Ordinal) { "AddPortMappingAsync", "AddAnyPortMappingAsync" };
 
     // Hoisted: analyzers run on every keystroke, so a per-diagnostic allocation here is
     // an allocation per keystroke per call site.
@@ -83,8 +78,8 @@ public sealed class LeaseDurationAnalyzer : DiagnosticAnalyzer
     {
         var invocation = (IInvocationOperation)context.Operation;
 
-        if (!_leaseMethods.Contains(invocation.TargetMethod.Name)
-            || !IsPortMappingType(invocation.TargetMethod.ContainingType))
+        if (!UpnpApi.LeaseMethods.Contains(invocation.TargetMethod.Name)
+            || !UpnpApi.IsPortMappingType(invocation.TargetMethod.ContainingType))
         {
             return;
         }
@@ -93,7 +88,7 @@ public sealed class LeaseDurationAnalyzer : DiagnosticAnalyzer
         {
             // By parameter name, not position: the overloads differ, and IInternetGateway,
             // InternetGateway and PortMapper all spell it "lease".
-            if (argument.Parameter?.Name == "lease")
+            if (argument.Parameter?.Name == UpnpApi.LeaseParameter)
             {
                 Report(context, argument.Value);
                 return;
@@ -107,7 +102,7 @@ public sealed class LeaseDurationAnalyzer : DiagnosticAnalyzer
         var assignment = (ISimpleAssignmentOperation)context.Operation;
 
         if (assignment.Target is IPropertyReferenceOperation { Property: { Name: "LeaseDuration" } property }
-            && IsPortMappingType(property.ContainingType))
+            && UpnpApi.IsPortMappingType(property.ContainingType))
         {
             Report(context, assignment.Value);
         }
@@ -128,7 +123,7 @@ public sealed class LeaseDurationAnalyzer : DiagnosticAnalyzer
             _rule,
             value.Syntax.GetLocation(),
             below ? _below : _above,
-            Describe(lease),
+            UpnpApi.DescribeSeconds(lease),
             below
                 ? " - a negative lease is sent as zero, which asks the gateway for a permanent mapping"
                 : string.Empty));
@@ -137,10 +132,4 @@ public sealed class LeaseDurationAnalyzer : DiagnosticAnalyzer
     private static bool IsInRange(TimeSpan lease) =>
         lease >= TimeSpan.Zero && lease.TotalSeconds <= 604_800;
 
-    private static string Describe(TimeSpan lease) =>
-        lease.TotalSeconds.ToString("0.###", CultureInfo.InvariantCulture) + " seconds";
-
-    /// <summary>Whether the symbol belongs to this library's port-mapping surface.</summary>
-    private static bool IsPortMappingType(INamedTypeSymbol? type) =>
-        type?.ContainingNamespace?.ToDisplayString() == "UPnP.Rx.PortMapping";
 }

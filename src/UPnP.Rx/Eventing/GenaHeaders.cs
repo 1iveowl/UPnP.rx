@@ -11,8 +11,31 @@ public static class GenaHeaders
     /// The wire form of a requested/granted subscription duration:
     /// <c>Second-1800</c>, or <c>Second-infinite</c> when null.
     /// </summary>
-    public static string ComposeTimeout(TimeSpan? timeout) =>
-        timeout is { } t ? $"Second-{(long)t.TotalSeconds}" : "Second-infinite";
+    /// <param name="timeout">The duration to compose; <see langword="null"/> for <c>Second-infinite</c>.</param>
+    /// <remarks>
+    /// At least one whole second, because that is what the header can carry. Truncating
+    /// instead would compose <c>Second-0</c> for a sub-second duration, and a negative one
+    /// would compose <c>Second--5</c> - neither is a GENA header, and both used to go out
+    /// without complaint. This is the "strict in what we send" half of this class's contract,
+    /// and it now matches <see cref="ParseTimeout"/>, which has always refused a non-positive
+    /// value on the way in.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="timeout"/> is under one second.</exception>
+    public static string ComposeTimeout(TimeSpan? timeout)
+    {
+        if (timeout is not { } t)
+        {
+            return "Second-infinite";
+        }
+
+        if (t < TimeSpan.FromSeconds(1))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(timeout), t, "A GENA subscription timeout must be at least one second.");
+        }
+
+        return $"Second-{(long)t.TotalSeconds}";
+    }
 
     /// <summary>
     /// Parses a <c>TIMEOUT</c> header value. Lenient: casing, stray whitespace

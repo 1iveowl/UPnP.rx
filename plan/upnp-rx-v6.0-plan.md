@@ -5,7 +5,7 @@ the answers are folded in below (§13): the generator is **in** behind its byte-
 6.0.0 is agreed, the read-back honesty fix rides along, the raw-wire-log riders are **shelved**,
 and UPNPRX003 stays at Warning.
 
-**P1-P5 are done**, one commit each, build and tests green at every one (§10 has the table).
+**P1-P10 are done**, one commit each, build and tests green at every one (§10 has the table). 318 tests.
 Two things found along the way are recorded where they belong rather than here: the migration
 turned a previously-dropped SSDP message into a discovery-stream-killing throw (P1), and the
 AOT verification in §11e is complete — with the diagnosis that section originally carried

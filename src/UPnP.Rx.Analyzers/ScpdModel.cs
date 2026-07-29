@@ -153,9 +153,15 @@ internal static class ScpdReader
 
         var actions = new List<ScpdAction>();
 
+        // First declaration wins on a duplicate name, exactly as the state-variable table
+        // above already does. Without this a document that declares an action twice - and
+        // real documents do repeat themselves - emits two methods with one signature, so the
+        // CONSUMER's build breaks on code they did not write.
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         foreach (var action in Elements(document.Root, "action"))
         {
-            if (Value(action, "name") is not { Length: > 0 } name)
+            if (Value(action, "name") is not { Length: > 0 } name || !seen.Add(name))
             {
                 continue;
             }

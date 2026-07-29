@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Globalization;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
@@ -27,7 +26,6 @@ namespace UPnP.Rx.Analyzers;
 public sealed class OptionRangeAnalyzer : DiagnosticAnalyzer
 {
     private const string _id = DiagnosticIds.OptionOutOfRange;
-    private const string _optionsType = "UPnP.Rx.UpnpClientOptions";
 
     /// <summary>
     /// The options this rule reads, and why each has a floor. Anything not listed is not
@@ -39,19 +37,23 @@ public sealed class OptionRangeAnalyzer : DiagnosticAnalyzer
         ["DescriptionTimeout"] = new(
             TimeSpan.Zero,
             Inclusive: false,
-            "a non-positive timeout cancels immediately, so every description fetch fails before it starts"),
+            "a non-positive timeout cancels immediately, so every description fetch fails before it starts",
+            "DescriptionTimeout"),
         ["ActionTimeout"] = new(
             TimeSpan.Zero,
             Inclusive: false,
-            "a non-positive timeout cancels immediately, so every SOAP call fails before it starts"),
+            "a non-positive timeout cancels immediately, so every SOAP call fails before it starts",
+            "ActionTimeout"),
         ["RosterExpiryFallback"] = new(
             TimeSpan.Zero,
             Inclusive: false,
-            "a non-positive fallback expires every device that announces no usable max-age the moment it arrives"),
+            "a non-positive fallback expires every device that announces no usable max-age the moment it arrives",
+            "RosterExpiryFallback"),
         ["EventSubscriptionTimeout"] = new(
             TimeSpan.FromSeconds(1),
             Inclusive: true,
-            "GENA carries the timeout as whole seconds, so anything under one second composes 'TIMEOUT: Second-0'")
+            "GENA carries the timeout as whole seconds, so anything under one second composes 'TIMEOUT: Second-0'",
+            "EventSubscriptionTimeout")
     };
 
     private static readonly DiagnosticDescriptor _rule = new(
@@ -88,7 +90,7 @@ public sealed class OptionRangeAnalyzer : DiagnosticAnalyzer
         var assignment = (ISimpleAssignmentOperation)context.Operation;
 
         if (assignment.Target is not IPropertyReferenceOperation property
-            || property.Property.ContainingType?.ToDisplayString() != _optionsType
+            || !UpnpApi.IsOptionsType(property.Property.ContainingType)
             || !_bounds.TryGetValue(property.Property.Name, out var bound))
         {
             return;
@@ -103,23 +105,29 @@ public sealed class OptionRangeAnalyzer : DiagnosticAnalyzer
         context.ReportDiagnostic(Diagnostic.Create(
             _rule,
             assignment.Value.Syntax.GetLocation(),
-            ImmutableDictionary<string, string?>.Empty
-                .Add(DiagnosticIds.Properties.OptionName, property.Property.Name),
+            bound.Properties,
             property.Property.Name,
-            Describe(value),
+            UpnpApi.DescribeSeconds(value),
             bound.Reason));
     }
-
-    private static string Describe(TimeSpan value) =>
-        value.TotalSeconds.ToString("0.###", CultureInfo.InvariantCulture) + " seconds";
 
     /// <summary>A floor, and the consequence of going under it.</summary>
     /// <param name="Minimum">The smallest value that could ever be right.</param>
     /// <param name="Inclusive">Whether <paramref name="Minimum"/> itself is allowed.</param>
     /// <param name="Reason">What goes wrong below it, phrased for the diagnostic message.</param>
-    private readonly record struct Bound(TimeSpan Minimum, bool Inclusive, string Reason)
+    /// <param name="OptionName">The property this bound belongs to, named for the diagnostic's properties.</param>
+    private readonly record struct Bound(TimeSpan Minimum, bool Inclusive, string Reason, string OptionName)
     {
         /// <summary>Whether <paramref name="value"/> clears this floor.</summary>
         public bool Allows(TimeSpan value) => Inclusive ? value >= Minimum : value > Minimum;
+
+        /// <summary>
+        /// The diagnostic properties for this option, built once with the table rather than
+        /// per report. Analyzers run on every keystroke, so an <c>ImmutableDictionary</c>
+        /// allocated at report time is one allocation per keystroke per offending call site.
+        /// </summary>
+        public ImmutableDictionary<string, string?> Properties { get; } =
+            ImmutableDictionary<string, string?>.Empty
+                .Add(DiagnosticIds.Properties.OptionName, OptionName);
     }
 }

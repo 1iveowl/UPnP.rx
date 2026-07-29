@@ -32,9 +32,6 @@ public sealed class DiscardedLeaseAnalyzer : DiagnosticAnalyzer
 {
     private const string _id = DiagnosticIds.DiscardedPortMappingLease;
 
-    private static readonly HashSet<string> _leaseMethods =
-        new(StringComparer.Ordinal) { "AddPortMappingAsync", "AddAnyPortMappingAsync" };
-
     private static readonly DiagnosticDescriptor _rule = new(
         _id,
         title: "The port mapping's lease is discarded, so nothing will remove the mapping",
@@ -66,9 +63,8 @@ public sealed class DiscardedLeaseAnalyzer : DiagnosticAnalyzer
     {
         var invocation = (IInvocationOperation)context.Operation;
 
-        if (!_leaseMethods.Contains(invocation.TargetMethod.Name)
-            || invocation.TargetMethod.ContainingType?.ContainingNamespace?.ToDisplayString()
-                != "UPnP.Rx.PortMapping")
+        if (!UpnpApi.LeaseMethods.Contains(invocation.TargetMethod.Name)
+            || !UpnpApi.IsPortMappingType(invocation.TargetMethod.ContainingType))
         {
             return;
         }

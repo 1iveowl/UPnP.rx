@@ -39,6 +39,11 @@ public static class LastChangeParser
         {
             if (string.Equals(element.Name.LocalName, "InstanceID", StringComparison.OrdinalIgnoreCase))
             {
+                // An unparsable val falls back to instance 0, the same leniency as the
+                // missing-wrapper case below and for the same reason: 0 is the default AV
+                // instance and what essentially every real device uses. Deliberate, not a
+                // sentinel oversight - the alternative is a nullable InstanceId across the
+                // public surface for a device that is already sending nonsense.
                 var instanceId = int.TryParse(Attribute(element, "val"), out var id) ? id : 0;
 
                 foreach (var variable in element.Elements())

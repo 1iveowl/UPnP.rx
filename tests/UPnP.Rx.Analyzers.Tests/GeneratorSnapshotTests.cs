@@ -90,6 +90,31 @@ public class GeneratorSnapshotTests
         """);
 
     [Fact]
+    public async Task ADuplicateActionNameIsTakenOnce()
+    {
+        // Found in the 6.0.0 review: the reader deduped state variables but not actions, so
+        // a document declaring one twice emitted two methods with a single signature - and
+        // the CONSUMER's build broke on code they never wrote. First declaration wins, which
+        // is what the state-variable table beside it had always done.
+        var result = await RunAsync("""
+            <?xml version="1.0"?>
+            <scpd xmlns="urn:schemas-upnp-org:service-1-0">
+              <actionList>
+                <action><name>Twice</name><argumentList /></action>
+                <action><name>Twice</name><argumentList /></action>
+                <action><name>TWICE</name><argumentList /></action>
+              </actionList>
+              <serviceStateTable />
+            </scpd>
+            """);
+
+        var generated = Assert.Single(result.GeneratedTrees).ToString();
+
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(generated, @"public async Task TwiceAsync\("));
+        Assert.Empty(result.Diagnostics);
+    }
+
+    [Fact]
     public async Task ADocumentWithNoActionsGeneratesNothing()
     {
         // Leniency: a document identifying no actions is not an error, it just has nothing

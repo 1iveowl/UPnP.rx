@@ -91,18 +91,35 @@ public class InfrastructureTests
     });
 
     [Fact]
-    public void ReleaseTrackingFilesAreCommentOnlyOrValid()
+    public void ReleaseTrackingFilesAreValidForWhicheverStateTheyAreIn()
     {
-        // An empty Shipped.md must contain comments ONLY - a bare "### Shipped" header is
-        // invalid and fails with RS2007. Cheap to assert, and the failure is otherwise a
-        // confusing analyzer error in an unrelated build.
-        var shipped = ReadTrackingFile("AnalyzerReleases.Shipped.md");
+        // Two different rules apply depending on whether anything has shipped, and the
+        // empty one is the trap: an empty Shipped.md must contain comments ONLY, because a
+        // bare "### Shipped" header is invalid and fails with RS2007 - a confusing analyzer
+        // error in an otherwise unrelated build.
+        //
+        // Once a release IS recorded, table rows are exactly what belongs there. This test
+        // originally only knew the empty case and started failing the moment 6.0 rolled;
+        // it now asserts both, so it keeps its teeth in either state.
+        var lines = ReadTrackingFile("AnalyzerReleases.Shipped.md")
+            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .ToList();
+
+        if (!lines.Any(line => line.StartsWith("## Release", StringComparison.Ordinal)))
+        {
+            Assert.All(lines, line => Assert.StartsWith(";", line, StringComparison.Ordinal));
+            return;
+        }
+
+        // Every rule this assembly reports must appear under some release heading, or the
+        // next roll silently drops it and RS2000 only complains about what is left.
+        var text = string.Join("\n", lines);
 
         Assert.All(
-            shipped.Where(line => !string.IsNullOrWhiteSpace(line)),
-            line => Assert.True(
-                line.StartsWith(";", StringComparison.Ordinal) || line.StartsWith("##", StringComparison.Ordinal),
-                $"Unexpected line in Shipped.md: '{line}'"));
+            Descriptors().Select(d => d.Id).Where(id => id.StartsWith("UPNPRX0", StringComparison.Ordinal)),
+            id => Assert.Contains(id, text, StringComparison.Ordinal));
+
+        Assert.Contains("Rule ID | Category | Severity | Notes", text, StringComparison.Ordinal);
     }
 
     private static string[] ReadTrackingFile(string name)

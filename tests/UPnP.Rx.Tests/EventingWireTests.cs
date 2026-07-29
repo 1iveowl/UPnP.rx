@@ -117,6 +117,20 @@ public class GenaHeadersTests
         Assert.Equal("Second-1800", GenaHeaders.ComposeTimeout(TimeSpan.FromMinutes(30)));
         Assert.Equal("Second-infinite", GenaHeaders.ComposeTimeout(null));
         Assert.Equal(TimeSpan.FromMinutes(30), GenaHeaders.ParseTimeout(GenaHeaders.ComposeTimeout(TimeSpan.FromMinutes(30))));
+
+        // Compose is now as strict as Parse has always been. It used to truncate: 500 ms
+        // composed "Second-0" and a negative composed "Second--5", neither of which is a
+        // GENA header, and both went out without complaint. UpnpClientOptions guards its
+        // own value (UPNPRX002), but this is public API anyone can reach directly.
+        Assert.Contains("at least one second", Assert.Throws<ArgumentOutOfRangeException>(
+            () => GenaHeaders.ComposeTimeout(TimeSpan.FromMilliseconds(500))).Message,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Throws<ArgumentOutOfRangeException>(() => GenaHeaders.ComposeTimeout(TimeSpan.FromSeconds(-5)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => GenaHeaders.ComposeTimeout(TimeSpan.Zero));
+
+        // The boundary is inclusive, and Parse agrees with it.
+        Assert.Equal("Second-1", GenaHeaders.ComposeTimeout(TimeSpan.FromSeconds(1)));
+        Assert.Equal(TimeSpan.FromSeconds(1), GenaHeaders.ParseTimeout("Second-1"));
     }
 
     [Fact]

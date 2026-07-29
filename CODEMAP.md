@@ -26,6 +26,7 @@ Repo map + phase status. **Update this file in every phase commit** (status tabl
 | 4.2 | Structural batch (on `dev/4.2.0`, 4.1.1 skipped): API ledger (PublicApiAnalyzers), `DescriptionCache` extraction, `IUpnpClient`, `EngineSource`/`TimedExchange`/`TestKit` dedups, DECISIONS.md, CI snupkg + trim smoke | ✅ released |
 | 5.0 | Honest optionals: SSDP.UPnP.PCL 9.1 adoption, `BootSignature`, nullable `MaxAge`, `UpnpVersionClaims` (4 witnesses), clause 4.1.1 subscription cancellation + `ssdp:update`, `UPnP.Rx.Presence`, `LocalNetwork` + `[LoggerMessage]`, dashboard version badges / restart markers / retained departed devices / deep search; three-way review (deadlock, two cancellation bugs) | ✅ released |
 | 6.0 P1 | Adopt SSDP.UPnP.PCL 10.0.0 + SimpleHttpListener.Rx 7.6.0 (on `dev/6.0.0`): `Received*` message split, `MulticastMSearch`, `MxSeconds`; `EntityType.Unknown` no longer kills discovery; M-SEARCH composition proved byte-identical across the upgrade | ✅ done |
+| 6.0 P2 | Inherited analyzers verified live: SHLRX001/002 + SSDP001/003/005 seeded and fired in library, sample **and** test projects (package analyzers cross a ProjectReference edge); corpus clean at zero hits; CI tests the solution, not one project | ✅ done |
 
 ## Tree (current)
 

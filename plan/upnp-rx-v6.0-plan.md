@@ -563,9 +563,9 @@ Three notes for whoever picks this up later:
 | Phase | Work |
 |---|---|
 | **P1** | **Migration.** SSDP.UPnP.PCL 10.0.0 + SimpleHttpListener.Rx 7.6.0. `Received*` types, `MulticastMSearch`, `MxSeconds`. `EntityType.Unknown` handled. API ledger rolled. No new features — and specifically no raw-wire-log surfacing (§9, Q4). |
-| **P2** | **Inherited-rule verification + CI.** Seed and remove one violation of each of SHLRX001/002 and SSDP001/003/005 in library, sample and test projects; record the hit list. Fix CI to test the solution (§1h). Add `AnalyzerReleases.{Shipped,Unshipped}.md`. |
+| **P2** | **Inherited-rule verification + CI.** Seed and remove one violation of each of SHLRX001/002 and SSDP001/003/005 in library, sample and test projects; record the hit list. Fix CI to test the solution (§1h). *(Release-tracking files moved to P4 — RS2008 only applies to a project that defines analyzers, and none exists until then.)* |
 | **P3** | **API changes that delete rules.** `mx` → `MxSeconds?`; `EventCallbackPort` → `ushort`; range validation on options and lease; §6b read-back honesty; `BannedSymbols.txt` time-operator entries (§7a); CA2000 for `src/`+`samples/` (§7b). Ledger rolled. |
-| **P4** | **Analyzer infrastructure.** Three projects (§12), pinned versions in `Directory.Build.props`, bundled packaging, `OutputItemType="Analyzer"` references in library **and** every in-repo consumer, `PublishAot` condition. Nothing implemented yet — this phase is green with zero rules. |
+| **P4** | **Analyzer infrastructure.** Three projects (§12), pinned versions in `Directory.Build.props`, bundled packaging, `OutputItemType="Analyzer"` references in library **and** every in-repo consumer, `PublishAot` condition, `AnalyzerReleases.{Shipped,Unshipped}.md`. Nothing implemented yet — this phase is green with zero rules. |
 | **P5** | **UPNPRX001** + two code fixes + verifier tests + mutation battery. |
 | **P6** | **UPNPRX002** + verifier tests + mutation battery. |
 | **P7** | **UPNPRX003** + code fix + verifier tests + mutation battery. |

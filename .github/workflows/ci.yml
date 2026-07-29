@@ -22,8 +22,12 @@ jobs:
       - name: Build
         run: dotnet build UPnP.Rx.slnx --no-restore -c Release -warnaserror
 
+      # The SOLUTION, not one project by name. Naming the project is how a sibling
+      # repo shipped 50 analyzer tests that CI never ran and nobody noticed until a
+      # release-readiness pass. A .slnx handles non-test projects fine, which is what
+      # the older note here was worried about.
       - name: Test
-        run: dotnet test tests/UPnP.Rx.Tests/UPnP.Rx.Tests.csproj --no-build -c Release
+        run: dotnet test UPnP.Rx.slnx --no-build -c Release
 
       - name: Pack
         run: dotnet pack src/UPnP.Rx/UPnP.Rx.csproj --no-build -c Release -o artifacts

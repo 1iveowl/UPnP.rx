@@ -11,7 +11,7 @@
     Excluded for the analyzer test project itself, which is full of deliberately wrong
     code in string literals and has no business being analysed by the rules it is testing.
   -->
-  <ItemGroup Condition="'$(PublishAot)' != 'true' and '$(MSBuildProjectName)' != 'UPnP.Rx.Analyzers.Tests'">
+  <ItemGroup Condition="'$(UpnpRxSkipAnalyzerProjects)' != 'true' and '$(MSBuildProjectName)' != 'UPnP.Rx.Analyzers.Tests'">
     <ProjectReference Include="$(MSBuildThisFileDirectory)../src/UPnP.Rx.Analyzers/UPnP.Rx.Analyzers.csproj"
                       PrivateAssets="all" ReferenceOutputAssembly="false" OutputItemType="Analyzer" />
   </ItemGroup>

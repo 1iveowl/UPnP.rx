@@ -16,7 +16,7 @@
     Same PublishAot condition as the library: the property reaches the netstandard2.0
     analyzer projects through the implicit restore and fails with NETSDK1207.
   -->
-  <ItemGroup Condition="'$(PublishAot)' != 'true'">
+  <ItemGroup Condition="'$(UpnpRxSkipAnalyzerProjects)' != 'true'">
     <ProjectReference Include="$(MSBuildThisFileDirectory)../src/UPnP.Rx.Analyzers/UPnP.Rx.Analyzers.csproj"
                       PrivateAssets="all" ReferenceOutputAssembly="false" OutputItemType="Analyzer" />
   </ItemGroup>

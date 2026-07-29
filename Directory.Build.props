@@ -28,6 +28,27 @@
        is always safe; never newer - that is the CS8032 load failure. Choose by which APIs
        are needed, not by reach: UPnP.Rx is net10.0-only, so every consumer builds on a
        .NET 10 SDK and the consumer-SDK floor is a non-issue. -->
+  <!--
+    Whether the analyzer PROJECT references have to be dropped for this build.
+
+    A publish-shaped global property (`dotnet publish -p:PublishAot=true`, or
+    `-p:PublishTrimmed=true`) is passed into the implicit restore, and UndefineProperties
+    strips it from the BUILD but not from the RESTORE graph - where it reaches the
+    netstandard2.0 analyzer projects and fails them: NETSDK1207 for AOT, NETSDK1124 for
+    trimming ("Trimming assemblies requires .NET Core 3.0 or higher").
+
+    Decided once here rather than repeated in the three projects that reference the
+    analyzers, because the failure mode is silent until someone publishes: the AOT case was
+    guarded in P4 and the trimming case was not, and CI found it at the release tag. Adding
+    the next such property is now one line, in one file.
+
+    Consumers of the PACKAGE are unaffected either way - package analyzers are not projects.
+  -->
+  <PropertyGroup>
+    <UpnpRxSkipAnalyzerProjects
+      Condition="'$(PublishAot)' == 'true' or '$(PublishTrimmed)' == 'true'">true</UpnpRxSkipAnalyzerProjects>
+  </PropertyGroup>
+
   <PropertyGroup>
     <RoslynVersion>4.8.0</RoslynVersion>
     <RoslynAnalyzersVersion>3.11.0</RoslynAnalyzersVersion>

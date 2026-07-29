@@ -35,8 +35,25 @@ jobs:
       # Smoke: the library declares IsTrimmable/IsAotCompatible - prove a
       # trimmed publish of a consumer still succeeds, in CI rather than only
       # at declaration time.
+      # Both smokes below drop the analyzer PROJECT references (see
+      # UpnpRxSkipAnalyzerProjects in Directory.Build.props: netstandard2.0 cannot be
+      # trimmed or AOT-compiled, and the property reaches them through the implicit
+      # restore). Dropping them also drops the SOURCE GENERATOR, so the generated members
+      # of WanIpConnection are absent from these publishes only - and the public-API ledger
+      # then reports them missing. RS0016/RS0017 are silenced HERE and only here; the Build
+      # step above validated the ledger against the real compilation, which is where that
+      # check belongs. A smoke's job is to prove the publish works, not to re-audit the API.
+      # IL2121 is suppressed because it is not ours and not actionable: it reports an
+      # unused UnconditionalSuppressMessage inside System.Private.CoreLib's own
+      # StartupHookProvider, rolled up as IL2104 and promoted to an error by
+      # TreatWarningsAsErrors. Expanding the roll-up (TrimmerSingleWarn=false) shows it is
+      # the ONLY trim warning - no IL2026/IL2075 from UPnP.Rx or its dependencies - so the
+      # library's own trim-cleanliness is still what this step proves.
       - name: Trimmed publish smoke
-        run: dotnet publish samples/Sample.Browser -c Release -r linux-x64 --self-contained -p:PublishTrimmed=true -o artifacts-trim-smoke
+        run: |
+          dotnet publish samples/Sample.Browser -c Release -r linux-x64 --self-contained \
+            -p:PublishTrimmed=true -p:NoWarn='RS0016%3BRS0017%3BIL2104%3BIL2121' \
+            -o artifacts-trim-smoke
 
       # IsAotCompatible is a claim; this is the check. Publish natively AND RUN the binary -
       # ILC staying quiet only proves the managed side is clean, not that the result starts.
@@ -51,7 +68,11 @@ jobs:
           rid="linux-$(dpkg --print-architecture | sed 's/amd64/x64/')"
           echo "Publishing native AOT for $rid"
           dotnet publish samples/Sample.PortMapper -c Release -r "$rid" --self-contained \
-            -p:PublishAot=true -o artifacts-aot-smoke
+            -p:PublishAot=true -p:NoWarn='RS0016%3BRS0017' -o artifacts-aot-smoke
+          # A native binary, not a folder of DLLs: publishing with --no-restore silently
+          # degrades AOT to an ordinary publish (ILCompiler never gets restored), which
+          # would make this step pass while proving nothing.
+          test -x ./artifacts-aot-smoke/Sample.PortMapper
           # No gateway on a CI runner, so it must exit 0 having said so - not crash on
           # metadata a trimmer removed.
           ./artifacts-aot-smoke/Sample.PortMapper

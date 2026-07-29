@@ -57,7 +57,7 @@
        BUILD but not from the RESTORE graph - where it reaches these netstandard2.0
        projects and fails with NETSDK1207. Consumers of the package are unaffected;
        package analyzers are not projects. -->
-  <ItemGroup Condition="'$(PublishAot)' != 'true'">
+  <ItemGroup Condition="'$(UpnpRxSkipAnalyzerProjects)' != 'true'">
     <ProjectReference Include="../UPnP.Rx.Analyzers/UPnP.Rx.Analyzers.csproj"
                       PrivateAssets="all" ReferenceOutputAssembly="false" OutputItemType="Analyzer" />
     <ProjectReference Include="../UPnP.Rx.Analyzers.CodeFixes/UPnP.Rx.Analyzers.CodeFixes.csproj"

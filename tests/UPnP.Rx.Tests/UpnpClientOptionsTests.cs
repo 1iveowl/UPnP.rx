@@ -73,7 +73,12 @@ public class UpnpClientOptionsTests
         // and `with` is how the docs tell consumers to derive variants.
         var options = new UpnpClientOptions();
 
+        // UPNPRX002 reports this literal - and reports it inside a `with`, which is half of
+        // what this test exists to check. Suppressed because asserting the run-time guard
+        // requires actually writing the bad value.
+#pragma warning disable UPNPRX002 // Deliberate: asserting the init accessor rejects it.
         Assert.Throws<ArgumentOutOfRangeException>(() => options with { ActionTimeout = TimeSpan.Zero });
+#pragma warning restore UPNPRX002
         Assert.Equal(TimeSpan.FromSeconds(30), options.ActionTimeout);   // the original is untouched
     }
 

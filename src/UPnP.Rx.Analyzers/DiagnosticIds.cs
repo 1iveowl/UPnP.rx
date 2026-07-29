@@ -13,10 +13,13 @@ internal static class DiagnosticIds
     // Each ID is declared in the phase that implements it, not reserved in advance:
     // InfrastructureTests asserts every declared ID is actually reported by an analyzer,
     // so a reserved-but-unimplemented one is a red build rather than a rule that quietly
-    // never fires. Planned: UPNPRX002 (P6), UPNPRX003 (P7).
+    // never fires. Planned: UPNPRX003 (P7).
 
     /// <summary>An IGD port-mapping lease duration outside the 0-604800 seconds the standardized service template allows.</summary>
     public const string LeaseDurationOutOfRange = "UPNPRX001";
+
+    /// <summary>A <c>UpnpClientOptions</c> value outside its documented range.</summary>
+    public const string OptionOutOfRange = "UPNPRX002";
 
     /// <summary>Where each rule is documented; the anchor matches the ID, lower-cased.</summary>
     public static string HelpLink(string id) =>

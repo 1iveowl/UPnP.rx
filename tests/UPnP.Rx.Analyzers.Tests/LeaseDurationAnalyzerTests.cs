@@ -44,6 +44,31 @@ public class LeaseDurationAnalyzerTests
         """);
 
     [Fact]
+    public Task MultiArgumentFactoryOverloads_AreRead() => VerifyAsync("""
+                // .NET 8 added integer overloads with defaulted trailing parameters, so
+                // FromMilliseconds(-1) binds to FromMilliseconds(long, long = 0) and arrives
+                // as TWO arguments. A reader that insisted on exactly one silently stopped
+                // seeing these - found by a UPNPRX002 test, fixed for both rules.
+                await gateway.AddPortMappingAsync(80, 80, Protocol.Tcp, "x",
+                    {|UPNPRX001:TimeSpan.FromMilliseconds(-1)|});
+        """);
+
+    [Fact]
+    public Task ExplicitMultiUnitFactoryForm_IsRead() => VerifyAsync("""
+                // FromSeconds(seconds, milliseconds): 604801 s, one second over the maximum.
+                await gateway.AddPortMappingAsync(80, 80, Protocol.Tcp, "x",
+                    {|UPNPRX001:TimeSpan.FromSeconds(604800, 1000)|});
+        """);
+
+    [Fact]
+    public Task DoubleOverload_IsRead() => VerifyAsync("""
+                // The double overloads name their parameter "value", so the unit has to come
+                // from the method name rather than the parameter name.
+                await gateway.AddPortMappingAsync(80, 80, Protocol.Tcp, "x",
+                    {|UPNPRX001:TimeSpan.FromSeconds(-0.5)|});
+        """);
+
+    [Fact]
     public Task ConstructorForm_IsRead() => VerifyAsync("""
                 // new TimeSpan(days, hours, minutes, seconds) = 8 days, over the maximum.
                 await gateway.AddPortMappingAsync(80, 80, Protocol.Tcp, "x",

@@ -80,6 +80,36 @@ internal static class TestKit
         }
         """;
 
+    /// <summary>The subset of <c>UpnpClientOptions</c> UPNPRX002 binds against.</summary>
+    public const string OptionsStub = """
+        using System;
+
+        namespace UPnP.Rx
+        {
+            public sealed record UpnpClientOptions
+            {
+                public TimeSpan DescriptionTimeout { get; init; } = TimeSpan.FromSeconds(30);
+                public TimeSpan ActionTimeout { get; init; } = TimeSpan.FromSeconds(30);
+                public TimeSpan RosterExpiryFallback { get; init; } = TimeSpan.FromMinutes(30);
+                public TimeSpan EventSubscriptionTimeout { get; init; } = TimeSpan.FromMinutes(30);
+                public ushort EventCallbackPort { get; init; }
+            }
+        }
+        """;
+
+    /// <summary>An options type that merely shares the name, for the binds-on-symbol tests.</summary>
+    public const string LookalikeOptionsStub = """
+        using System;
+
+        namespace SomeoneElse
+        {
+            public sealed record UpnpClientOptions
+            {
+                public TimeSpan ActionTimeout { get; init; }
+            }
+        }
+        """;
+
     /// <summary>
     /// A type in a namespace that merely looks like ours, for asserting the rules bind on
     /// the real symbol rather than on a matching name.

@@ -56,47 +56,87 @@ internal static class TimeSpanValue
     }
 
     /// <summary><c>TimeSpan.FromSeconds(90)</c> and the rest of the factory family.</summary>
+    /// <remarks>
+    /// Summed by PARAMETER NAME rather than read from a single argument, because .NET 8 added
+    /// integer overloads with defaulted trailing parameters and they change the shape without
+    /// changing the source. Measured: <c>TimeSpan.FromMilliseconds(500)</c> binds to
+    /// <c>FromMilliseconds(long milliseconds, long microseconds = 0)</c> and arrives as
+    /// <em>two</em> arguments - so a rule that insisted on exactly one silently stopped seeing
+    /// it. The <c>double</c> overloads name their parameter <c>value</c>, in which case the
+    /// unit comes from the method name instead.
+    /// </remarks>
     private static TimeSpan? FromFactory(IInvocationOperation invocation)
     {
         if (!IsTimeSpan(invocation.TargetMethod.ContainingType)
             || !invocation.TargetMethod.IsStatic
-            || invocation.Arguments.Length != 1
-            || invocation.Arguments[0].Value.ConstantValue is not { HasValue: true, Value: { } raw })
+            || invocation.Arguments.Length == 0
+            || TicksPerUnitOfMethod(invocation.TargetMethod.Name) is not { } methodUnit)
         {
             return null;
         }
 
-        // A double is what every From* overload ultimately takes; an int literal arrives
-        // as int and must be widened rather than rejected.
-        if (!TryToDouble(raw, out var amount))
-        {
-            return null;
-        }
+        double ticks = 0;
 
-        try
+        foreach (var argument in invocation.Arguments)
         {
-            return invocation.TargetMethod.Name switch
+            if (argument.Value.ConstantValue is not { HasValue: true, Value: { } raw }
+                || !TryToDouble(raw, out var amount))
             {
-                "FromDays" => TimeSpan.FromDays(amount),
-                "FromHours" => TimeSpan.FromHours(amount),
-                "FromMinutes" => TimeSpan.FromMinutes(amount),
-                "FromSeconds" => TimeSpan.FromSeconds(amount),
-                "FromMilliseconds" => TimeSpan.FromMilliseconds(amount),
-                "FromTicks" => TimeSpan.FromTicks((long)amount),
-                _ => null
-            };
+                // One unreadable component makes the whole value unreadable. Partial
+                // arithmetic here would be a guess, and guesses are what the budget forbids.
+                return null;
+            }
+
+            if (TicksPerUnitOfParameter(argument.Parameter?.Name) is not { } unit)
+            {
+                // A parameter named "value" (the double overloads) takes the method's unit;
+                // anything else unrecognised means this is not a shape we understand.
+                if (argument.Parameter?.Name != "value")
+                {
+                    return null;
+                }
+
+                unit = methodUnit;
+            }
+
+            ticks += amount * unit;
         }
-        catch (OverflowException)
-        {
-            // TimeSpan.FromDays(double.MaxValue) and similar. The code is wrong, but this
-            // rule is not the one to report it, and an analyzer must never throw.
-            return null;
-        }
-        catch (ArgumentException)
-        {
-            return null;
-        }
+
+        // TimeSpan.MinValue/MaxValue in ticks. Outside this the constructor throws, and an
+        // analyzer must never throw - the code is wrong, but not this rule's business.
+        return ticks is >= -9_223_372_036_854_775_808.0 and <= 9_223_372_036_854_775_807.0
+            ? TimeSpan.FromTicks((long)ticks)
+            : null;
     }
+
+    /// <summary>The unit a factory method measures in, as ticks.</summary>
+    private static double? TicksPerUnitOfMethod(string name) => name switch
+    {
+        "FromDays" => TimeSpan.TicksPerDay,
+        "FromHours" => TimeSpan.TicksPerHour,
+        "FromMinutes" => TimeSpan.TicksPerMinute,
+        "FromSeconds" => TimeSpan.TicksPerSecond,
+        "FromMilliseconds" => TimeSpan.TicksPerMillisecond,
+        "FromMicroseconds" => _ticksPerMicrosecond,
+        "FromTicks" => 1,
+        _ => null
+    };
+
+    /// <summary>The unit a factory parameter measures in, by its name, as ticks.</summary>
+    private static double? TicksPerUnitOfParameter(string? name) => name switch
+    {
+        "days" => TimeSpan.TicksPerDay,
+        "hours" => TimeSpan.TicksPerHour,
+        "minutes" => TimeSpan.TicksPerMinute,
+        "seconds" => TimeSpan.TicksPerSecond,
+        "milliseconds" => TimeSpan.TicksPerMillisecond,
+        "microseconds" => _ticksPerMicrosecond,
+        "ticks" => 1,
+        _ => null
+    };
+
+    /// <summary><c>TimeSpan.TicksPerMicrosecond</c> is newer than netstandard2.0.</summary>
+    private const double _ticksPerMicrosecond = 10;
 
     /// <summary><c>new TimeSpan(0, 30, 0)</c> - the constructor forms, all-constant only.</summary>
     private static TimeSpan? FromConstructor(IObjectCreationOperation creation)

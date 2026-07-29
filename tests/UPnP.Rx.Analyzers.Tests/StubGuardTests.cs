@@ -1,4 +1,5 @@
 using System.Reflection;
+using UPnP.Rx;
 using UPnP.Rx.PortMapping;
 using Xunit;
 
@@ -59,6 +60,34 @@ public class StubGuardTests
         // two copies: if the library's maximum ever moves, the rule is wrong and this says so.
         Assert.Equal(604_800, (int)LeaseDurations.Maximum.TotalSeconds);
         Assert.Equal(TimeSpan.Zero, LeaseDurations.Indefinite);
+    }
+
+    [Fact]
+    public void TheOptionsPropertiesUPNPRX002ReadsStillExist_WithTheseNamesAndTypes()
+    {
+        // The rule matches on property name and reads a TimeSpan. Rename one, or change its
+        // type, and the rule stops firing for that option with nothing to say so.
+        Assert.All(
+            new[] { "DescriptionTimeout", "ActionTimeout", "RosterExpiryFallback", "EventSubscriptionTimeout" },
+            name =>
+            {
+                var property = typeof(UpnpClientOptions).GetProperty(name);
+                Assert.NotNull(property);
+                Assert.Equal(typeof(TimeSpan), property.PropertyType);
+            });
+
+        Assert.Equal("UPnP.Rx.UpnpClientOptions", typeof(UpnpClientOptions).FullName);
+    }
+
+    [Fact]
+    public void EventCallbackPortIsStillAUshort_SoUPNPRX002DeliberatelyIgnoresIt()
+    {
+        // There is no UPNPRX002 entry for this option because the type already makes its
+        // range unrepresentable. If it ever widened back to int, that reasoning would be
+        // wrong and the rule would need an entry - so the absence is asserted, not assumed.
+        Assert.Equal(
+            typeof(ushort),
+            typeof(UpnpClientOptions).GetProperty(nameof(UpnpClientOptions.EventCallbackPort))!.PropertyType);
     }
 
     [Fact]

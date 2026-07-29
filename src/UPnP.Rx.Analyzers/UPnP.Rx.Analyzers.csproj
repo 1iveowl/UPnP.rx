@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- netstandard2.0 is what Roslyn loads analyzers as; never multi-target.
+         Nullable=annotations because netstandard2.0 has no annotated BCL to check against. -->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <Nullable>annotations</Nullable>
+    <IsPackable>false</IsPackable>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="UPnP.Rx.Analyzers.Tests" />
+    <InternalsVisibleTo Include="UPnP.Rx.Analyzers.CodeFixes" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="$(RoslynVersion)" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="$(RoslynAnalyzersVersion)" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- RS2008: every rule must be tracked through these two files, so adding or renaming
+       one without saying so fails the build. That is the point. -->
+  <ItemGroup>
+    <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+    <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+  </ItemGroup>
+
+</Project>

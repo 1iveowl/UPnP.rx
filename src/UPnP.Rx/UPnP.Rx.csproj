@@ -28,6 +28,34 @@
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 
+  <!-- The analyzers ship inside this package rather than a separate one with a dependency
+       edge: that edge puts the analyzer project into every consuming project's reference
+       graph, which Visual Studio reports as LimitedFunctionality and a broken reference.
+       Tried in a sibling repo, abandoned there.
+
+       OutputItemType="Analyzer" is what makes the library analyse its own code.
+       ReferenceOutputAssembly="false" keeps the analyzer assemblies out of the compile
+       reference set (and out of the NuGet dependency list).
+
+       The Condition matters: `dotnet publish /p:PublishAot=true` passes PublishAot as a
+       global property into the implicit restore, and UndefineProperties strips it from the
+       BUILD but not from the RESTORE graph - where it reaches these netstandard2.0
+       projects and fails with NETSDK1207. Consumers of the package are unaffected;
+       package analyzers are not projects. -->
+  <ItemGroup Condition="'$(PublishAot)' != 'true'">
+    <ProjectReference Include="../UPnP.Rx.Analyzers/UPnP.Rx.Analyzers.csproj"
+                      PrivateAssets="all" ReferenceOutputAssembly="false" OutputItemType="Analyzer" />
+    <ProjectReference Include="../UPnP.Rx.Analyzers.CodeFixes/UPnP.Rx.Analyzers.CodeFixes.csproj"
+                      PrivateAssets="all" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../UPnP.Rx.Analyzers/bin/$(Configuration)/netstandard2.0/UPnP.Rx.Analyzers.dll"
+          Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="../UPnP.Rx.Analyzers.CodeFixes/bin/$(Configuration)/netstandard2.0/UPnP.Rx.Analyzers.CodeFixes.dll"
+          Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="5.6.0" PrivateAssets="all" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />

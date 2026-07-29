@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <!-- Analyzer test sources are string literals full of deliberately wrong code. -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing" Version="$(RoslynTestingVersion)" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.CodeFix.Testing" Version="$(RoslynTestingVersion)" />
+    <!-- Explicit and modern: the testing packages floor Roslyn at 1.0.1, which restores as
+         .NET Framework and fails the build with NU1701 under TreatWarningsAsErrors. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="$(RoslynVersion)" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/UPnP.Rx.Analyzers/UPnP.Rx.Analyzers.csproj" />
+    <ProjectReference Include="../../src/UPnP.Rx.Analyzers.CodeFixes/UPnP.Rx.Analyzers.CodeFixes.csproj" />
+    <!-- The real library, for the reflection guard tests. Test COMPILATIONS cannot
+         reference it (ReferenceAssemblies tops out at Net90, so a net10.0 library is
+         unreachable from one) - those use a source stub instead, and the guard asserts
+         the stub has not drifted from these real types. -->
+    <ProjectReference Include="../../src/UPnP.Rx/UPnP.Rx.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,19 @@
+<Project>
+
+  <!-- Chain to the repo root first; MSBuild stops at the nearest Directory.Build.props. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <!--
+    The library's own tests get our analyzers, for the same reason the samples do (see
+    samples/Directory.Build.props): an analyzer PROJECT's assets do not cross a
+    ProjectReference edge, so a project that wants them must ask.
+
+    Excluded for the analyzer test project itself, which is full of deliberately wrong
+    code in string literals and has no business being analysed by the rules it is testing.
+  -->
+  <ItemGroup Condition="'$(PublishAot)' != 'true' and '$(MSBuildProjectName)' != 'UPnP.Rx.Analyzers.Tests'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)../src/UPnP.Rx.Analyzers/UPnP.Rx.Analyzers.csproj"
+                      PrivateAssets="all" ReferenceOutputAssembly="false" OutputItemType="Analyzer" />
+  </ItemGroup>
+
+</Project>

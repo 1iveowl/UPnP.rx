@@ -23,6 +23,17 @@
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
+  <!-- Roslyn versions live here because drift between the analyzer, the code-fix and the
+       test project is a real breakage. Referencing an OLDER Roslyn than the host compiler
+       is always safe; never newer - that is the CS8032 load failure. Choose by which APIs
+       are needed, not by reach: UPnP.Rx is net10.0-only, so every consumer builds on a
+       .NET 10 SDK and the consumer-SDK floor is a non-issue. -->
+  <PropertyGroup>
+    <RoslynVersion>4.8.0</RoslynVersion>
+    <RoslynAnalyzersVersion>3.11.0</RoslynAnalyzersVersion>
+    <RoslynTestingVersion>1.1.3</RoslynTestingVersion>
+  </PropertyGroup>
+
   <!-- Time model rule 1: TimeProvider is the production clock. Wall-clock APIs are banned everywhere, including tests. -->
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="5.6.0" PrivateAssets="all" />

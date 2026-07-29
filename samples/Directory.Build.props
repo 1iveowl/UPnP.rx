@@ -1,0 +1,24 @@
+<Project>
+
+  <!-- Chain to the repo root first; MSBuild stops at the nearest Directory.Build.props. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <!--
+    Pitfall worth stating once: an analyzer PROJECT's assets do not cross a ProjectReference
+    edge. The samples take UPnP.Rx by project reference, so they never see the packed
+    analyzers/dotnet/cs folder a real consumer gets - each needs its own reference with
+    OutputItemType="Analyzer".
+
+    (Measured, and the distinction is easy to conflate: package-delivered analyzers DO flow
+    across that edge. That is why the samples already get SHLRX001/002 and SSDP001/003/005
+    without any of this - see 6.0.0 P2.)
+
+    Same PublishAot condition as the library: the property reaches the netstandard2.0
+    analyzer projects through the implicit restore and fails with NETSDK1207.
+  -->
+  <ItemGroup Condition="'$(PublishAot)' != 'true'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)../src/UPnP.Rx.Analyzers/UPnP.Rx.Analyzers.csproj"
+                      PrivateAssets="all" ReferenceOutputAssembly="false" OutputItemType="Analyzer" />
+  </ItemGroup>
+
+</Project>

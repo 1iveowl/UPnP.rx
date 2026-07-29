@@ -24,6 +24,9 @@ internal static class DiagnosticIds
     /// <summary>The lease returned by a port-mapping call is discarded, so the mapping is never removed.</summary>
     public const string DiscardedPortMappingLease = "UPNPRX003";
 
+    /// <summary>A generated wrapper names an SCPD document the compiler was not given.</summary>
+    public const string ScpdDocumentNotFound = "UPNPRXGEN001";
+
     /// <summary>Where each rule is documented; the anchor matches the ID, lower-cased.</summary>
     public static string HelpLink(string id) =>
         "https://github.com/1iveowl/UPnP.rx#" + id.ToLowerInvariant();

@@ -21,9 +21,23 @@
     <InternalsVisibleTo Include="UPnP.Rx.Tests" />
   </ItemGroup>
 
+  <!-- The SCPD the generated WANIPConnection wrapper is built from. Checked in on purpose:
+       it is the standardized service template, and the generator is honest about that being
+       what it describes rather than any particular device. Packed so consumers can read the
+       exact document their wrapper came from. -->
+  <ItemGroup>
+    <AdditionalFiles Include="Scpd/WANIPConnection1.scpd.xml" />
+    <None Include="Scpd/WANIPConnection1.scpd.xml" Pack="true" PackagePath="scpd/" />
+  </ItemGroup>
+
   <PropertyGroup>
     <!-- No reflection, no serialization, no dynamic code: say so and let the
          trim/AOT analyzers hold us to it (4.1 plan, ergonomics batch). -->
+    <!-- Generated sources on disk, so they are greppable when a generated member turns up
+         in the public-API ledger. Left at the default path under obj/: anywhere inside the
+         project directory gets globbed back in as compile input, and every generated file
+         is then compiled twice. -->
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
     <IsTrimmable>true</IsTrimmable>
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>

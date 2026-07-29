@@ -19,12 +19,28 @@ public class InfrastructureTests
     /// Iterated with <c>Assert.All</c> rather than driven as a Theory: xUnit fails a
     /// Theory with no data, and "no rules yet" is a legitimate state between phases.
     /// </summary>
-    private static ImmutableArray<DiagnosticDescriptor> Descriptors() =>
-        [.. typeof(DiagnosticIds).Assembly
+    private static ImmutableArray<DiagnosticDescriptor> Descriptors()
+    {
+        var assembly = typeof(DiagnosticIds).Assembly;
+
+        var fromAnalyzers = assembly
             .GetTypes()
             .Where(t => !t.IsAbstract && typeof(DiagnosticAnalyzer).IsAssignableFrom(t))
             .Select(t => (DiagnosticAnalyzer)Activator.CreateInstance(t)!)
-            .SelectMany(a => a.SupportedDiagnostics)];
+            .SelectMany(a => a.SupportedDiagnostics);
+
+        // Generators report diagnostics too, and have no SupportedDiagnostics to enumerate,
+        // so their descriptors are found as static fields. Without this the contracts below
+        // would silently stop covering UPNPRXGEN001.
+        var fromGenerators = assembly
+            .GetTypes()
+            .Where(t => !t.IsAbstract && typeof(IIncrementalGenerator).IsAssignableFrom(t))
+            .SelectMany(t => t.GetFields(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static))
+            .Where(f => f.FieldType == typeof(DiagnosticDescriptor))
+            .Select(f => (DiagnosticDescriptor)f.GetValue(null)!);
+
+        return [.. fromAnalyzers.Concat(fromGenerators)];
+    }
 
     [Fact]
     public void EveryDeclaredIdIsImplementedByAnAnalyzer()

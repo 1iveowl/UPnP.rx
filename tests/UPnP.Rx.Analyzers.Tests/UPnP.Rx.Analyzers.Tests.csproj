@@ -18,6 +18,14 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
   </ItemGroup>
 
+  <!-- Snapshots are generator OUTPUT captured as text, not sources. The default glob
+       compiles any .cs under the project, which turns each accepted snapshot into a
+       duplicate type - so they are excluded from Compile and kept visible as None. -->
+  <ItemGroup>
+    <Compile Remove="Snapshots/**/*.cs" />
+    <None Include="Snapshots/**/*.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="../../src/UPnP.Rx.Analyzers/UPnP.Rx.Analyzers.csproj" />
     <ProjectReference Include="../../src/UPnP.Rx.Analyzers.CodeFixes/UPnP.Rx.Analyzers.CodeFixes.csproj" />

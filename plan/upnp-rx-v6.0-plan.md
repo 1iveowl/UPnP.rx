@@ -1,9 +1,15 @@
 # UPnP.Rx 6.0.0 — analyzers, and the API changes that delete most of them
 
-**Status: approved, not yet implemented.** Q1-Q5 were answered by the author on 2026-07-29 and
+**Status: in progress on `dev/6.0.0`.** Q1-Q5 were answered by the author on 2026-07-29 and
 the answers are folded in below (§13): the generator is **in** behind its byte-identity gate,
 6.0.0 is agreed, the read-back honesty fix rides along, the raw-wire-log riders are **shelved**,
 and UPNPRX003 stays at Warning.
+
+**P1-P5 are done**, one commit each, build and tests green at every one (§10 has the table).
+Two things found along the way are recorded where they belong rather than here: the migration
+turned a previously-dropped SSDP message into a discovery-stream-killing throw (P1), and the
+AOT verification in §11e is complete — with the diagnosis that section originally carried
+corrected in place, because it was wrong.
 
 Successor to the 5.0.0 honest-optionals release. Two themes, in this order:
 
@@ -124,7 +130,7 @@ So the AOT/trimming argument for a generator is **nil**, and confirmed by measur
 AOT publish of `Sample.PortMapper` produced **zero ILC trim/AOT analysis warnings** and got all the
 way to the native link step. (It fails there in this devcontainer only because ILC invokes the
 linker with `--target=x86_64-linux-gnu` and the container has `gcc` but no `clang`. That is an
-environment gap, not a library defect — see §11e.)
+cross-compile on an arm64 host, not a library defect and not a missing toolchain — see §11e, where that diagnosis is corrected and the verification completed.)
 
 What *is* present is the compile-time-safety argument, and it is concrete (§8).
 
@@ -616,16 +622,32 @@ that tests what a real user gets. The in-repo `ProjectReference` path does **not
    *upstream's* composer identical — only the inputs we hand it.)
 2. **SOAP envelopes, if the generator adopts** (§8b). Non-negotiable gate on P8.
 
-### 11e. AOT verification (process rule / deliverable 9)
+### 11e. AOT verification — **done**, and the earlier diagnosis here was wrong
 
-Measured (§1g): the managed side is clean — **zero ILC warnings** — and the failure is the native
-link, because ILC passes `--target=x86_64-linux-gnu` and this devcontainer has `gcc` 13.3 and no
-`clang`. So:
+**Correction.** An earlier revision of this section said the native link failed because ILC
+passes `--target=x86_64-linux-gnu` and the devcontainer has `gcc` but no `clang`, and
+prescribed installing clang. The missing toolchain was not the problem: **the container is
+`aarch64`, and the publish had asked for `-r linux-x64`** — a cross-compile, which the native
+`gcc` rightly refuses. Nothing was wrong with the container.
 
-- Add `clang` (and `zlib1g-dev`) to `.devcontainer`, **or** run the AOT smoke as a CI step on
-  `ubuntu-latest`, which has clang. Prefer both.
-- The claim is only verified by **publishing and running the binary**, not by ILC staying quiet.
-- Also re-confirm the XML layer has not drifted to a serializer (§8d).
+Published for the host RID it works, **with `gcc` alone**:
+
+- `dotnet publish samples/Sample.PortMapper -c Release -r linux-arm64 --self-contained
+  -p:PublishAot=true` → a 9.5 MB native binary, **zero ILC trim/AOT warnings**.
+- **Run**, which is the half that counts (deliverable 9 says publishing *and* running, not ILC
+  staying quiet): it exercises discovery, the SSDP socket path and `LocalRoute`, and exits
+  cleanly with the documented "no gateway answered" message — multicast does not work in a
+  container, so that is the correct outcome rather than a failure.
+- Re-verified after installing clang: identical result, still zero warnings.
+
+`clang` and `zlib1g-dev` are installed by `.devcontainer/post-create.sh` anyway, because clang
+is what Microsoft documents as the prerequisite and what ILC prefers when present. That is
+parity, not a fix — recorded plainly so nobody later reads it as one.
+
+**What P9 still owes:** the AOT smoke *in CI*, so a regression is caught without anyone
+remembering to run it. `ubuntu-latest` is x64, so that step must use the runner's own RID —
+hard-coding one that does not match the host is the whole trap above. And re-confirm the XML
+layer has not drifted to a serializer (§8d).
 
 ### 11f. Differential fuzz (process rule 7) — not applicable, and here is why
 
@@ -761,8 +783,9 @@ spans; `WellKnownFixAllProviders` (plural).
 - **A zero-hit corpus can look like a broken analyzer.** Mitigated only by the seeded-violation
   proof through the packed package (§11c). A silent analyzer and a correct one look identical from
   a passing build.
-- **Devcontainer cannot complete a native AOT link** (§11e). If the AOT smoke is left to CI alone,
-  a regression is found late. Fix the container.
+- ~~**Devcontainer cannot complete a native AOT link.**~~ **Retired** (§11e): it can, and does.
+  The residual risk is narrower and worth keeping — an AOT regression is only caught by a CI
+  step that publishes for the *runner's* architecture, which P9 owes.
 
 ---
 

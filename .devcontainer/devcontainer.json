@@ -20,7 +20,11 @@
 	"containerEnv": {
 		"CODEX_HOME": "/home/vscode/.codex",
 		"CLAUDE_CONFIG_DIR": "/home/vscode/.claude",
-		"COPILOT_HOME": "/home/vscode/.copilot"
+		"COPILOT_HOME": "/home/vscode/.copilot",
+		// The generator's snapshot tests (Verify) launch a diff tool when a snapshot does
+		// not match. There is no diff tool here and nothing to show it on, so a mismatch
+		// would hang the run instead of failing it.
+		"DiffEngine_Disabled": "true"
 	},
 	"remoteEnv": {
 		"ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}",
